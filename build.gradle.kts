@@ -1,8 +1,13 @@
-// SKETCH — not compiled. Versions are placeholders; bump to current before first build.
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.1.0"
     id("org.jetbrains.intellij.platform") version "2.5.0"
 }
+
+group = "io.github.mrglasses"
+// Bump on every pushed change: the bridge logs it first, so you can tell which build is installed.
+version = "0.5.0"
 
 repositories {
     mavenCentral()
@@ -21,6 +26,25 @@ dependencies {
     }
     // Small standalone WS server, no Netty clash with the platform.
     implementation("org.java-websocket:Java-WebSocket:1.5.7")
+
+    // Plain JUnit 4 tests for the protocol layer (no IDE test framework needed).
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.opentest4j:opentest4j:1.3.0")
+}
+
+intellijPlatform {
+    pluginVerification {
+        ides { recommended() }
+    }
+}
+
+tasks.test {
+    // Full assertion messages in the CI log, so failures can be pasted back.
+    testLogging {
+        events("failed")
+        exceptionFormat = TestExceptionFormat.FULL
+        showStandardStreams = false
+    }
 }
 
 // No jvmToolchain(): it would force a full JDK 21 (or a download). The build uses whichever JVM runs Gradle,

@@ -1,4 +1,4 @@
-# Claude Meta for RustRover — sketch
+# Claude UI for RustRover — sketch
 
 A JetBrains plugin that launches the user's own `claude` CLI and gives it IDE features (diff review,
 selection, diagnostics) by implementing the CLI's IDE-integration protocol itself.

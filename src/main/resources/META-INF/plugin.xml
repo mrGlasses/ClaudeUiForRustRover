@@ -1,7 +1,13 @@
 <idea-plugin>
-  <id>dev.metaclaude.rustrover</id>
-  <name>Claude Meta (sketch)</name>
-  <vendor>you</vendor>
+  <!-- id must match PluginInfo.ID. It can still change freely until the first Marketplace release. -->
+  <id>io.github.mrglasses.claudeui</id>
+  <name>Claude UI for RustRover</name>
+  <vendor url="https://github.com/mrGlasses">mrGlasses</vendor>
+  <description><![CDATA[
+    Integrates your own installed Claude Code CLI with RustRover: diff review, selection sharing and
+    diagnostics over Claude Code's IDE protocol. The official Claude Code JetBrains plugin is optional.
+    Unofficial, community plugin.
+  ]]></description>
 
   <!--
     Deliberately NO <depends> on com.anthropic.code.plugin.
@@ -11,9 +17,9 @@
   <depends>com.intellij.modules.platform</depends>
 
   <extensions defaultExtensionNs="com.intellij">
-    <projectService serviceImplementation="dev.metaclaude.MetaClaudeService"/>
-    <notificationGroup id="Claude Meta" displayType="BALLOON"/>
-    <!-- TODO: toolWindow (chat UI), applicationConfigurable (IntegrationMode, claude path) -->
+    <!-- MetaClaudeService is a light service (@Service), so it is not registered here. -->
+    <notificationGroup id="Claude UI" displayType="BALLOON"/>
+    <projectActivity implementation="dev.metaclaude.BridgeStartupActivity"/>
   </extensions>
 
   <actions>

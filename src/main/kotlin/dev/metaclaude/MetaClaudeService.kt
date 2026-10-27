@@ -26,7 +26,7 @@ private class Bridge(val server: IdeBridgeServer, val lock: LockFile, val port: 
 
 @Service(Service.Level.PROJECT)
 class MetaClaudeService(private val project: Project) : Disposable {
-    private val ideName = "RustRover (Claude Meta)" // distinct, so /ide shows two clearly separate entries if both plugins are present
+    private val ideName = PluginInfo.IDE_NAME // distinct, so /ide shows two clearly separate entries if both plugins are present
     @Volatile private var bridge: Bridge? = null
     @Volatile private var currentProc: Process? = null
 
@@ -46,9 +46,20 @@ class MetaClaudeService(private val project: Project) : Disposable {
         return proc
     }
 
+    /** Called at project open. In OFFICIAL mode we deliberately stay out of the way. */
+    fun startBridgeIfEnabled() {
+        if (mode != IntegrationMode.BUILTIN) return
+        val root = Path.of(project.basePath ?: return).toRealPath()
+        runCatching { ensureBridge(root) }
+            .onFailure { BridgeLog.log("bridge start failed: ${it::class.java.name}: ${it.message}") }
+    }
+
+    @Synchronized // startup activity and the Start action can race
     private fun ensureBridge(root: Path): Bridge {
         bridge?.let { return it }
+        BridgeLog.log("${PluginInfo.NAME} ${PluginInfo.version} starting bridge for project '${project.name}'")
         LockFile.sweepStale(ideName)
+        LockFile.sweepStale(LEGACY_IDE_NAME) // dead lock files from builds before the rename
 
         val token = AuthToken.generate()
         lateinit var b: Bridge
@@ -95,7 +106,7 @@ class MetaClaudeService(private val project: Project) : Disposable {
     }
 
     private fun notify(title: String, body: String, action: NotificationAction? = null) {
-        NotificationGroupManager.getInstance().getNotificationGroup("Claude Meta")
+        NotificationGroupManager.getInstance().getNotificationGroup("Claude UI")
             .createNotification(title, body, NotificationType.WARNING)
             .also { n -> action?.let(n::addAction) }
             .notify(project)
@@ -104,6 +115,10 @@ class MetaClaudeService(private val project: Project) : Disposable {
     override fun dispose() {
         currentProc?.destroy()
         bridge?.close(); bridge = null // also removes our lock file
+    }
+
+    private companion object {
+        const val LEGACY_IDE_NAME = "RustRover (Claude Meta)"
     }
 }
 
