@@ -111,11 +111,14 @@ class DiffCoordinator(private val project: Project, parent: Disposable) : IdeToo
         val reject = DumbAwareAction.create("Reject Claude's Changes", AllIcons.Actions.Cancel) { reject(tab) }
         request.putUserData(DiffUserDataKeys.CONTEXT_ACTIONS, listOf<AnAction>(accept, reject))
 
-        val banner = EditorNotificationPanel(EditorNotificationPanel.Status.Info)
-        banner.text("Claude proposes changes to ${newPath.fileName}. Edit the right side if you want, then:")
-        banner.createActionLabel("Accept") { accept(tab, newPath, proposal, right.document.text) }
-        banner.createActionLabel("Reject") { reject(tab) }
-        DiffUtil.addNotification(banner, request)
+        // The platform asks a provider for the banner each time it builds the diff viewer.
+        DiffUtil.addNotification({ _ ->
+            EditorNotificationPanel(EditorNotificationPanel.Status.Info).apply {
+                text("Claude proposes changes to ${newPath.fileName}. Edit the right side if you want, then:")
+                createActionLabel("Accept") { accept(tab, newPath, proposal, right.document.text) }
+                createActionLabel("Reject") { reject(tab) }
+            }
+        }, request)
 
         val file = ChainDiffVirtualFile(SimpleDiffRequestChain(request), "Claude: $tab")
         tabs[tab] = file

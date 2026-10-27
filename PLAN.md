@@ -10,7 +10,7 @@ Everything below is **not started** unless marked otherwise.
 | Phase | Status |
 |---|---|
 | 0 Groundwork | ☑ Done (v0.5.0: CI green, version logged, connected as "RustRover (Claude UI)") |
-| 1 Diff review | **Code written (v0.6.0), waiting for CI + your install test** |
+| 1 Diff review | **Code written (v0.6.1: fixed banner compile error), waiting for CI + your install test** |
 | 2–16 | Not started |
 
 ## Two halves, like the VS Code extension
