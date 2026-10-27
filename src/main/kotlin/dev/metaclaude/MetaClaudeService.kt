@@ -64,14 +64,15 @@ class MetaClaudeService(private val project: Project) : Disposable {
         val token = AuthToken.generate()
         lateinit var b: Bridge
         val diffs = DiffCoordinator(project, this) // disposed with the service: answers pending diffs on close
+        val tracker = SelectionTracker(project, this) { method, params -> bridge?.server?.broadcastNotification(method, params) }
         val registry = ToolRegistry(listOf(
-            GetWorkspaceFolders(project), GetOpenEditors(project), GetCurrentSelection(project),
+            GetWorkspaceFolders(project), GetOpenEditors(project),
+            GetCurrentSelection(tracker), GetLatestSelection(tracker),
             OpenFile(project), GetDiagnostics(project),
             diffs, CloseTab(diffs), CloseAllDiffTabs(diffs),
             CheckDocumentDirty(project), SaveDocument(project),
-            // TODO Phase 2: getLatestSelection
         ))
-        val dispatcher = McpDispatcher(registry, onIdeConnected = { /* see "notification timing" in SKETCH.md */ })
+        val dispatcher = McpDispatcher(registry, onIdeConnected = { tracker.onIdeConnected() })
         val server = IdeBridgeServer(token, dispatcher, onClientConnected = { bridge?.clientConnected = true })
         val port = server.startAndGetPort()
 
@@ -86,6 +87,15 @@ class MetaClaudeService(private val project: Project) : Disposable {
         b = Bridge(server, lock, port)
         bridge = b
         return b
+    }
+
+    /** Alt+K: puts @file#start-end into the connected session's prompt. False if no CLI is connected. */
+    fun sendAtMention(filePath: String, lineStart: Int, lineEnd: Int): Boolean {
+        val server = bridge?.server ?: return false
+        if (server.connections.isEmpty()) return false
+        server.broadcastNotification("at_mentioned", ContextJson.atMention(filePath, lineStart, lineEnd))
+        BridgeLog.log("at_mentioned sent: 0-based lines $lineStart-$lineEnd")
+        return true
     }
 
     /** The "avoid connection problems" part: verify the link, and if it failed offer the other path. */

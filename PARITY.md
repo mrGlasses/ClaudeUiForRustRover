@@ -49,15 +49,15 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Automatic selected text (footer shows line count, X to drop one selection) | Bridge (terminal) / UI (panel) | ☐ |
-| Automatic open file (name shown in prompt box) | Bridge / UI | ☐ |
+| Automatic selected text (footer shows line count, X to drop one selection) | Bridge (terminal) / UI (panel) | ◐ terminal mode v0.7.0 (pending test); panel: Phase 9 |
+| Automatic open file (name shown in prompt box) | Bridge / UI | ◐ terminal mode v0.7.0 (pending test) |
 | `attachSelection`, `attachOpenFile` settings | UI | ☐ |
-| Alt+K: insert `@file#5-10` mention | UI + Bridge (`at_mentioned`) | ☐ |
+| Alt+K: insert `@file#5-10` mention | UI + Bridge (`at_mentioned`) | ◐ v0.7.0 (pending test) |
 | `@` fuzzy file and folder mentions (`@auth`, `@src/components/`) | UI (project index) | ☐ |
 | `@terminal:name`: terminal output as context | UI (read JetBrains terminal buffer) | ☐ |
 | Paste images from the clipboard | Stream (image content) | ☐ |
 | Shift+drag files into the prompt box, X to remove attachment | UI | ☐ |
-| Withhold selections from excluded or git-ignored files (`respectGitIgnore`) | UI | ☐ |
+| Withhold selections from excluded or git-ignored files (`respectGitIgnore`) | UI | ◐ always on in v0.7.0; the switch comes with the settings page |
 | `@browser` (Claude in Chrome) | CLI | ☐ |
 | PDF page ranges | CLI (nothing to do) | ☑ |
 
@@ -158,8 +158,8 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Tool / notification | Status |
 |---|---|
 | `openDiff` (blocking), `close_tab`, `closeAllDiffTabs` | ☑ v0.6.2 (tested) |
-| `openFile`, `getOpenEditors`, `getWorkspaceFolders`, `getCurrentSelection`, `getLatestSelection`, `checkDocumentDirty`, `saveDocument` | ◐ (`checkDocumentDirty`, `saveDocument` in v0.6.0; `getLatestSelection` in Phase 2) |
-| `selection_changed`, `at_mentioned` | ☐ |
+| `openFile`, `getOpenEditors`, `getWorkspaceFolders`, `getCurrentSelection`, `getLatestSelection`, `checkDocumentDirty`, `saveDocument` | ◐ (all implemented by v0.7.0; `openFile` selection pending test) |
+| `selection_changed`, `at_mentioned` | ◐ v0.7.0 (pending test) |
 | `getDiagnostics` (model-visible) | ◐ (stub) |
 | `executeCode` (Jupyter) | Skip: RustRover has no Python notebooks |
 
