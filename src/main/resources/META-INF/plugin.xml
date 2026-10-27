@@ -1,0 +1,23 @@
+<idea-plugin>
+  <id>dev.metaclaude.rustrover</id>
+  <name>Claude Meta (sketch)</name>
+  <vendor>you</vendor>
+
+  <!--
+    Deliberately NO <depends> on com.anthropic.code.plugin.
+    The official plugin is detected at runtime (compat/OfficialPluginDetector.kt),
+    so this plugin installs and works with or without it.
+  -->
+  <depends>com.intellij.modules.platform</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <projectService serviceImplementation="dev.metaclaude.MetaClaudeService"/>
+    <notificationGroup id="Claude Meta" displayType="BALLOON"/>
+    <!-- TODO: toolWindow (chat UI), applicationConfigurable (IntegrationMode, claude path) -->
+  </extensions>
+
+  <actions>
+    <action id="dev.metaclaude.StartSession" class="dev.metaclaude.StartSessionAction"
+            text="Start Claude Session" description="Launch the claude CLI for this project"/>
+  </actions>
+</idea-plugin>

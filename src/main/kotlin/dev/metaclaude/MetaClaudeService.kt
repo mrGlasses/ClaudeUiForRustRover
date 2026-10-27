@@ -1,0 +1,115 @@
+package dev.metaclaude
+
+import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
+import com.intellij.openapi.project.Project
+import com.intellij.util.concurrency.AppExecutorUtil
+import dev.metaclaude.cli.ClaudeLauncher
+import dev.metaclaude.compat.IntegrationMode
+import dev.metaclaude.compat.OfficialPluginDetector
+import dev.metaclaude.protocol.*
+import dev.metaclaude.tools.*
+import java.nio.file.Path
+import java.util.concurrent.TimeUnit
+
+/** One bridge (server + lock file) per project window. */
+private class Bridge(val server: IdeBridgeServer, val lock: LockFile, val port: Int) {
+    @Volatile var clientConnected = false
+    fun close() { runCatching { server.stop(500) }; runCatching { lock.close() } }
+}
+
+@Service(Service.Level.PROJECT)
+class MetaClaudeService(private val project: Project) : Disposable {
+    private val ideName = "RustRover (Claude Meta)" // distinct, so /ide shows two clearly separate entries if both plugins are present
+    @Volatile private var bridge: Bridge? = null
+    @Volatile private var currentProc: Process? = null
+
+    // TODO: move to a settings service + configurable
+    var mode: IntegrationMode = IntegrationMode.BUILTIN // default BUILTIN: it is the path we control end to end
+    var claudePath: String = "claude"
+
+    fun startSession(forced: IntegrationMode? = null): Process {
+        val root = Path.of(requireNotNull(project.basePath)).toRealPath()
+        val effective = OfficialPluginDetector.effective(forced ?: mode)
+
+        currentProc?.destroy() // a restart (e.g. from the health-check action) must not leave the old CLI running
+        val port = if (effective == IntegrationMode.BUILTIN) ensureBridge(root).port else null
+        val proc = ClaudeLauncher.spawnPty(claudePath, root, port)
+        currentProc = proc
+        scheduleHealthCheck(effective, root)
+        return proc
+    }
+
+    private fun ensureBridge(root: Path): Bridge {
+        bridge?.let { return it }
+        LockFile.sweepStale(ideName)
+
+        val token = AuthToken.generate()
+        lateinit var b: Bridge
+        val registry = ToolRegistry(listOf(
+            GetWorkspaceFolders(project), GetOpenEditors(project), GetCurrentSelection(project),
+            OpenFile(project), GetDiagnostics(project), DiffCoordinator(project),
+            // TODO: checkDocumentDirty, saveDocument, close_tab, closeAllDiffTabs, getLatestSelection
+        ))
+        val dispatcher = McpDispatcher(registry, onIdeConnected = { /* see "notification timing" in SKETCH.md */ })
+        val server = IdeBridgeServer(token, dispatcher, onClientConnected = { bridge?.clientConnected = true })
+        val port = server.startAndGetPort()
+
+        val lock = LockFile(port, LockFileContent(
+            pid = ProcessHandle.current().pid(),
+            workspaceFolders = listOf(root.toString()),
+            ideName = ideName,
+            runningInWindows = System.getProperty("os.name").startsWith("Windows"),
+            authToken = token,
+        ))
+        lock.write()
+        b = Bridge(server, lock, port)
+        bridge = b
+        return b
+    }
+
+    /** The "avoid connection problems" part: verify the link, and if it failed offer the other path. */
+    private fun scheduleHealthCheck(effective: IntegrationMode, root: Path) {
+        AppExecutorUtil.getAppScheduledExecutorService().schedule({
+            when (effective) {
+                IntegrationMode.BUILTIN -> if (bridge?.clientConnected != true) notify(
+                    "Claude did not attach to the IDE bridge",
+                    "Bridge listening on port ${bridge?.port}, lock file ${bridge?.lock?.path}. " +
+                        "Run /ide inside the session, or check claude --version.",
+                )
+                else -> if (LockScanner.forWorkspace(root, bridge?.port).isEmpty()) notify(
+                    "Official Claude plugin is not advertising this project",
+                    "No live lock file in ~/.claude/ide covers this folder.",
+                    NotificationAction.createSimple("Use built-in bridge and restart") {
+                        startSession(forced = IntegrationMode.BUILTIN)
+                    },
+                )
+            }
+        }, 8, TimeUnit.SECONDS)
+    }
+
+    private fun notify(title: String, body: String, action: NotificationAction? = null) {
+        NotificationGroupManager.getInstance().getNotificationGroup("Claude Meta")
+            .createNotification(title, body, NotificationType.WARNING)
+            .also { n -> action?.let(n::addAction) }
+            .notify(project)
+    }
+
+    override fun dispose() {
+        currentProc?.destroy()
+        bridge?.close(); bridge = null // also removes our lock file
+    }
+}
+
+class StartSessionAction : AnAction() {
+    override fun actionPerformed(e: AnActionEvent) {
+        e.project?.service<MetaClaudeService>()?.startSession()
+        // TODO: hand the PtyProcess to a terminal widget / tool window
+    }
+}
