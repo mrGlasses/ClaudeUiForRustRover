@@ -19,6 +19,8 @@ Read first: `PLAN.md` (phases, current status), `PARITY.md` (feature checklist),
 
 - **Every `openDiff` call gets exactly one reply**: `FILE_SAVED`, `DIFF_REJECTED` or `TAB_CLOSED`. Closing a window,
   `close_tab`, `closeAllDiffTabs`, project close and plugin unload must all resolve pending diffs. A missing reply hangs the CLI.
+- **On Accept, never write the file**: the CLI writes it after `FILE_SAVED` (writing it too applied the edit twice in v0.6.1).
+  The plugin only saves unsaved IDE edits before replying and refreshes the file afterwards.
 - **Notifications have no reply; requests always do** (result or JSON-RPC error). Unknown methods with an id get `-32601`.
 - **Security**: the server binds to loopback only; the auth header is compared in constant time; the token is fresh per IDE start;
   **never log the token or message bodies** (they can contain source code). Lock files: owner-only permissions.

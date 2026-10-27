@@ -10,7 +10,7 @@ Everything below is **not started** unless marked otherwise.
 | Phase | Status |
 |---|---|
 | 0 Groundwork | ☑ Done (v0.5.0: CI green, version logged, connected as "RustRover (Claude UI)") |
-| 1 Diff review | **Code written (v0.6.1: fixed banner compile error), waiting for CI + your install test** |
+| 1 Diff review | **v0.6.1 tested: accept, reject, close-without-deciding all answered once. v0.6.2 fixes a double edit on accept; waiting for retest** |
 | 2–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -67,7 +67,7 @@ Also: `CLAUDE.md` with working rules, `.gitignore`, removed the duplicate servic
 
 Done in v0.6.0 (`tools/DiffTools.kt`, `tools/DocumentTools.kt`, `tools/PendingDiffs.kt`):
 - Diff opens as an editor tab; the right side is editable. Accept/Reject in the diff toolbar and in a banner above it.
-- Accept writes through Document + VFS (undoable, editors in sync) and replies `FILE_SAVED` + final text (byte-exact when unchanged, CRLF kept).
+- Accept replies `FILE_SAVED` + final text (byte-exact when unchanged, CRLF kept). **The CLI writes the file itself**: v0.6.1 also wrote it and the edit was applied twice, so v0.6.2 only saves unsaved IDE changes first and refreshes the file afterwards.
 - Reject → `DIFF_REJECTED`. **Closing the tab without deciding → `DIFF_REJECTED`** (the community protocol only defines SAVED/REJECTED for openDiff).
 - `close_tab` / `closeAllDiffTabs` close our tabs and answer pending calls with `TAB_CLOSED`. Project close answers everything as rejected.
 - Per-change: the diff viewer's own arrows copy one change back from the current version (= reject that change). Dedicated per-change buttons and "Accept/Reject Change at Cursor" actions: later.

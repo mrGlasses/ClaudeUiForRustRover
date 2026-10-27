@@ -12,7 +12,6 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
@@ -24,17 +23,19 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotificationPanel
+import com.intellij.util.concurrency.AppExecutorUtil
 import dev.metaclaude.protocol.BridgeLog
 import dev.metaclaude.protocol.IdeTool
 import dev.metaclaude.protocol.Mcp
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /**
  * openDiff: shows Claude's proposal in an editor tab and withholds the reply until the user decides.
  *
- *  Accept        → writes the (possibly edited) right side through the IDE, replies FILE_SAVED + final text
+ *  Accept        → replies FILE_SAVED + final (possibly edited) text; the CLI writes the file, we only refresh
  *  Reject        → DIFF_REJECTED
  *  Tab closed    → DIFF_REJECTED (no decision means no change)
  *  close_tab     → TAB_CLOSED (the CLI closed it, e.g. you answered in the terminal)
@@ -125,20 +126,18 @@ class DiffCoordinator(private val project: Project, parent: Disposable) : IdeToo
         FileEditorManager.getInstance(project).openFile(file, true)
     }
 
-    /** EDT. */
+    /**
+     * EDT. The CLI writes the file itself after FILE_SAVED, so we must NOT write it too
+     * (v0.6.1 did, and the CLI's edit was applied twice). We only make sure the IDE has no
+     * unsaved changes to that file, then refresh it so open editors show the CLI's write.
+     */
     private fun accept(tab: String, newPath: Path, proposal: String, edited: String) {
         if (!pending.isPending(tab)) return
-        try {
-            writeThroughIde(newPath, edited)
-        } catch (e: Throwable) {
-            BridgeLog.log("diff '$tab' accept failed: ${e::class.java.name}: ${e.message}")
-            pending.fail(tab, e)
-            closeTab(tab)
-            return
-        }
+        saveIfUnsaved(newPath)
         pending.resolve(tab, DiffReply.saved(proposal, edited))
         BridgeLog.log("diff '$tab' accepted" + if (edited != DiffReply.toDocument(proposal)) " (edited by user)" else "")
         closeTab(tab)
+        refreshSoon(newPath)
     }
 
     /** EDT. */
@@ -147,19 +146,19 @@ class DiffCoordinator(private val project: Project, parent: Disposable) : IdeToo
         closeTab(tab)
     }
 
-    /** Document + VFS, so undo and open editors stay in sync (no raw file writes). EDT. */
-    private fun writeThroughIde(path: Path, text: String) {
-        val existing = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path)
-        WriteCommandAction.runWriteCommandAction(project, "Claude Edit", null, Runnable {
-            val file = existing ?: run {
-                val dir = VfsUtil.createDirectoryIfMissing(path.parent.toString())
-                    ?: error("cannot create folder ${path.parent}")
-                dir.createChildData(this@DiffCoordinator, path.fileName.toString())
-            }
-            val doc = FileDocumentManager.getInstance().getDocument(file) ?: error("${path.fileName} is not a text file")
-            doc.setText(text)
-            FileDocumentManager.getInstance().saveDocument(doc)
-        })
+    /** Unsaved IDE edits would clash with the CLI's write to disk. EDT. */
+    private fun saveIfUnsaved(path: Path) {
+        val file = LocalFileSystem.getInstance().findFileByNioFile(path) ?: return
+        val fdm = FileDocumentManager.getInstance()
+        fdm.getCachedDocument(file)?.let { if (fdm.isDocumentUnsaved(it)) fdm.saveDocument(it) }
+    }
+
+    /** Picks up the CLI's write (or new file) without waiting for the file watcher. Background thread. */
+    private fun refreshSoon(path: Path) {
+        AppExecutorUtil.getAppScheduledExecutorService().schedule({
+            LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path)
+                ?.let { VfsUtil.markDirtyAndRefresh(true, false, false, it) }
+        }, 1, TimeUnit.SECONDS)
     }
 
     /** EDT. Closing our own tab never answers twice: the listener only answers if still pending. */
