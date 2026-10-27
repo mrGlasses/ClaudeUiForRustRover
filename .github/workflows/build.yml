@@ -14,11 +14,34 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build plugin zip
+      - name: Test and build plugin zip
         run: |
           chmod +x gradlew
-          ./gradlew buildPlugin
+          ./gradlew test buildPlugin
       - uses: actions/upload-artifact@v4
         with:
           name: plugin-zip
           path: build/distributions/*.zip
+      - name: Upload test report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/
+
+  # Checks the plugin against real RustRover builds. Informational for now: it never blocks the artifact.
+  verify:
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Plugin verifier
+        run: |
+          chmod +x gradlew
+          ./gradlew verifyPlugin
