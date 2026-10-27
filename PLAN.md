@@ -10,7 +10,7 @@ Everything below is **not started** unless marked otherwise.
 | Phase | Status |
 |---|---|
 | 0 Groundwork | ☑ Done (v0.5.0: CI green, version logged, connected as "RustRover (Claude UI)") |
-| 1 Diff review | **v0.6.1 tested: accept, reject, close-without-deciding all answered once. v0.6.2 fixes a double edit on accept; waiting for retest** |
+| 1 Diff review | ☑ Done (v0.6.2): accept, accept with your edits, reject and close-without-deciding tested on 2026-10-27 |
 | 2–16 | Not started |
 
 ## Two halves, like the VS Code extension

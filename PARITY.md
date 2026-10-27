@@ -67,8 +67,8 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|---|
 | Permission prompt cards (allow / deny / tell Claude what to do instead) | Stream (control requests) | ☐ |
 | "Save to" destination on rule-saving options (this session / project / all projects), arrow keys to change | Stream | ☐ |
-| Side-by-side diff for edits in Manual mode | Bridge `openDiff` (terminal) / Stream (panel) | ◐ terminal mode done in v0.6.0 (Accept/Reject in toolbar + banner) |
-| Editing the proposed side: Claude is told you changed it | Bridge / Stream | ◐ terminal mode: right side editable, edited text returned with FILE_SAVED (v0.6.0) |
+| Side-by-side diff for edits in Manual mode | Bridge `openDiff` (terminal) / Stream (panel) | ☑ terminal mode (v0.6.2, tested); panel: Phase 8 |
+| Editing the proposed side: Claude is told you changed it | Bridge / Stream | ☑ terminal mode (v0.6.2, tested: the CLI writes your edited text); panel: Phase 8 |
 | Per-change Accept/Reject buttons in the diff (not shown above 100 changes) | UI | ◐ per-change reject via the diff viewer's own arrows (v0.6.0); dedicated buttons later |
 | Accept / Reject Change at Cursor (context menu + commands) | UI | ☐ |
 | Plan mode: plan opens as a Markdown document with inline comments for feedback | Stream + UI | ☐ |
@@ -157,7 +157,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Tool / notification | Status |
 |---|---|
-| `openDiff` (blocking), `close_tab`, `closeAllDiffTabs` | ☑ v0.6.0 (pending your test) |
+| `openDiff` (blocking), `close_tab`, `closeAllDiffTabs` | ☑ v0.6.2 (tested) |
 | `openFile`, `getOpenEditors`, `getWorkspaceFolders`, `getCurrentSelection`, `getLatestSelection`, `checkDocumentDirty`, `saveDocument` | ◐ (`checkDocumentDirty`, `saveDocument` in v0.6.0; `getLatestSelection` in Phase 2) |
 | `selection_changed`, `at_mentioned` | ☐ |
 | `getDiagnostics` (model-visible) | ◐ (stub) |
