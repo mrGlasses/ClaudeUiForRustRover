@@ -21,6 +21,12 @@ object Mcp {
             add(JsonObject().apply { addProperty("type", "text"); addProperty("text", s) })
         })
     }
+    /** MCP tool result with several text items (e.g. FILE_SAVED + final file contents). */
+    fun texts(vararg items: String): JsonObject = JsonObject().apply {
+        add("content", JsonArray().apply {
+            items.forEach { s -> add(JsonObject().apply { addProperty("type", "text"); addProperty("text", s) }) }
+        })
+    }
     fun obj(vararg kv: Pair<String, JsonElement>) = JsonObject().apply { kv.forEach { add(it.first, it.second) } }
 }
 

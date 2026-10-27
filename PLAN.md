@@ -9,8 +9,9 @@ Everything below is **not started** unless marked otherwise.
 
 | Phase | Status |
 |---|---|
-| 0 Groundwork | **Code written (v0.5.0), waiting for CI + your install test** |
-| 1–16 | Not started |
+| 0 Groundwork | ☑ Done (v0.5.0: CI green, version logged, connected as "RustRover (Claude UI)") |
+| 1 Diff review | **Code written (v0.6.0), waiting for CI + your install test** |
+| 2–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -63,6 +64,14 @@ Also: `CLAUDE.md` with working rules, `.gitignore`, removed the duplicate servic
 | 1.6 | Writes go through the IDE (Document + VFS) so undo and open editors stay in sync; new and deleted files handled |
 
 **Done when:** in Manual mode, an edit by Claude opens the diff, and whole-file accept, whole-file reject, per-change accept/reject and closing the window all behave correctly.
+
+Done in v0.6.0 (`tools/DiffTools.kt`, `tools/DocumentTools.kt`, `tools/PendingDiffs.kt`):
+- Diff opens as an editor tab; the right side is editable. Accept/Reject in the diff toolbar and in a banner above it.
+- Accept writes through Document + VFS (undoable, editors in sync) and replies `FILE_SAVED` + final text (byte-exact when unchanged, CRLF kept).
+- Reject → `DIFF_REJECTED`. **Closing the tab without deciding → `DIFF_REJECTED`** (the community protocol only defines SAVED/REJECTED for openDiff).
+- `close_tab` / `closeAllDiffTabs` close our tabs and answer pending calls with `TAB_CLOSED`. Project close answers everything as rejected.
+- Per-change: the diff viewer's own arrows copy one change back from the current version (= reject that change). Dedicated per-change buttons and "Accept/Reject Change at Cursor" actions: later.
+- `checkDocumentDirty`, `saveDocument`. Unit tests for the once-only reply rule and line separators.
 
 ### Phase 2 — Selection and context (bridge)
 | # | Task |

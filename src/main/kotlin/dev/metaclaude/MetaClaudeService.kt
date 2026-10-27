@@ -63,10 +63,13 @@ class MetaClaudeService(private val project: Project) : Disposable {
 
         val token = AuthToken.generate()
         lateinit var b: Bridge
+        val diffs = DiffCoordinator(project, this) // disposed with the service: answers pending diffs on close
         val registry = ToolRegistry(listOf(
             GetWorkspaceFolders(project), GetOpenEditors(project), GetCurrentSelection(project),
-            OpenFile(project), GetDiagnostics(project), DiffCoordinator(project),
-            // TODO: checkDocumentDirty, saveDocument, close_tab, closeAllDiffTabs, getLatestSelection
+            OpenFile(project), GetDiagnostics(project),
+            diffs, CloseTab(diffs), CloseAllDiffTabs(diffs),
+            CheckDocumentDirty(project), SaveDocument(project),
+            // TODO Phase 2: getLatestSelection
         ))
         val dispatcher = McpDispatcher(registry, onIdeConnected = { /* see "notification timing" in SKETCH.md */ })
         val server = IdeBridgeServer(token, dispatcher, onClientConnected = { bridge?.clientConnected = true })
