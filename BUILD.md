@@ -5,6 +5,11 @@ Settings > Plugins > gear > Install Plugin from Disk (not the source zip).
 
 Expect compile errors on the first run (see "Not verified" in SKETCH.md); send them back and they get fixed.
 
+## Debugging the bridge
+
+The plugin writes a plain-text log to `%USERPROFILE%\.claude-meta\bridge.log` (handshake headers, connect/close
+codes, JSON-RPC method names; never the token or message bodies). After a failed `/ide` attempt, send that file's contents.
+
 ## Option A — use the Java that ships inside RustRover (nothing to install)
 
 RustRover bundles a JetBrains Runtime (JBR) in its install folder. Point `JAVA_HOME` at it for one terminal session,

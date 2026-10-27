@@ -18,6 +18,8 @@
 
   <actions>
     <action id="dev.metaclaude.StartSession" class="dev.metaclaude.StartSessionAction"
-            text="Start Claude Session" description="Launch the claude CLI for this project"/>
+            text="Start Claude Session" description="Launch the claude CLI for this project">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+    </action>
   </actions>
 </idea-plugin>

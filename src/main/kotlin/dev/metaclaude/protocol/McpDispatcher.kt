@@ -49,9 +49,21 @@ class McpDispatcher(
     private val onIdeConnected: () -> Unit = {},
 ) {
     fun handle(raw: String, reply: (String) -> Unit) {
+        try {
+            handleInner(raw) { out ->
+                BridgeLog.log("  -> reply ${out.take(60).replace('\n', ' ')}") // head only: bodies may hold source code
+                reply(out)
+            }
+        } catch (e: Exception) {
+            BridgeLog.log("dispatch failed: ${e::class.java.name}: ${e.message}")
+        }
+    }
+
+    private fun handleInner(raw: String, reply: (String) -> Unit) {
         val msg = runCatching { JsonParser.parseString(raw).asJsonObject }.getOrNull() ?: return
         val id = msg.get("id")                       // null => notification, never reply
         val method = msg.get("method")?.asString ?: return // a response from the client: ignore
+        BridgeLog.log("<- $method id=$id")
 
         when (method) {
             "initialize" -> reply(result(id, initializeResult()))
