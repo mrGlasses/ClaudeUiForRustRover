@@ -13,6 +13,7 @@ Everything below is **not started** unless marked otherwise.
 | 1 Diff review | ☑ Done (v0.6.2): accept, accept with your edits, reject and close-without-deciding tested on 2026-10-27 |
 | 2 Selection and context | ☑ Done (v0.7.0): selection reaches Claude, Alt+K inserts the right lines (tested 2026-10-27) |
 | 3 Diagnostics | **Code written (v0.8.0), waiting for CI + your install test** |
+| (5.1, early) Terminal auto-connect | **Code written (v0.8.1): `claude` in RustRover terminals connects without /ide; waiting for test** |
 | 4–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -123,6 +124,9 @@ Done in v0.8.0 (`GetDiagnostics` in `tools/IdeTools.kt`, `protocol/DiagnosticsJs
 | # | Task |
 |---|---|
 | 5.1 | "Claude" tool window with an embedded terminal running `claude`, already bound to our bridge |
+
+Already in v0.8.1: every RustRover terminal tab gets `CLAUDE_CODE_SSE_PORT` + `ENABLE_IDE_INTEGRATION` (terminal customizer, `order="last"`),
+so `claude` there connects by itself. External and WSL terminals still need `/ide`.
 | 5.2 | Open in Terminal, Open in New Tab (more terminal tabs), Focus Input (Ctrl+Esc) |
 
 **Done when:** Tools > Start Claude Session opens a working, connected session inside RustRover. **This is the first daily-usable release.**

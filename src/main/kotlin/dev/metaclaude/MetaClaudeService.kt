@@ -89,6 +89,13 @@ class MetaClaudeService(private val project: Project) : Disposable {
         return b
     }
 
+    /** Port for new terminal tabs, starting the bridge if a terminal opens before the startup activity ran. */
+    fun bridgePortForTerminal(): Int? {
+        if (mode != IntegrationMode.BUILTIN) return null
+        startBridgeIfEnabled()
+        return bridge?.port
+    }
+
     /** Alt+K: puts @file#start-end into the connected session's prompt. False if no CLI is connected. */
     fun sendAtMention(filePath: String, lineStart: Int, lineEnd: Int): Boolean {
         val server = bridge?.server ?: return false
