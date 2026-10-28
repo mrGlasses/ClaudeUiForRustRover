@@ -11,7 +11,7 @@ Everything below is **not started** unless marked otherwise.
 |---|---|
 | 0 Groundwork | ☑ Done (v0.5.0: CI green, version logged, connected as "RustRover (Claude UI)") |
 | 1 Diff review | ☑ Done (v0.6.2): accept, accept with your edits, reject and close-without-deciding tested on 2026-10-27 |
-| 2 Selection and context | **Code written (v0.7.0), waiting for CI + your install test** |
+| 2 Selection and context | ☑ Done (v0.7.0): selection reaches Claude, Alt+K inserts the right lines (tested 2026-10-27) |
 | 3–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -88,7 +88,7 @@ Done in v0.6.0 (`tools/DiffTools.kt`, `tools/DocumentTools.kt`, `tools/PendingDi
 Done in v0.7.0 (`tools/SelectionTracker.kt`, `ContextActions.kt`, `protocol/ContextJson.kt`):
 - `selection_changed` on selection, cursor and tab changes: debounced 200 ms, starts 500 ms after `ide_connected`, duplicates skipped.
 - Files that are git-ignored, excluded or outside the project: path and cursor only, never the text.
-- Alt+K and editor right-click "Send Selection to Claude" → `at_mentioned` (0-based lines; to verify in the test).
+- Alt+K and editor right-click "Send Selection to Claude" → `at_mentioned`. Lines are **0-based** (confirmed: lines 38–45 in the editor showed as `#38-45`).
 - `getLatestSelection`; `getCurrentSelection` uses the same reader; `openFile` with `startText`/`endText`/`selectToEndOfLine`/`makeFrontmost`.
 - All paths sent as `C:\...`, file URLs as `file:///C:/...`.
 - Not yet: `attachSelection` / `attachOpenFile` switches (they need the settings page, Phase 4).

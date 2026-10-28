@@ -49,10 +49,10 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Automatic selected text (footer shows line count, X to drop one selection) | Bridge (terminal) / UI (panel) | ◐ terminal mode v0.7.0 (pending test); panel: Phase 9 |
-| Automatic open file (name shown in prompt box) | Bridge / UI | ◐ terminal mode v0.7.0 (pending test) |
+| Automatic selected text (footer shows line count, X to drop one selection) | Bridge (terminal) / UI (panel) | ☑ terminal mode (v0.7.0, tested); panel: Phase 9 |
+| Automatic open file (name shown in prompt box) | Bridge / UI | ☑ terminal mode (v0.7.0) |
 | `attachSelection`, `attachOpenFile` settings | UI | ☐ |
-| Alt+K: insert `@file#5-10` mention | UI + Bridge (`at_mentioned`) | ◐ v0.7.0 (pending test) |
+| Alt+K: insert `@file#5-10` mention | UI + Bridge (`at_mentioned`) | ☑ v0.7.0 (tested) |
 | `@` fuzzy file and folder mentions (`@auth`, `@src/components/`) | UI (project index) | ☐ |
 | `@terminal:name`: terminal output as context | UI (read JetBrains terminal buffer) | ☐ |
 | Paste images from the clipboard | Stream (image content) | ☐ |
@@ -159,7 +159,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|
 | `openDiff` (blocking), `close_tab`, `closeAllDiffTabs` | ☑ v0.6.2 (tested) |
 | `openFile`, `getOpenEditors`, `getWorkspaceFolders`, `getCurrentSelection`, `getLatestSelection`, `checkDocumentDirty`, `saveDocument` | ◐ (all implemented by v0.7.0; `openFile` selection pending test) |
-| `selection_changed`, `at_mentioned` | ◐ v0.7.0 (pending test) |
+| `selection_changed`, `at_mentioned` | ☑ v0.7.0 (tested) |
 | `getDiagnostics` (model-visible) | ◐ (stub) |
 | `executeCode` (Jupyter) | Skip: RustRover has no Python notebooks |
 
