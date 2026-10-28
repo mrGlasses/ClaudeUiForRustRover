@@ -22,6 +22,8 @@
     <!-- MetaClaudeService is a light service (@Service), so it is not registered here. -->
     <notificationGroup id="Claude UI" displayType="BALLOON"/>
     <projectActivity implementation="dev.metaclaude.BridgeStartupActivity"/>
+    <applicationConfigurable parentId="tools" instance="dev.metaclaude.settings.ClaudeUiConfigurable"
+                             id="dev.metaclaude.settings" displayName="Claude UI"/>
   </extensions>
 
   <extensions defaultExtensionNs="org.jetbrains.plugins.terminal">

@@ -8,20 +8,33 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.util.Disposer
 import com.intellij.util.concurrency.AppExecutorUtil
+import dev.metaclaude.cli.ClaudeCli
 import dev.metaclaude.cli.ClaudeLauncher
 import dev.metaclaude.compat.IntegrationMode
 import dev.metaclaude.compat.OfficialPluginDetector
 import dev.metaclaude.protocol.*
+import dev.metaclaude.settings.ClaudeUiConfigurable
+import dev.metaclaude.settings.ClaudeUiSettings
 import dev.metaclaude.tools.*
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
-/** One bridge (server + lock file) per project window. */
-private class Bridge(val server: IdeBridgeServer, val lock: LockFile, val port: Int) {
+/**
+ * One bridge (server + lock file) per project window. [scope] owns the bridge's listeners and pending diffs,
+ * so stopping the bridge (mode switch) leaves nothing running.
+ */
+private class Bridge(val server: IdeBridgeServer, val lock: LockFile, val port: Int, val scope: Disposable) {
     @Volatile var clientConnected = false
-    fun close() { runCatching { server.stop(500) }; runCatching { lock.close() } }
+    fun close() {
+        Disposer.dispose(scope) // first: answers pending diffs while the socket is still open
+        runCatching { server.stop(500) }
+        runCatching { lock.close() }
+    }
 }
 
 @Service(Service.Level.PROJECT)
@@ -30,31 +43,50 @@ class MetaClaudeService(private val project: Project) : Disposable {
     @Volatile private var bridge: Bridge? = null
     @Volatile private var currentProc: Process? = null
 
-    // TODO: move to a settings service + configurable
-    var mode: IntegrationMode = IntegrationMode.BUILTIN // default BUILTIN: it is the path we control end to end
-    var claudePath: String = "claude"
+    private fun effectiveMode() = OfficialPluginDetector.effective(ClaudeUiSettings.instance.integrationMode)
 
-    fun startSession(forced: IntegrationMode? = null): Process {
+    fun startSession(forced: IntegrationMode? = null) {
         val root = Path.of(requireNotNull(project.basePath)).toRealPath()
-        val effective = OfficialPluginDetector.effective(forced ?: mode)
-
+        val effective = forced ?: effectiveMode()
+        val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)
+        if (exe == null) {
+            notify(
+                "Claude CLI not found",
+                "Install Claude Code, or set its path in Settings > Tools > Claude UI.",
+                NotificationAction.createSimple("Open settings") {
+                    ShowSettingsUtil.getInstance().showSettingsDialog(project, ClaudeUiConfigurable::class.java)
+                },
+            )
+            return
+        }
         currentProc?.destroy() // a restart (e.g. from the health-check action) must not leave the old CLI running
         val port = if (effective == IntegrationMode.BUILTIN) ensureBridge(root).port else null
-        val proc = ClaudeLauncher.spawnPty(claudePath, root, port)
-        currentProc = proc
+        currentProc = ClaudeLauncher.spawnPty(exe, root, port)
         scheduleHealthCheck(effective, root)
-        return proc
     }
 
-    /** Called at project open. In OFFICIAL mode we deliberately stay out of the way. */
+    /** Called at project open and when settings change. In OFFICIAL mode we deliberately stay out of the way. */
     fun startBridgeIfEnabled() {
-        if (mode != IntegrationMode.BUILTIN) return
+        if (effectiveMode() != IntegrationMode.BUILTIN) return
         val root = Path.of(project.basePath ?: return).toRealPath()
         runCatching { ensureBridge(root) }
             .onFailure { BridgeLog.log("bridge start failed: ${it::class.java.name}: ${it.message}", project.name) }
     }
 
-    @Synchronized // startup activity and the Start action can race
+    /** Starts or stops the bridge to match the current integration mode. */
+    fun applySettings() {
+        if (effectiveMode() == IntegrationMode.BUILTIN) startBridgeIfEnabled() else stopBridge()
+    }
+
+    @Synchronized
+    private fun stopBridge() {
+        val b = bridge ?: return
+        bridge = null
+        b.close()
+        BridgeLog.log("bridge stopped: integration mode is ${ClaudeUiSettings.instance.integrationMode.name}", project.name)
+    }
+
+    @Synchronized // startup activity, terminal customizer and the Start action can race
     private fun ensureBridge(root: Path): Bridge {
         bridge?.let { return it }
         BridgeLog.log("${PluginInfo.NAME} ${PluginInfo.version} starting bridge", project.name)
@@ -62,9 +94,9 @@ class MetaClaudeService(private val project: Project) : Disposable {
         LockFile.sweepStale(LEGACY_IDE_NAME) // dead lock files from builds before the rename
 
         val token = AuthToken.generate()
-        lateinit var b: Bridge
-        val diffs = DiffCoordinator(project, this) // disposed with the service: answers pending diffs on close
-        val tracker = SelectionTracker(project, this) { method, params -> bridge?.server?.broadcastNotification(method, params) }
+        val scope = Disposer.newDisposable(this, "Claude UI bridge")
+        val diffs = DiffCoordinator(project, scope) // answers pending diffs when the bridge stops
+        val tracker = SelectionTracker(project, scope) { method, params -> bridge?.server?.broadcastNotification(method, params) }
         val registry = ToolRegistry(listOf(
             GetWorkspaceFolders(project), GetOpenEditors(project),
             GetCurrentSelection(tracker), GetLatestSelection(tracker),
@@ -84,14 +116,14 @@ class MetaClaudeService(private val project: Project) : Disposable {
             authToken = token,
         ))
         lock.write()
-        b = Bridge(server, lock, port)
+        val b = Bridge(server, lock, port, scope)
         bridge = b
         return b
     }
 
     /** Port for new terminal tabs, starting the bridge if a terminal opens before the startup activity ran. */
     fun bridgePortForTerminal(): Int? {
-        if (mode != IntegrationMode.BUILTIN) return null
+        if (effectiveMode() != IntegrationMode.BUILTIN) return null
         startBridgeIfEnabled()
         return bridge?.port
     }
@@ -112,13 +144,15 @@ class MetaClaudeService(private val project: Project) : Disposable {
                 IntegrationMode.BUILTIN -> if (bridge?.clientConnected != true) notify(
                     "Claude did not attach to the IDE bridge",
                     "Bridge listening on port ${bridge?.port}, lock file ${bridge?.lock?.path}. " +
-                        "Run /ide inside the session, or check claude --version.",
+                        "Run /ide inside the session, or test the CLI in Settings > Tools > Claude UI.",
                 )
                 else -> if (LockScanner.forWorkspace(root, bridge?.port).isEmpty()) notify(
                     "Official Claude plugin is not advertising this project",
                     "No live lock file in ~/.claude/ide covers this folder.",
-                    NotificationAction.createSimple("Use built-in bridge and restart") {
-                        startSession(forced = IntegrationMode.BUILTIN)
+                    NotificationAction.createSimple("Switch to built-in and restart") {
+                        ClaudeUiSettings.instance.integrationMode = IntegrationMode.BUILTIN
+                        applySettingsToOpenProjects()
+                        startSession()
                     },
                 )
             }
@@ -137,14 +171,21 @@ class MetaClaudeService(private val project: Project) : Disposable {
         bridge?.close(); bridge = null // also removes our lock file
     }
 
-    private companion object {
-        const val LEGACY_IDE_NAME = "RustRover (Claude Meta)"
+    companion object {
+        private const val LEGACY_IDE_NAME = "RustRover (Claude Meta)"
+
+        /** After a settings change: every open window starts or stops its bridge. */
+        fun applySettingsToOpenProjects() {
+            ProjectManager.getInstance().openProjects
+                .filter { !it.isDisposed }
+                .forEach { it.service<MetaClaudeService>().applySettings() }
+        }
     }
 }
 
 class StartSessionAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         e.project?.service<MetaClaudeService>()?.startSession()
-        // TODO: hand the PtyProcess to a terminal widget / tool window
+        // TODO Phase 5: show the session in a tool window instead of running it hidden
     }
 }

@@ -14,7 +14,8 @@ Everything below is **not started** unless marked otherwise.
 | 2 Selection and context | ☑ Done (v0.7.0): selection reaches Claude, Alt+K inserts the right lines (tested 2026-10-27) |
 | 3 Diagnostics | ☑ Done (v0.8.0): Claude got the same error RustRover underlined, on the right line (tested 2026-10-28) |
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
-| 4–16 | Not started |
+| 4 Settings, modes, launcher | **Code written (v0.9.0), waiting for CI + your install test** |
+| 5–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -121,6 +122,16 @@ Done in v0.8.0 (`GetDiagnostics` in `tools/IdeTools.kt`, `protocol/DiagnosticsJs
 | 4.4 | Health-check notifications |
 
 **Done when:** each setting persists across restarts, mode switching shows or hides our `/ide` entry, and a bad `claude` path gives a readable error.
+
+Done in v0.9.0 (`settings/`, `cli/ClaudeCli.kt`):
+- Settings > Tools > Claude UI, saved in `claude-ui.xml`. **Only settings that already do something**; each VS Code panel
+  setting (PARITY §L) is added in the phase that gives it an effect, instead of shipping switches that do nothing.
+- Integration mode Built-in / Official / Auto with the official plugin's status. Applying starts or stops the bridge in every
+  open window right away (each bridge has its own disposable scope, so stopping it leaves no listeners or pending diffs behind).
+- Claude CLI path (empty = PATH `claude.exe`/`claude.cmd`/`claude.bat`, then `~/.local/bin`) with a **Test** button (`claude --version`).
+  Start Claude Session shows "Claude CLI not found" with an "Open settings" action instead of failing silently.
+- `attachSelection`, `attachOpenFile`, `respectGitIgnore` (VS Code names), applied live by the selection tracker.
+- Moved to Phase 5 (they only affect a process we launch): `environmentVariables`, `claudeProcessWrapper`.
 
 ### Phase 5 — Terminal mode (= VS Code `useTerminal`)
 | # | Task |

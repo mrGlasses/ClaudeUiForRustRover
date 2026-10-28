@@ -23,6 +23,7 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import dev.metaclaude.protocol.BridgeLog
 import dev.metaclaude.protocol.CliPaths
 import dev.metaclaude.protocol.ContextJson
+import dev.metaclaude.settings.ClaudeUiSettings
 import java.util.concurrent.TimeUnit
 
 /** Reads the editor's selection/cursor as the CLI expects it. EDT. */
@@ -33,10 +34,11 @@ internal object EditorContext {
         val doc = editor.document
         val sm = editor.selectionModel
         val caret = editor.caretModel.offset
-        val shareable = shareable(project, file)
-        // Files we must not leak (ignored, excluded, outside the project): path and cursor only, never text.
-        val start = if (sm.hasSelection() && shareable) sm.selectionStart else caret
-        val end = if (sm.hasSelection() && shareable) sm.selectionEnd else caret
+        val settings = ClaudeUiSettings.instance.state
+        // Text only when the user allows it and the file may be shared; otherwise path and cursor only.
+        val sendText = settings.attachSelection && shareable(project, file, settings.respectGitIgnore)
+        val start = if (sm.hasSelection() && sendText) sm.selectionStart else caret
+        val end = if (sm.hasSelection() && sendText) sm.selectionEnd else caret
         val sl = doc.getLineNumber(start)
         val el = doc.getLineNumber(end)
         return ContextJson.selection(
@@ -47,11 +49,11 @@ internal object EditorContext {
         )
     }
 
-    /** Inside the project, not excluded, not git-ignored. */
-    fun shareable(project: Project, file: VirtualFile): Boolean {
+    /** Inside the project, not excluded, and (if [respectGitIgnore]) not git-ignored. */
+    fun shareable(project: Project, file: VirtualFile, respectGitIgnore: Boolean): Boolean {
         val index = ProjectFileIndex.getInstance(project)
         if (!index.isInContent(file) || index.isExcluded(file)) return false
-        return !ChangeListManager.getInstance(project).isIgnoredFile(file)
+        return !respectGitIgnore || !ChangeListManager.getInstance(project).isIgnoredFile(file)
     }
 }
 
@@ -122,8 +124,10 @@ class SelectionTracker(
     private fun sendCurrent() {
         if (project.isDisposed) return
         val snap = current() ?: return
-        if (!snap.getAsJsonObject("selection").get("isEmpty").asBoolean) latest = snap
+        val empty = snap.getAsJsonObject("selection").get("isEmpty").asBoolean
+        if (!empty) latest = snap
         if (!ready) return
+        if (empty && !ClaudeUiSettings.instance.state.attachOpenFile) return // open file only travels with a selection
         val key = snap.toString()
         if (key == lastSent) return
         lastSent = key
