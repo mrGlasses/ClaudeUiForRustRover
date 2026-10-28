@@ -29,6 +29,14 @@ object ClaudeCli {
     fun resolve(configured: String?): String? =
         resolve(configured, System.getenv("PATH"), System.getProperty("user.home"), CliPaths.isWindows) { File(it).isFile }
 
+    /** True when [exe] sits in a PATH folder, so typing `claude` in a shell finds it. */
+    fun isOnPath(exe: String): Boolean {
+        val dir = File(exe).parentFile?.canonicalPath ?: return false
+        val sep = if (CliPaths.isWindows) ';' else ':'
+        return (System.getenv("PATH") ?: "").split(sep).map { it.trim().trim('"') }.filter { it.isNotEmpty() }
+            .any { runCatching { File(it).canonicalPath.equals(dir, ignoreCase = CliPaths.isWindows) }.getOrDefault(false) }
+    }
+
     data class Check(val ok: Boolean, val message: String)
 
     /** Runs `claude --version`. Blocking (up to 15 s): call from a background thread. */

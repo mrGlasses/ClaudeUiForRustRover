@@ -32,7 +32,13 @@
 
   <actions>
     <action id="dev.metaclaude.StartSession" class="dev.metaclaude.StartSessionAction"
-            text="Start Claude Session" description="Launch the claude CLI for this project">
+            text="New Claude Session" description="Open a Claude tab in the Terminal, connected to this IDE">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+    </action>
+    <action id="dev.metaclaude.FocusClaude" class="dev.metaclaude.FocusClaudeAction"
+            text="Toggle Focus: Editor / Claude"
+            description="Jump between the editor and the Claude terminal tab (opens a session if none)">
+      <keyboard-shortcut keymap="$default" first-keystroke="alt shift K"/>
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
     <action id="dev.metaclaude.SendAtMention" class="dev.metaclaude.SendAtMentionAction"

@@ -7,7 +7,7 @@ plugins {
 
 group = "io.github.mrglasses"
 // Bump on every pushed change: the bridge logs it first, so you can tell which build is installed.
-version = "0.9.0"
+version = "0.10.0"
 
 repositories {
     mavenCentral()

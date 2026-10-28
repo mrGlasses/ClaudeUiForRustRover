@@ -14,7 +14,6 @@ import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.util.concurrency.AppExecutorUtil
 import dev.metaclaude.cli.ClaudeCli
-import dev.metaclaude.cli.ClaudeLauncher
 import dev.metaclaude.compat.IntegrationMode
 import dev.metaclaude.compat.OfficialPluginDetector
 import dev.metaclaude.protocol.*
@@ -41,10 +40,10 @@ private class Bridge(val server: IdeBridgeServer, val lock: LockFile, val port: 
 class MetaClaudeService(private val project: Project) : Disposable {
     private val ideName = PluginInfo.IDE_NAME // distinct, so /ide shows two clearly separate entries if both plugins are present
     @Volatile private var bridge: Bridge? = null
-    @Volatile private var currentProc: Process? = null
 
     private fun effectiveMode() = OfficialPluginDetector.effective(ClaudeUiSettings.instance.integrationMode)
 
+    /** New Claude Session: a "Claude" tab in the Terminal tool window, already connected to our bridge. EDT. */
     fun startSession(forced: IntegrationMode? = null) {
         val root = Path.of(requireNotNull(project.basePath)).toRealPath()
         val effective = forced ?: effectiveMode()
@@ -59,9 +58,8 @@ class MetaClaudeService(private val project: Project) : Disposable {
             )
             return
         }
-        currentProc?.destroy() // a restart (e.g. from the health-check action) must not leave the old CLI running
-        val port = if (effective == IntegrationMode.BUILTIN) ensureBridge(root).port else null
-        currentProc = ClaudeLauncher.spawnPty(exe, root, port)
+        if (effective == IntegrationMode.BUILTIN) ensureBridge(root) // before the tab opens: the terminal customizer needs the port
+        ClaudeTerminal.open(project, root, exe, ClaudeCli.isOnPath(exe))
         scheduleHealthCheck(effective, root)
     }
 
@@ -141,7 +139,7 @@ class MetaClaudeService(private val project: Project) : Disposable {
     private fun scheduleHealthCheck(effective: IntegrationMode, root: Path) {
         AppExecutorUtil.getAppScheduledExecutorService().schedule({
             when (effective) {
-                IntegrationMode.BUILTIN -> if (bridge?.clientConnected != true) notify(
+                IntegrationMode.BUILTIN -> if (bridge?.server?.connections.isNullOrEmpty()) notify(
                     "Claude did not attach to the IDE bridge",
                     "Bridge listening on port ${bridge?.port}, lock file ${bridge?.lock?.path}. " +
                         "Run /ide inside the session, or test the CLI in Settings > Tools > Claude UI.",
@@ -167,7 +165,6 @@ class MetaClaudeService(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
-        currentProc?.destroy()
         bridge?.close(); bridge = null // also removes our lock file
     }
 
@@ -186,6 +183,5 @@ class MetaClaudeService(private val project: Project) : Disposable {
 class StartSessionAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         e.project?.service<MetaClaudeService>()?.startSession()
-        // TODO Phase 5: show the session in a tool window instead of running it hidden
     }
 }

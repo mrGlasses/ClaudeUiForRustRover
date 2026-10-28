@@ -15,7 +15,8 @@ Everything below is **not started** unless marked otherwise.
 | 3 Diagnostics | ☑ Done (v0.8.0): Claude got the same error RustRover underlined, on the right line (tested 2026-10-28) |
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
-| 5–16 | Not started |
+| 5 Terminal mode | **Code written (v0.10.0), waiting for CI + your install test** |
+| 6–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -136,13 +137,23 @@ Done in v0.9.0 (`settings/`, `cli/ClaudeCli.kt`):
 ### Phase 5 — Terminal mode (= VS Code `useTerminal`)
 | # | Task |
 |---|---|
-| 5.1 | "Claude" tool window with an embedded terminal running `claude`, already bound to our bridge |
+| 5.1 | A Claude session inside RustRover running `claude`, already bound to our bridge |
+| 5.2 | Several sessions (more tabs), toggle focus editor ↔ Claude |
 
-Already in v0.8.1: every RustRover terminal tab gets `CLAUDE_CODE_SSE_PORT` + `ENABLE_IDE_INTEGRATION` (terminal customizer, `order="last"`),
+**Done when:** Tools > New Claude Session opens a working, connected session inside RustRover. **This is the first daily-usable release.**
+
+Done in v0.8.1: every RustRover terminal tab gets `CLAUDE_CODE_SSE_PORT` + `ENABLE_IDE_INTEGRATION` (terminal customizer, `order="last"`),
 so `claude` there connects by itself. External and WSL terminals still need `/ide`.
-| 5.2 | Open in Terminal, Open in New Tab (more terminal tabs), Focus Input (Ctrl+Esc) |
 
-**Done when:** Tools > Start Claude Session opens a working, connected session inside RustRover. **This is the first daily-usable release.**
+Done in v0.10.0 (`ClaudeTerminal.kt`, `cli/SessionCommand.kt`):
+- **Tools > New Claude Session** opens a "Claude" tab in RustRover's **Terminal tool window** (not a separate tool window: reusing
+  the IDE terminal is simpler and is what VS Code's `useTerminal` does) and types the right command for the shell:
+  `claude` when it is on PATH, otherwise the quoted path (`& "..."` in PowerShell). Each run opens another tab.
+- **Alt+Shift+K** toggles focus editor ↔ newest Claude tab (opens a session if none). VS Code's Ctrl+Esc can't be used on Windows:
+  the OS opens the Start menu.
+- Missing CLI → notification with "Open settings". Health check now looks at live connections.
+- The hidden PTY launch is gone. `environmentVariables` / `claudeProcessWrapper` move to Phase 6, where the plugin starts the
+  process itself (in a shared terminal they would leak into every terminal tab).
 
 ---
 
