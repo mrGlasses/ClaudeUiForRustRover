@@ -51,13 +51,13 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|---|
 | Automatic selected text (footer shows line count, X to drop one selection) | Bridge (terminal) / UI (panel) | ☑ terminal mode (v0.7.0, tested); panel: Phase 9 |
 | Automatic open file (name shown in prompt box) | Bridge / UI | ☑ terminal mode (v0.7.0) |
-| `attachSelection`, `attachOpenFile` settings | UI | ◐ v0.9.0 (pending test) |
+| `attachSelection`, `attachOpenFile` settings | UI | ☑ terminal mode (v0.9.0, tested) |
 | Alt+K: insert `@file#5-10` mention | UI + Bridge (`at_mentioned`) | ☑ v0.7.0 (tested) |
 | `@` fuzzy file and folder mentions (`@auth`, `@src/components/`) | UI (project index) | ☐ |
 | `@terminal:name`: terminal output as context | UI (read JetBrains terminal buffer) | ☐ |
 | Paste images from the clipboard | Stream (image content) | ☐ |
 | Shift+drag files into the prompt box, X to remove attachment | UI | ☐ |
-| Withhold selections from excluded or git-ignored files (`respectGitIgnore`) | UI | ◐ v0.9.0 setting (pending test) |
+| Withhold selections from excluded or git-ignored files (`respectGitIgnore`) | UI | ☑ terminal mode (v0.9.0); panel: Phase 9 |
 | `@browser` (Claude in Chrome) | CLI | ☐ |
 | PDF page ranges | CLI (nothing to do) | ☑ |
 
@@ -182,7 +182,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|---|
 | `useTerminal`, `initialPermissionMode`, `preferredLocation`, `lockEditorGroups`, `autosave`, `attachOpenFile`, `attachSelection`, `useCtrlEnterToSend`, `scrollToBottomOnSend`, `showMessageTimestamps`, `spinnerVerbs`, `enableNewConversationShortcut`, `enableReopenClosedSessionShortcut`, `archiveInactiveSessions`, `continueAfterReload`, `hideOnboarding`, `focusView`, `respectGitIgnore`, `environmentVariables`, `disableLoginPrompt`, `allowDangerouslySkipPermissions`, `claudeProcessWrapper` | Same names on our settings page | ☐ |
 | `usePythonEnvironment` | Adapt: optional Rust toolchain environment (rustup toolchain / cargo env) | ☐ |
-| (ours) Integration mode Built-in / Official / Auto, path to `claude` | Settings page | ◐ v0.9.0 (pending test) |
+| (ours) Integration mode Built-in / Official / Auto, path to `claude` | Settings page | ☑ v0.9.0 (tested) |
 
 ## M. Links, accessibility, providers — Phase 14
 
