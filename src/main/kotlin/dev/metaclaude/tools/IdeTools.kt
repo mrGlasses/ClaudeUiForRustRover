@@ -178,6 +178,7 @@ class GetDiagnostics(private val project: Project) : IdeTool {
             BridgeLog.log(
                 "getDiagnostics (${if (uri != null) "one file" else "open files"}): " +
                     "${result.size} file(s), ${result.sumOf { it.diagnostics.size }} item(s)",
+                project.name,
             )
             Mcp.text(DiagnosticsJson.toJson(result))
         }

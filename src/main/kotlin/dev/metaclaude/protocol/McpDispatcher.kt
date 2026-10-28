@@ -53,15 +53,16 @@ class ToolRegistry(tools: List<IdeTool>) {
 class McpDispatcher(
     private val tools: ToolRegistry,
     private val onIdeConnected: () -> Unit = {},
+    private val logTag: String? = null,
 ) {
     fun handle(raw: String, reply: (String) -> Unit) {
         try {
             handleInner(raw) { out ->
-                BridgeLog.log("  -> reply ${out.take(60).replace('\n', ' ')}") // head only: bodies may hold source code
+                BridgeLog.log("  -> reply ${out.take(60).replace('\n', ' ')}", logTag) // head only: bodies may hold source code
                 reply(out)
             }
         } catch (e: Exception) {
-            BridgeLog.log("dispatch failed: ${e::class.java.name}: ${e.message}")
+            BridgeLog.log("dispatch failed: ${e::class.java.name}: ${e.message}", logTag)
         }
     }
 
@@ -71,7 +72,7 @@ class McpDispatcher(
         val method = msg.get("method")?.asString ?: return // a response from the client: ignore
         // Tool name only, never arguments (they can hold source code).
         val tool = if (method == "tools/call") msg.getAsJsonObject("params")?.get("name")?.asString else null
-        BridgeLog.log("<- $method id=$id" + if (tool != null) " tool=$tool" else "")
+        BridgeLog.log("<- $method id=$id" + (if (tool != null) " tool=$tool" else ""), logTag)
 
         when (method) {
             "initialize" -> reply(result(id, initializeResult()))

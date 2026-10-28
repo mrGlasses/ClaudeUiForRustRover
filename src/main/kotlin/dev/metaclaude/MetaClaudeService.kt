@@ -51,13 +51,13 @@ class MetaClaudeService(private val project: Project) : Disposable {
         if (mode != IntegrationMode.BUILTIN) return
         val root = Path.of(project.basePath ?: return).toRealPath()
         runCatching { ensureBridge(root) }
-            .onFailure { BridgeLog.log("bridge start failed: ${it::class.java.name}: ${it.message}") }
+            .onFailure { BridgeLog.log("bridge start failed: ${it::class.java.name}: ${it.message}", project.name) }
     }
 
     @Synchronized // startup activity and the Start action can race
     private fun ensureBridge(root: Path): Bridge {
         bridge?.let { return it }
-        BridgeLog.log("${PluginInfo.NAME} ${PluginInfo.version} starting bridge for project '${project.name}'")
+        BridgeLog.log("${PluginInfo.NAME} ${PluginInfo.version} starting bridge", project.name)
         LockFile.sweepStale(ideName)
         LockFile.sweepStale(LEGACY_IDE_NAME) // dead lock files from builds before the rename
 
@@ -72,8 +72,8 @@ class MetaClaudeService(private val project: Project) : Disposable {
             diffs, CloseTab(diffs), CloseAllDiffTabs(diffs),
             CheckDocumentDirty(project), SaveDocument(project),
         ))
-        val dispatcher = McpDispatcher(registry, onIdeConnected = { tracker.onIdeConnected() })
-        val server = IdeBridgeServer(token, dispatcher, onClientConnected = { bridge?.clientConnected = true })
+        val dispatcher = McpDispatcher(registry, onIdeConnected = { tracker.onIdeConnected() }, logTag = project.name)
+        val server = IdeBridgeServer(token, dispatcher, onClientConnected = { bridge?.clientConnected = true }, logTag = project.name)
         val port = server.startAndGetPort()
 
         val lock = LockFile(port, LockFileContent(
@@ -101,7 +101,7 @@ class MetaClaudeService(private val project: Project) : Disposable {
         val server = bridge?.server ?: return false
         if (server.connections.isEmpty()) return false
         server.broadcastNotification("at_mentioned", ContextJson.atMention(filePath, lineStart, lineEnd))
-        BridgeLog.log("at_mentioned sent: 0-based lines $lineStart-$lineEnd")
+        BridgeLog.log("at_mentioned sent: 0-based lines $lineStart-$lineEnd", project.name)
         return true
     }
 

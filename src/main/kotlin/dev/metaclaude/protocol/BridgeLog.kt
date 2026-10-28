@@ -12,13 +12,14 @@ import java.time.Instant
 object BridgeLog {
     private val file: Path = Path.of(System.getProperty("user.home"), ".claude-meta", "bridge.log")
 
+    /** [tag] is the project name, so several RustRover windows can share one log. */
     @Synchronized
-    fun log(msg: String) {
+    fun log(msg: String, tag: String? = null) {
         runCatching {
             Files.createDirectories(file.parent)
             if (Files.exists(file) && Files.size(file) > 1_000_000) Files.delete(file) // crude size cap
             Files.writeString(
-                file, "${Instant.now()} $msg\n",
+                file, "${Instant.now()} ${if (tag.isNullOrBlank()) "" else "[$tag] "}$msg\n",
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND,
             )
         }

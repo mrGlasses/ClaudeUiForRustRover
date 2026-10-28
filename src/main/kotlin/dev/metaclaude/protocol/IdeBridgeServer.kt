@@ -29,6 +29,7 @@ class IdeBridgeServer(
     private val authToken: String,
     private val dispatcher: McpDispatcher,
     private val onClientConnected: () -> Unit = {},
+    private val logTag: String? = null,
 ) : WebSocketServer(
     InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
     listOf<Draft>(Draft_6455(emptyList<IExtension>(), listOf(Protocol("mcp"), Protocol("")))),
@@ -40,7 +41,7 @@ class IdeBridgeServer(
     fun startAndGetPort(): Int {
         start()
         val p = started.get(5, TimeUnit.SECONDS)
-        BridgeLog.log("bridge listening on ${address.address}:$p")
+        BridgeLog.log("bridge listening on ${address.address}:$p", logTag)
         return p
     }
 
@@ -58,13 +59,14 @@ class IdeBridgeServer(
             "handshake from ${conn.remoteSocketAddress}: authHeaderPresent=${supplied.isNotEmpty()} " +
                 "authMatches=$ok subprotocol='${request.getFieldValue("Sec-WebSocket-Protocol")}' " +
                 "userAgent='${request.getFieldValue("User-Agent")}' headers=$names",
+            logTag,
         )
         if (!ok) throw InvalidDataException(CloseFrame.POLICY_VALIDATION, "bad auth token")
         return super.onWebsocketHandshakeReceivedAsServer(conn, draft, request)
     }
 
     override fun onOpen(conn: WebSocket, handshake: ClientHandshake) {
-        BridgeLog.log("client connected")
+        BridgeLog.log("client connected", logTag)
         onClientConnected()
     }
 
@@ -73,11 +75,11 @@ class IdeBridgeServer(
     }
 
     override fun onClose(conn: WebSocket, code: Int, reason: String, remote: Boolean) {
-        BridgeLog.log("client closed: code=$code reason='$reason' byRemote=$remote")
+        BridgeLog.log("client closed: code=$code reason='$reason' byRemote=$remote", logTag)
     }
 
     override fun onError(conn: WebSocket?, ex: Exception) {
-        BridgeLog.log("server error: ${ex::class.java.name}: ${ex.message}")
+        BridgeLog.log("server error: ${ex::class.java.name}: ${ex.message}", logTag)
     }
 
     /** IDE -> CLI notifications: selection_changed, at_mentioned. */

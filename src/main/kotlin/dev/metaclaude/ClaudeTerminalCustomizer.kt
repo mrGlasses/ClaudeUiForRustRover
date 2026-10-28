@@ -21,7 +21,7 @@ class ClaudeTerminalCustomizer : LocalTerminalCustomizer() {
         val port = project.service<MetaClaudeService>().bridgePortForTerminal() ?: return command
         envs["CLAUDE_CODE_SSE_PORT"] = port.toString()
         envs["ENABLE_IDE_INTEGRATION"] = "true"
-        BridgeLog.log("terminal opened: claude started there connects to port $port automatically")
+        BridgeLog.log("terminal opened: claude started there connects to port $port automatically", project.name)
         return command
     }
 }

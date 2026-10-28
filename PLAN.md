@@ -12,8 +12,8 @@ Everything below is **not started** unless marked otherwise.
 | 0 Groundwork | ☑ Done (v0.5.0: CI green, version logged, connected as "RustRover (Claude UI)") |
 | 1 Diff review | ☑ Done (v0.6.2): accept, accept with your edits, reject and close-without-deciding tested on 2026-10-27 |
 | 2 Selection and context | ☑ Done (v0.7.0): selection reaches Claude, Alt+K inserts the right lines (tested 2026-10-27) |
-| 3 Diagnostics | **Code written (v0.8.0), waiting for CI + your install test** |
-| (5.1, early) Terminal auto-connect | **Code written (v0.8.1): `claude` in RustRover terminals connects without /ide; waiting for test** |
+| 3 Diagnostics | ☑ Done (v0.8.0): Claude got the same error RustRover underlined, on the right line (tested 2026-10-28) |
+| (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -109,6 +109,8 @@ Done in v0.8.0 (`GetDiagnostics` in `tools/IdeTools.kt`, `protocol/DiagnosticsJs
 - Without `uri`: every open file with problems. With `uri` (`file:///c%3A/...`, `file:///C:/...` or a plain path): that file.
 - Limit: the IDE only analyzes open files, so a requested file that isn't open may come back empty.
 - The log now names each tool call (`tool=getDiagnostics`) and counts files/items, never the content.
+- Note from testing: asked vaguely ("check the diagnostics"), Claude may run `cargo check` instead; asked for `mcp__ide__getDiagnostics`, it uses the tool.
+- v0.8.2: every log line is tagged with the project name (`[webAxum...]`), so several RustRover windows can share one log.
 
 ### Phase 4 — Settings page, modes, launcher
 | # | Task |

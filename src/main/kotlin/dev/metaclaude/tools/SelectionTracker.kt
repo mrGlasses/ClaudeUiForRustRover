@@ -107,7 +107,7 @@ class SelectionTracker(
         lastSent = null
         AppExecutorUtil.getAppScheduledExecutorService().schedule({
             ready = true
-            BridgeLog.log("selection sharing active")
+            BridgeLog.log("selection sharing active", project.name)
             ApplicationManager.getApplication().invokeLater { sendCurrent() }
         }, CONNECT_DELAY_MS, TimeUnit.MILLISECONDS)
     }

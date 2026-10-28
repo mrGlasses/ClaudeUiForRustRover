@@ -64,7 +64,7 @@ class DiffCoordinator(private val project: Project, parent: Disposable) : IdeToo
                 override fun fileClosed(source: FileEditorManager, file: VirtualFile) {
                     val tab = tabs.entries.firstOrNull { it.value == file }?.key ?: return
                     tabs.remove(tab)
-                    if (pending.resolve(tab, DiffReply.rejected())) BridgeLog.log("diff '$tab' closed without a decision -> rejected")
+                    if (pending.resolve(tab, DiffReply.rejected())) BridgeLog.log("diff '$tab' closed without a decision -> rejected", project.name)
                 }
             },
         )
@@ -77,12 +77,12 @@ class DiffCoordinator(private val project: Project, parent: Disposable) : IdeToo
         val proposal = args.get("new_file_contents").asString
 
         val future = pending.open(tab, DiffReply.rejected())
-        BridgeLog.log("diff '$tab' opened for ${newPath.fileName}")
+        BridgeLog.log("diff '$tab' opened for ${newPath.fileName}", project.name)
         ApplicationManager.getApplication().invokeLater {
             try {
                 show(tab, oldPath, newPath, proposal)
             } catch (e: Throwable) {
-                BridgeLog.log("diff '$tab' failed to open: ${e::class.java.name}: ${e.message}")
+                BridgeLog.log("diff '$tab' failed to open: ${e::class.java.name}: ${e.message}", project.name)
                 pending.fail(tab, e) // the CLI gets a JSON-RPC error instead of waiting forever
             }
         }
@@ -135,14 +135,14 @@ class DiffCoordinator(private val project: Project, parent: Disposable) : IdeToo
         if (!pending.isPending(tab)) return
         saveIfUnsaved(newPath)
         pending.resolve(tab, DiffReply.saved(proposal, edited))
-        BridgeLog.log("diff '$tab' accepted" + if (edited != DiffReply.toDocument(proposal)) " (edited by user)" else "")
+        BridgeLog.log(("diff '$tab' accepted" + if (edited != DiffReply.toDocument(proposal)) " (edited by user)" else ""), project.name)
         closeTab(tab)
         refreshSoon(newPath)
     }
 
     /** EDT. */
     private fun reject(tab: String) {
-        if (pending.resolve(tab, DiffReply.rejected())) BridgeLog.log("diff '$tab' rejected")
+        if (pending.resolve(tab, DiffReply.rejected())) BridgeLog.log("diff '$tab' rejected", project.name)
         closeTab(tab)
     }
 
@@ -184,7 +184,7 @@ class DiffCoordinator(private val project: Project, parent: Disposable) : IdeToo
 
     override fun dispose() {
         val n = pending.resolveAll(DiffReply.rejected())
-        if (n > 0) BridgeLog.log("$n pending diff(s) answered as rejected on shutdown")
+        if (n > 0) BridgeLog.log("$n pending diff(s) answered as rejected on shutdown", project.name)
         tabs.clear()
     }
 }
