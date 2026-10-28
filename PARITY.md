@@ -160,7 +160,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | `openDiff` (blocking), `close_tab`, `closeAllDiffTabs` | ☑ v0.6.2 (tested) |
 | `openFile`, `getOpenEditors`, `getWorkspaceFolders`, `getCurrentSelection`, `getLatestSelection`, `checkDocumentDirty`, `saveDocument` | ◐ (all implemented by v0.7.0; `openFile` selection pending test) |
 | `selection_changed`, `at_mentioned` | ☑ v0.7.0 (tested) |
-| `getDiagnostics` (model-visible) | ◐ (stub) |
+| `getDiagnostics` (model-visible) | ◐ v0.8.0 (pending test; open files only) |
 | `executeCode` (Jupyter) | Skip: RustRover has no Python notebooks |
 
 ## K. Shortcuts (JetBrains defaults to check for keymap conflicts)

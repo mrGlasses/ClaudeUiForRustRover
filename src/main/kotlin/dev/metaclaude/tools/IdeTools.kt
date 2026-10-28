@@ -2,14 +2,20 @@ package dev.metaclaude.tools
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.intellij.codeInsight.daemon.impl.DaemonCodeAnalyzerEx
+import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
+import dev.metaclaude.protocol.BridgeLog
 import dev.metaclaude.protocol.CliPaths
+import dev.metaclaude.protocol.DiagnosticsJson
 import dev.metaclaude.protocol.IdeTool
 import dev.metaclaude.protocol.Mcp
 import java.nio.file.Path
@@ -144,10 +150,64 @@ class OpenFile(private val project: Project) : IdeTool {
     }
 }
 
-/** TODO: real implementation via DaemonCodeAnalyzerImpl.getHighlights / HighlightInfo; for Rust, rust-analyzer/clippy surface here. */
+/**
+ * The one IDE tool the model calls itself (as mcp__ide__getDiagnostics).
+ * Source: the IDE's own highlighting (what RustRover underlines), including Rust analysis and
+ * clippy/cargo check results when the external linter is enabled. The IDE only analyzes open files:
+ * without `uri` we report all open files that have problems; a requested file that isn't open may come back empty.
+ */
 class GetDiagnostics(private val project: Project) : IdeTool {
     override val name = "getDiagnostics"
-    override val description = "Get language diagnostics from the IDE"
+    override val description = "Get language diagnostics (errors and warnings) from the IDE"
     override val inputSchema = schema("uri" to "string")
-    override fun call(args: JsonObject) = CompletableFuture.completedFuture(Mcp.text("[]"))
+
+    override fun call(args: JsonObject): CompletableFuture<JsonObject> {
+        val uri = args.opt("uri")?.takeIf { it.isNotBlank() }
+        return onEdt {
+            val files: List<VirtualFile> = if (uri != null) {
+                listOfNotNull(LocalFileSystem.getInstance().findFileByNioFile(Path.of(CliPaths.fromFileUrl(uri))))
+            } else {
+                FileEditorManager.getInstance(project).openFiles.filter { it.isInLocalFileSystem }
+            }
+            val result = files.mapNotNull { vf ->
+                val doc = FileDocumentManager.getInstance().getDocument(vf) ?: return@mapNotNull null
+                val diagnostics = collect(doc)
+                if (diagnostics.isEmpty() && uri == null) null
+                else DiagnosticsJson.FileDiagnostics(CliPaths.fileUrl(CliPaths.forCli(vf.path)), diagnostics)
+            }
+            BridgeLog.log(
+                "getDiagnostics (${if (uri != null) "one file" else "open files"}): " +
+                    "${result.size} file(s), ${result.sumOf { it.diagnostics.size }} item(s)",
+            )
+            Mcp.text(DiagnosticsJson.toJson(result))
+        }
+    }
+
+    private fun collect(doc: Document): List<DiagnosticsJson.Diagnostic> {
+        val out = LinkedHashSet<DiagnosticsJson.Diagnostic>() // the same problem can be reported twice
+        DaemonCodeAnalyzerEx.processHighlights(doc, project, HighlightSeverity.WEAK_WARNING, 0, doc.textLength) { info ->
+            val message = info.description
+            if (!message.isNullOrBlank()) {
+                val s = info.startOffset.coerceIn(0, doc.textLength)
+                val e = info.endOffset.coerceIn(s, doc.textLength)
+                val sl = doc.getLineNumber(s)
+                val el = doc.getLineNumber(e)
+                out += DiagnosticsJson.Diagnostic(
+                    message = message,
+                    severity = severityName(info.severity),
+                    startLine = sl, startChar = s - doc.getLineStartOffset(sl),
+                    endLine = el, endChar = e - doc.getLineStartOffset(el),
+                    source = info.inspectionToolId ?: "RustRover",
+                )
+            }
+            true
+        }
+        return out.toList()
+    }
+
+    private fun severityName(s: HighlightSeverity) = when {
+        s >= HighlightSeverity.ERROR -> "Error"
+        s >= HighlightSeverity.WARNING -> "Warning"
+        else -> "Information"
+    }
 }

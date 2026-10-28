@@ -10,6 +10,17 @@ object CliPaths {
     fun forCli(path: String, windows: Boolean = isWindows): String =
         if (windows) path.replace('/', '\\') else path
 
+    /**
+     * What the CLI may send as a file: "file:///c%3A/Users/a/b.rs", "file:///C:/Users/a/b.rs" or a plain path.
+     * Returns a path in CLI form ("C:\Users\a\b.rs" on Windows).
+     */
+    fun fromFileUrl(uriOrPath: String, windows: Boolean = isWindows): String {
+        if (!uriOrPath.startsWith("file:")) return forCli(uriOrPath, windows)
+        var p = java.net.URI(uriOrPath.replace(" ", "%20")).path // decodes %3A, %20
+        if (windows && Regex("^/[A-Za-z]:.*").matches(p)) p = p.substring(1)
+        return forCli(p, windows)
+    }
+
     /** file URL like VS Code sends: file:///C:/Users/a/b.rs (spaces encoded). */
     fun fileUrl(path: String): String {
         val p = path.replace('\\', '/').replace(" ", "%20")

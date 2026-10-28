@@ -69,7 +69,9 @@ class McpDispatcher(
         val msg = runCatching { JsonParser.parseString(raw).asJsonObject }.getOrNull() ?: return
         val id = msg.get("id")                       // null => notification, never reply
         val method = msg.get("method")?.asString ?: return // a response from the client: ignore
-        BridgeLog.log("<- $method id=$id")
+        // Tool name only, never arguments (they can hold source code).
+        val tool = if (method == "tools/call") msg.getAsJsonObject("params")?.get("name")?.asString else null
+        BridgeLog.log("<- $method id=$id" + if (tool != null) " tool=$tool" else "")
 
         when (method) {
             "initialize" -> reply(result(id, initializeResult()))
