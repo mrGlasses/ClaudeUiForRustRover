@@ -41,6 +41,12 @@
       <keyboard-shortcut keymap="$default" first-keystroke="alt shift K"/>
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
+    <!-- Phase 6 developer spike; removed when the chat panel lands. -->
+    <action id="dev.metaclaude.StreamSpike" class="dev.metaclaude.spike.StreamSpikeAction"
+            text="Claude UI: Run Stream Spike (Dev)"
+            description="Drive claude in stream-json mode and record the protocol to ~/.claude-meta/spike-*.log">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+    </action>
     <action id="dev.metaclaude.SendAtMention" class="dev.metaclaude.SendAtMentionAction"
             text="Send Selection to Claude"
             description="Insert an @-mention of the selected lines into the connected Claude session">

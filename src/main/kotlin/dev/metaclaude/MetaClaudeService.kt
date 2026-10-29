@@ -140,6 +140,9 @@ class MetaClaudeService(private val project: Project) : Disposable {
         return bridge?.port
     }
 
+    /** Live CLI connections to our bridge (stream spike, health checks). */
+    fun bridgeConnectionCount(): Int = bridge?.server?.connections?.size ?: 0
+
     /** Alt+K: puts @file#start-end into the connected session's prompt. False if no CLI is connected. */
     fun sendAtMention(filePath: String, lineStart: Int, lineEnd: Int): Boolean {
         val server = bridge?.server ?: return false
