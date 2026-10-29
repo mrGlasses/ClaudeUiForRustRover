@@ -6,6 +6,7 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.options.ShowSettingsUtil
@@ -14,12 +15,14 @@ import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.util.concurrency.AppExecutorUtil
 import dev.metaclaude.cli.ClaudeCli
+import dev.metaclaude.cli.SessionCommand
 import dev.metaclaude.compat.IntegrationMode
 import dev.metaclaude.compat.OfficialPluginDetector
 import dev.metaclaude.protocol.*
 import dev.metaclaude.settings.ClaudeUiConfigurable
 import dev.metaclaude.settings.ClaudeUiSettings
 import dev.metaclaude.tools.*
+import org.jetbrains.plugins.terminal.TerminalProjectOptionsProvider
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
@@ -43,24 +46,35 @@ class MetaClaudeService(private val project: Project) : Disposable {
 
     private fun effectiveMode() = OfficialPluginDetector.effective(ClaudeUiSettings.instance.integrationMode)
 
-    /** New Claude Session: a "Claude" tab in the Terminal tool window, already connected to our bridge. EDT. */
+    /**
+     * New Claude Session: a "Claude" tab in the Terminal tool window, already connected to our bridge. Any thread.
+     * The preparation runs in the background: the shell lookup may block (forbidden on the EDT, v0.10.0 error),
+     * and starting the bridge can take up to 5 s. Only opening the tab happens on the EDT.
+     */
     fun startSession(forced: IntegrationMode? = null) {
-        val root = Path.of(requireNotNull(project.basePath)).toRealPath()
-        val effective = forced ?: effectiveMode()
-        val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)
-        if (exe == null) {
-            notify(
-                "Claude CLI not found",
-                "Install Claude Code, or set its path in Settings > Tools > Claude UI.",
-                NotificationAction.createSimple("Open settings") {
-                    ShowSettingsUtil.getInstance().showSettingsDialog(project, ClaudeUiConfigurable::class.java)
-                },
-            )
-            return
+        val app = ApplicationManager.getApplication()
+        app.executeOnPooledThread {
+            val root = Path.of(project.basePath ?: return@executeOnPooledThread).toRealPath()
+            val effective = forced ?: effectiveMode()
+            val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)
+            if (exe == null) {
+                notify(
+                    "Claude CLI not found",
+                    "Install Claude Code, or set its path in Settings > Tools > Claude UI.",
+                    NotificationAction.createSimple("Open settings") {
+                        ShowSettingsUtil.getInstance().showSettingsDialog(project, ClaudeUiConfigurable::class.java)
+                    },
+                )
+                return@executeOnPooledThread
+            }
+            if (effective == IntegrationMode.BUILTIN) ensureBridge(root) // before the tab opens: the terminal customizer needs the port
+            val shell = TerminalProjectOptionsProvider.getInstance(project).shellPath
+            val command = SessionCommand.build(exe, ClaudeCli.isOnPath(exe), shell, CliPaths.isWindows)
+            app.invokeLater({
+                ClaudeTerminal.open(project, root, command)
+                scheduleHealthCheck(effective, root)
+            }, project.disposed)
         }
-        if (effective == IntegrationMode.BUILTIN) ensureBridge(root) // before the tab opens: the terminal customizer needs the port
-        ClaudeTerminal.open(project, root, exe, ClaudeCli.isOnPath(exe))
-        scheduleHealthCheck(effective, root)
     }
 
     /** Called at project open and when settings change. In OFFICIAL mode we deliberately stay out of the way. */

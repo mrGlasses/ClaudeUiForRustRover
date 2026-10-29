@@ -15,7 +15,7 @@ Everything below is **not started** unless marked otherwise.
 | 3 Diagnostics | ☑ Done (v0.8.0): Claude got the same error RustRover underlined, on the right line (tested 2026-10-28) |
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
-| 5 Terminal mode | **Code written (v0.10.0), waiting for CI + your install test** |
+| 5 Terminal mode | **v0.10.0 tested: Claude tab, second session and Alt+Shift+K work. v0.10.1 fixes an error on the first open; waiting for retest** |
 | 6–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -152,6 +152,8 @@ Done in v0.10.0 (`ClaudeTerminal.kt`, `cli/SessionCommand.kt`):
 - **Alt+Shift+K** toggles focus editor ↔ newest Claude tab (opens a session if none). VS Code's Ctrl+Esc can't be used on Windows:
   the OS opens the Start menu.
 - Missing CLI → notification with "Open settings". Health check now looks at live connections.
+- v0.10.1: the first New Claude Session logged "This method is forbidden on EDT": asking the terminal for its shell may block
+  the first time. Preparation (CLI lookup, bridge start, shell lookup) now runs on a background thread; only the tab opens on the EDT.
 - The hidden PTY launch is gone. `environmentVariables` / `claudeProcessWrapper` move to Phase 6, where the plugin starts the
   process itself (in a shared terminal they would leak into every terminal tab).
 

@@ -8,9 +8,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.content.Content
-import dev.metaclaude.cli.SessionCommand
-import dev.metaclaude.protocol.CliPaths
-import org.jetbrains.plugins.terminal.TerminalProjectOptionsProvider
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 import java.nio.file.Path
 
@@ -22,9 +19,8 @@ object ClaudeTerminal {
     const val TOOL_WINDOW_ID = "Terminal"
     private const val TAB_NAME = "Claude"
 
-    fun open(project: Project, root: Path, exe: String, onPath: Boolean) {
-        val shell = TerminalProjectOptionsProvider.getInstance(project).shellPath
-        val command = SessionCommand.build(exe, onPath, shell, CliPaths.isWindows)
+    /** EDT. [command] comes from SessionCommand, built off the EDT (the shell lookup may block). */
+    fun open(project: Project, root: Path, command: String) {
         val widget = TerminalToolWindowManager.getInstance(project)
             .createShellWidget(root.toString(), TAB_NAME, true, true)
         widget.sendCommandToExecute(command)

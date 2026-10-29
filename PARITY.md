@@ -25,7 +25,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Panel in secondary sidebar / primary sidebar / editor tab, draggable | Tool window (right/left/bottom, draggable) or editor tab | UI | ☐ |
 | `preferredLocation` setting | Same setting | UI | ☐ |
 | `lockEditorGroups` | Adapt: open files outside the Claude editor split | Adapt | ☐ |
-| Terminal mode (`useTerminal`) and "Open in Terminal" | Terminal tool window running `claude` | UI | ◐ v0.10.0: "Claude" tab in the Terminal tool window (pending test) |
+| Terminal mode (`useTerminal`) and "Open in Terminal" | Terminal tool window running `claude` | UI | ☑ v0.10.0: "Claude" tab in the Terminal tool window (tested) |
 | Sign-in screen, "Not logged in" handling | Detect from stream, show sign-in button that runs `/login` | Stream/CLI | ☐ |
 | Onboarding checklist, "Open Walkthrough", `hideOnboarding` | Getting-started page in the tool window | UI | ☐ |
 
@@ -167,7 +167,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Command | VS Code key (Win/Linux) | Plan | Status |
 |---|---|---|---|
-| Focus Input (toggle editor ↔ Claude) | Ctrl+Esc | **Alt+Shift+K** (Ctrl+Esc opens the Windows Start menu) | ◐ v0.10.0 (pending test) |
+| Focus Input (toggle editor ↔ Claude) | Ctrl+Esc | **Alt+Shift+K** (Ctrl+Esc opens the Windows Start menu) | ☑ v0.10.0 (tested) |
 | Open in New Tab | Ctrl+Shift+Esc | Pick another key: Windows reserves Ctrl+Shift+Esc for Task Manager | ☐ |
 | New Conversation (`enableNewConversationShortcut`) | Ctrl+N | Only when Claude has focus: Ctrl+N is "Go to Class" in JetBrains | ☐ |
 | Reopen Closed Session (`enableReopenClosedSessionShortcut`) | Ctrl+Shift+T | Only when Claude has focus: Ctrl+Shift+T is "Go to Test" in JetBrains | ☐ |
