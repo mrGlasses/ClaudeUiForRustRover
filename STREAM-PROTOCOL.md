@@ -50,12 +50,18 @@ Deny (from SDK docs, not yet exercised): `"response":{"behavior":"deny","message
 - Closing stdin after an interrupted turn exited with code 1; after a normal turn, code 0.
 - No stderr output in a normal run.
 
-## Open (spike v2)
+## Spike v2 (2026-10-30, RustRover 2026.2.4 build RR-262.10968.211)
 
-- IDE tools in panel sessions: does `--ide` attach `-p` to our bridge? Otherwise hand the CLI our own MCP server (`--mcp-config`).
-- `mcp_servers` in `system/init` (truncated in the first log).
-- JCEF: `JBCefApp` was not loadable from our plugin (`NoClassDefFoundError`). Since IDE 2026.2 JCEF is a separate bundled plugin
-  (`com.intellij.modules.jcef`) that must be declared as a dependency.
+- **`--ide` does not attach `-p` sessions either** (0 bridge connections, before and after a turn). Conclusion: the IDE bridge is
+  for interactive terminal sessions only. Panel sessions must get IDE tools another way: hand the CLI our own MCP server with
+  `--mcp-config` (what VS Code's panel does with its `claude-vscode` server). Spike v3 checks this with a small loopback HTTP MCP server.
+- `system/init` keys: `type, subtype, cwd, session_id, tools, mcp_servers, model, permissionMode, slash_commands,
+  terminal_slash_commands, apiKeySource, claude_code_version, output_style, agents, skills, plugins, capabilities,
+  analytics_disabled, product_feedback_disabled, uuid, memory_paths, original_cwd, additional_directories, messaging_socket_path,
+  fast_mode_state, fast_mode_disabled_reason, per_turn_effort_active, view_mode, powershell_path`.
+- `mcp_servers` entries are `{name, status}`; seen: `rustrover:connected` (the user's own RustRover MCP server, configured in
+  Claude Code), `claude.ai Claude Docs:connected`, `claude.ai Google Drive:needs-auth`. The panel's MCP dialog can list these.
+- **JCEF works** once `com.intellij.modules.jcef` is declared (optional dependency): `JBCefApp.isSupported() == true`.
 
 ## Sources
 

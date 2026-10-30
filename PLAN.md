@@ -16,7 +16,7 @@ Everything below is **not started** unless marked otherwise.
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
-| 6 Spikes | **Spike v1 run: 6.1, 6.2, 6.4 pass, panel is feasible (STREAM-PROTOCOL.md). v0.11.1 = spike v2 for `--ide`, MCP servers, JCEF; waiting for your run** |
+| 6 Spikes | **6.1, 6.2, 6.4, 6.5 pass: the panel is feasible. 6.3 (IDE tools in panel sessions) needs our own MCP server: spike v3 next. UI stack decision pending** |
 | 7–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -187,6 +187,10 @@ Spike v1 result (2026-10-30, CLI 2.1.312): **6.1 pass** (multi-turn in one proce
 **6.4 pass** (`set_permission_mode`, `interrupt` work mid-session), `--resume` in a new process works.
 **6.3 open**: the bridge env vars don't attach `-p` sessions (0 connections). **6.5 open**: `JBCefApp` not loadable
 (IDE 2026.2 moved JCEF into a bundled plugin; v0.11.1 declares it as an optional dependency). Details: `STREAM-PROTOCOL.md`.
+
+Spike v2 result (2026-10-30, RustRover 2026.2.4): **6.5 pass** (JCEF available with the optional dependency).
+`--ide` doesn't attach `-p` sessions either, so **6.3 → plan B**: a loopback HTTP MCP server of ours passed with `--mcp-config`
+(spike v3). The user's RustRover is **2026.2** while we compile against 2025.2: move the build target to 2026.2 before the panel work.
 If 6.1 or 6.2 fails, the panel waits, and terminal mode (Phase 5) remains the product.
 
 ### Phase 7 — Chat core (PARITY §B, §E)
