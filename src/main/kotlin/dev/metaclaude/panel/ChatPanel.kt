@@ -15,15 +15,20 @@ import dev.metaclaude.PluginInfo
 import dev.metaclaude.protocol.BridgeLog
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
+import org.cef.handler.CefDisplayHandlerAdapter
 import org.cef.handler.CefLoadHandler
 import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.handler.CefRequestHandlerAdapter
 import org.cef.network.CefRequest
+import com.intellij.util.concurrency.AppExecutorUtil
+import dev.metaclaude.cli.ClaudeCli
+import dev.metaclaude.settings.ClaudeUiSettings
 import java.awt.Color
+import java.awt.Cursor
+import java.nio.file.Path
+import javax.swing.SwingUtilities
 import java.net.URI
 import java.security.SecureRandom
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 import java.util.Base64
 import javax.swing.JComponent
 
@@ -39,6 +44,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         .build()
     private val toKotlin: JBCefJSQuery = JBCefJSQuery.create(browser)
     @Volatile private var pageLoaded = false
+    @Volatile private var session: ChatSession? = null
 
     val component: JComponent get() = browser.component
 
@@ -58,6 +64,15 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 cefBrowser: CefBrowser, frame: CefFrame, errorCode: CefLoadHandler.ErrorCode, errorText: String, failedUrl: String,
             ) {
                 BridgeLog.log("panel load error: $errorCode $errorText", project.name)
+            }
+        }, browser.cefBrowser)
+
+        // Hand cursor over links (6.6 test): JCEF applies cursor changes to an inner component only; mirror them on
+        // the visible one. Returning false keeps JCEF's own handling too.
+        browser.jbCefClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
+            override fun onCursorChange(cefBrowser: CefBrowser, cursorType: Int): Boolean {
+                SwingUtilities.invokeLater { browser.component.cursor = Cursor.getPredefinedCursor(cursorType.coerceIn(0, 13)) }
+                return false
             }
         }, browser.cefBrowser)
 
@@ -85,16 +100,54 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 addProperty("version", PluginInfo.version)
                 addProperty("ideBuild", ApplicationInfo.getInstance().build.asString())
             })
-            "ping" -> send(JsonObject().apply {
-                addProperty("type", "pong")
-                addProperty("at", LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")))
-            })
+            "send" -> {
+                val text = msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+                if (text.isNullOrEmpty() || text.length > MAX_PROMPT) {
+                    BridgeLog.log("panel: refused send (empty or over $MAX_PROMPT chars)", project.name)
+                } else {
+                    AppExecutorUtil.getAppExecutorService().execute { sessionOrStart()?.send(text) }
+                }
+            }
+            "interrupt" -> session?.interrupt()
+            "newSession" -> {
+                session?.let { Disposer.dispose(it) }
+                session = null
+                send(JsonObject().apply { addProperty("type", "sessionReset") })
+            }
             "openLink" -> {
                 val url = msg.get("url")?.takeIf { it.isJsonPrimitive }?.asString
                 if (url != null && isSafeExternalUrl(url)) BrowserUtil.browse(url)
                 else BridgeLog.log("panel: refused openLink (not an http/https URL)", project.name)
             }
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
+        }
+    }
+
+    /** Starts the claude process on first use. Background thread. */
+    @Synchronized
+    private fun sessionOrStart(): ChatSession? {
+        session?.let { return it }
+        val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)
+        val root = project.basePath?.let { Path.of(it) }
+        if (exe == null || root == null) {
+            send(JsonObject().apply {
+                addProperty("type", "error")
+                addProperty("message", "Claude CLI not found. Set its path in Settings > Tools > Claude UI.")
+            })
+            return null
+        }
+        return try {
+            ChatSession(project, exe, root.toRealPath(), this, onPanelMessage = { send(it) }, onExit = { code ->
+                session = null
+                send(JsonObject().apply {
+                    addProperty("type", "error")
+                    addProperty("message", "Claude stopped (exit code $code). Your next message starts a new session.")
+                })
+            }).also { session = it }
+        } catch (e: Exception) {
+            BridgeLog.log("panel: session start failed: ${e::class.java.name}: ${e.message}", project.name)
+            send(JsonObject().apply { addProperty("type", "error"); addProperty("message", "Could not start Claude: ${e.message}") })
+            null
         }
     }
 
@@ -135,6 +188,8 @@ ${themeCss()}</style></head><body><div id="app"></div>
     override fun dispose() = Unit
 
     companion object {
+        private const val MAX_PROMPT = 100_000
+
         fun isSafeExternalUrl(url: String): Boolean {
             if (url.length > 2048) return false
             val uri = runCatching { URI(url) }.getOrNull() ?: return false

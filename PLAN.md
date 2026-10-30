@@ -17,7 +17,7 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | Next. First item: hand cursor over links (tested: JCEF shows the default arrow) |
+| 7 Chat core | **7a written (v0.14.0): real conversation in the panel; waiting for CI + your test** |
 | 8–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -216,6 +216,14 @@ If 6.1 or 6.2 fails, the panel waits, and terminal mode (Phase 5) remains the pr
 ### Phase 7 — Chat core (PARITY §B, §E)
 Carry-over from the 6.6 test: links don't show the hand cursor in JCEF (the `<a>` already asks for it, so the cursor change
 probably isn't forwarded by the embedded browser; check CefDisplayHandler.onCursorChange / rendering mode before touching CSS).
+
+7a (v0.14.0): `panel/ChatSession.kt` runs one `claude -p` stream-json process per conversation (started on the first message) with
+our HTTP MCP server (`getDiagnostics`); `protocol/StreamEvents.kt` turns CLI events into the panel's message set (unit-tested with
+spike-shaped lines). The panel: prompt box (Enter / Shift+Enter), streamed sanitized Markdown, tool cards with result preview,
+Stop button and Esc (interrupt), New session, cost and duration per turn. **Permission requests are denied** with a notice until
+the Phase 8 cards. Cursor: a display handler mirrors JCEF cursor changes on the visible component. Simulated in Chromium under the
+panel CSP before pushing (rendering, keys, injected HTML stays text, no network).
+Not yet (rest of Phase 7): thinking blocks, to-do list, queued messages, Focus view, timestamps, copy, `/` menu, LaTeX, sign-in screen.
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,
 LaTeX math, files Claude sends, sign-in screen, the `/` command menu.

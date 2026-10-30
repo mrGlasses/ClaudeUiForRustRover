@@ -1,38 +1,107 @@
-// Phase 6.6 preview: proves the pipeline (build in CI → bundled → loaded in JCEF under CSP) and the security rules.
-// The real chat UI replaces this in Phase 7.
-import { onMessage, post } from "./bridge";
+// Phase 7a chat panel: send prompts, stream Claude's answer as sanitized Markdown, show tool calls, stop a turn.
+// Text from Claude goes through renderMarkdown (sanitized); everything else uses textContent.
+import { onMessage, post, type FromKotlin } from "./bridge";
 import { renderMarkdown } from "./markdown";
-
-const SAMPLE = [
-  "## Claude UI panel preview",
-  "",
-  "If you can read this, the web panel **built in CI**, was **bundled** into the plugin and **loaded** in RustRover.",
-  "",
-  "Security checks (nothing below should run or navigate):",
-  "",
-  "- Raw HTML in Markdown is shown as text: <img src=x onerror=\"document.title='PWNED'\"> <script>alert(1)</script>",
-  "- A `javascript:` link is removed: [click me](javascript:alert(1))",
-  "- A normal link opens in your system browser, not here: [anthropic.com](https://www.anthropic.com)",
-  "",
-  "```rust",
-  "fn main() { println!(\"code blocks render\"); }",
-  "```",
-].join("\n");
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text; // textContent, never innerHTML, for anything not from renderMarkdown
+  if (text !== undefined) e.textContent = text;
   return e;
 }
 
+// ---------- layout ----------
 const root = document.getElementById("app")!;
-const status = el("div", "status", "Waiting for the plugin…");
-const body = el("div", "markdown");
-body.innerHTML = renderMarkdown(SAMPLE); // sanitized
-const pingButton = el("button", "ping", "Ping the plugin");
-pingButton.addEventListener("click", () => post({ type: "ping" }));
-root.append(status, body, pingButton);
+const header = el("div", "header");
+const status = el("span", "status", "Starting…");
+const newButton = el("button", "link-button", "New session");
+header.append(status, newButton);
+
+const transcript = el("div", "transcript");
+const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops.");
+transcript.append(empty);
+
+const composer = el("div", "composer");
+const input = el("textarea", "input");
+input.rows = 3;
+input.placeholder = "Message Claude…";
+const sendButton = el("button", "send", "Send");
+composer.append(input, sendButton);
+root.append(header, transcript, composer);
+
+// ---------- state ----------
+let busy = false;
+let model = "";
+const textBlocks = new Map<string, { el: HTMLDivElement; text: string }>();
+const toolCards = new Map<string, HTMLDivElement>();
+let renderQueued = new Set<string>();
+
+function setBusy(b: boolean): void {
+  busy = b;
+  sendButton.textContent = b ? "Stop" : "Send";
+  sendButton.classList.toggle("stop", b);
+  status.textContent = b ? `Working${model ? ` · ${model}` : ""}…` : model ? `Ready · ${model}` : "Ready";
+}
+
+function nearBottom(): boolean {
+  return transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 60;
+}
+
+function append(node: HTMLElement, forceScroll = false): void {
+  const stick = forceScroll || nearBottom();
+  empty.remove();
+  transcript.append(node);
+  if (stick) transcript.scrollTop = transcript.scrollHeight;
+}
+
+/** Markdown is re-rendered at most once per frame per block while it streams. */
+function renderBlock(key: string): void {
+  if (renderQueued.has(key)) return;
+  renderQueued.add(key);
+  requestAnimationFrame(() => {
+    renderQueued.delete(key);
+    const b = textBlocks.get(key);
+    if (!b) return;
+    const stick = nearBottom();
+    b.el.innerHTML = renderMarkdown(b.text); // sanitized
+    if (stick) transcript.scrollTop = transcript.scrollHeight;
+  });
+}
+
+function textBlock(key: string): { el: HTMLDivElement; text: string } {
+  let b = textBlocks.get(key);
+  if (!b) {
+    b = { el: el("div", "msg assistant markdown"), text: "" };
+    textBlocks.set(key, b);
+    append(b.el);
+  }
+  return b;
+}
+
+// ---------- sending ----------
+function sendPrompt(): void {
+  const text = input.value.trim();
+  if (!text || busy) return;
+  append(el("div", "msg user", text), true);
+  input.value = "";
+  setBusy(true);
+  post({ type: "send", text });
+}
+
+sendButton.addEventListener("click", () => (busy ? post({ type: "interrupt" }) : sendPrompt()));
+input.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
+    ev.preventDefault();
+    sendPrompt();
+  }
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && busy) {
+    ev.preventDefault();
+    post({ type: "interrupt" });
+  }
+});
+newButton.addEventListener("click", () => post({ type: "newSession" }));
 
 // Every link click goes to Kotlin (panel rule 3); the panel itself never navigates.
 document.addEventListener("click", (ev) => {
@@ -43,18 +112,77 @@ document.addEventListener("click", (ev) => {
   if (/^https?:/i.test(href)) post({ type: "openLink", url: href });
 });
 
-onMessage((msg) => {
+// ---------- receiving ----------
+function handle(msg: FromKotlin): void {
   switch (msg.type) {
     case "hello":
-      status.textContent = `Connected to Claude UI ${msg.version} (IDE ${msg.ideBuild}).`;
+      status.textContent = "Ready";
       break;
-    case "pong":
-      status.textContent = `Plugin answered at ${msg.at}.`;
+    case "sessionInfo":
+      model = msg.model;
+      setBusy(busy);
+      break;
+    case "busy":
+      setBusy(true);
+      break;
+    case "textDelta": {
+      const b = textBlock(msg.key);
+      b.text += msg.text;
+      renderBlock(msg.key);
+      break;
+    }
+    case "textFinal": {
+      const b = textBlock(msg.key);
+      b.text = msg.text;
+      renderBlock(msg.key);
+      break;
+    }
+    case "toolUse": {
+      const card = el("div", "tool");
+      card.append(el("span", "tool-name", msg.name), el("span", "tool-summary", msg.summary), el("span", "tool-state", "…"));
+      toolCards.set(msg.id, card);
+      append(card);
+      break;
+    }
+    case "toolResult": {
+      const card = toolCards.get(msg.toolUseId);
+      if (!card) break;
+      card.classList.add(msg.isError ? "error" : "done");
+      card.querySelector(".tool-state")!.textContent = msg.isError ? "✗" : "✓";
+      if (msg.preview) {
+        const details = el("details", "tool-output");
+        details.append(el("summary", undefined, msg.isError ? "Error" : "Output"), el("pre", undefined, msg.preview));
+        card.append(details);
+      }
+      break;
+    }
+    case "notice":
+      append(el("div", "notice", msg.text));
+      break;
+    case "turnEnd": {
+      const parts: string[] = [];
+      if (msg.durationMs) parts.push(`${(msg.durationMs / 1000).toFixed(1)} s`);
+      if (msg.costUsd) parts.push(`$${msg.costUsd.toFixed(4)}`);
+      if (msg.isError) parts.push("ended with an error");
+      if (parts.length) append(el("div", "meta", parts.join(" · ")));
+      setBusy(false);
+      break;
+    }
+    case "sessionReset":
+      textBlocks.clear();
+      toolCards.clear();
+      transcript.replaceChildren(empty);
+      model = "";
+      setBusy(false);
+      input.focus();
       break;
     case "error":
-      status.textContent = `Error: ${msg.message}`;
+      append(el("div", "notice error", msg.message));
+      setBusy(false);
       break;
   }
-});
+}
 
+onMessage(handle);
 post({ type: "ready" });
+input.focus();

@@ -25,6 +25,6 @@ class ChatToolWindowFactory : ToolWindowFactory, DumbAware {
             BridgeLog.log("panel failed to open: ${e::class.java.name}: ${e.message}", project.name)
             JBLabel("The chat panel failed to open: ${e.message}", SwingConstants.CENTER)
         }
-        toolWindow.contentManager.addContent(factory.createContent(component, "Preview", false))
+        toolWindow.contentManager.addContent(factory.createContent(component, "", false))
     }
 }

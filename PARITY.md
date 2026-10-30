@@ -33,7 +33,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Phase | Status |
 |---|---|---|---|
-| Multi-line input (Shift+Enter), `useCtrlEnterToSend` | UI | 7 | ☐ |
+| Multi-line input (Shift+Enter), `useCtrlEnterToSend` | UI | 7 | ◐ Shift+Enter v0.14.0 |
 | Queued messages while Claude works ("Message queued") | Stream | 7 | ☐ |
 | Paste text stays visible; invisible-character notices | UI/CLI | 7 | ☐ |
 | `/` command menu with inline suggestions | Stream/CLI | 7 | ☐ |
@@ -81,8 +81,8 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Streaming Markdown responses, code blocks | Stream + UI | ☐ |
-| Tool-call rows with results; live subagent progress rows | Stream + UI | ☐ |
+| Streaming Markdown responses, code blocks | Stream + UI | ◐ v0.14.0 (pending test) |
+| Tool-call rows with results; live subagent progress rows | Stream + UI | ◐ tool cards v0.14.0; subagents later |
 | Thinking blocks collapsed, Ctrl+O expands or collapses all | Stream + UI | ☐ |
 | Latest to-do list stays visible | Stream + UI | ☐ |
 | Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ☐ |
@@ -93,7 +93,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Copy response (hover button), `/copy`, `/copy 2` | UI | ☐ |
 | Bookmarks (bookmark response, Bookmarks panel, `/bookmarks`) | UI/CLI | ☐ |
 | Files Claude sends ("Sent report.md …", click to open; network paths not linked) | Stream + UI | ☐ |
-| Stop button / Esc ends the turn (background agents keep running) | Stream | ☐ |
+| Stop button / Esc ends the turn (background agents keep running) | Stream | ◐ v0.14.0 (pending test) |
 
 ## F. Sessions — Phase 10
 

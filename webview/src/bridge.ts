@@ -3,12 +3,23 @@
 
 export type ToKotlin =
   | { type: "ready" }
-  | { type: "ping" }
+  | { type: "send"; text: string }
+  | { type: "interrupt" }
+  | { type: "newSession" }
   | { type: "openLink"; url: string };
 
+/** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
   | { type: "hello"; version: string; ideBuild: string }
-  | { type: "pong"; at: string }
+  | { type: "sessionInfo"; model: string; permissionMode: string }
+  | { type: "busy" }
+  | { type: "textDelta"; key: string; text: string }
+  | { type: "textFinal"; key: string; text: string }
+  | { type: "toolUse"; id: string; name: string; summary: string }
+  | { type: "toolResult"; toolUseId: string; isError: boolean; preview: string }
+  | { type: "notice"; text: string }
+  | { type: "turnEnd"; stopReason: string; costUsd?: number; durationMs?: number; isError: boolean }
+  | { type: "sessionReset" }
   | { type: "error"; message: string };
 
 declare global {
