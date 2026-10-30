@@ -1,13 +1,13 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.1.0"
-    id("org.jetbrains.intellij.platform") version "2.5.0"
+    id("org.jetbrains.kotlin.jvm") version "2.4.21" // reads the Kotlin 2.4 stdlib bundled with 2026.2
+    id("org.jetbrains.intellij.platform") version "2.19.0" // needs Gradle 9+
 }
 
 group = "io.github.mrglasses"
 // Bump on every pushed change: the bridge logs it first, so you can tell which build is installed.
-version = "0.11.2"
+version = "0.12.0"
 
 repositories {
     mavenCentral()
@@ -15,14 +15,16 @@ repositories {
 }
 
 // Pass your installed RustRover to compile against it instead of downloading an SDK:
-//   ./gradlew buildPlugin -PrustroverPath="C:\Program Files\JetBrains\RustRover 2025.2"
+//   ./gradlew buildPlugin -PrustroverPath="C:\Program Files\JetBrains\RustRover 2026.2"
 val rustroverPath: String? = providers.gradleProperty("rustroverPath").orNull
 
 dependencies {
     intellijPlatform {
-        if (rustroverPath != null) local(rustroverPath) else create("RR", "2025.2") // "RR" = RustRover
+        // "RR" = RustRover. Matches the user's IDE (2026.2.4, build 262): needs Java 25 to build.
+        if (rustroverPath != null) local(rustroverPath) else create("RR", "2026.2.4")
         // Gson and pty4j come from the platform.
-        bundledPlugin("org.jetbrains.plugins.terminal") // only if you reuse the IDE terminal widget
+        bundledPlugin("org.jetbrains.plugins.terminal") // terminal tabs and the env customizer
+        bundledPlugin("com.intellij.modules.jcef") // since 2026.2 JCEF is a bundled plugin, not core (chat panel)
     }
     // Small standalone WS server, no Netty clash with the platform.
     implementation("org.java-websocket:Java-WebSocket:1.5.7")
@@ -47,5 +49,5 @@ tasks.test {
     }
 }
 
-// No jvmToolchain(): it would force a full JDK 21 (or a download). The build uses whichever JVM runs Gradle,
-// e.g. the one bundled with RustRover (see BUILD.md) or the one in CI.
+// No jvmToolchain(): the build uses whichever JVM runs Gradle. IntelliJ Platform 2026.2 needs Java 25:
+// CI sets up Temurin 25; locally, RustRover 2026.2's bundled JBR is Java 25 too (see BUILD.md).

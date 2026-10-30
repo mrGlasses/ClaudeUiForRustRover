@@ -191,6 +191,9 @@ Spike v1 result (2026-10-30, CLI 2.1.312): **6.1 pass** (multi-turn in one proce
 Spike v2 result (2026-10-30, RustRover 2026.2.4): **6.5 pass** (JCEF available with the optional dependency).
 `--ide` doesn't attach `-p` sessions either, so **6.3 → plan B**: a loopback HTTP MCP server of ours passed with `--mcp-config`
 (spike v3). The user's RustRover is **2026.2** while we compile against 2025.2: move the build target to 2026.2 before the panel work.
+v0.12.0: build target moved to **RustRover 2026.2.4** (the user's IDE). That platform needs **Java 25** (CI: Temurin 25),
+Kotlin **2.4.21** (reads the bundled 2.4.0 stdlib), IntelliJ Platform Gradle Plugin **2.19.0** (needs **Gradle 9**: wrapper 9.8.2),
+and JCEF as `bundledPlugin("com.intellij.modules.jcef")`. The plugin now installs on 2026.2 (build 262) and later only.
 If 6.1 or 6.2 fails, the panel waits, and terminal mode (Phase 5) remains the product.
 
 ### Phase 7 — Chat core (PARITY §B, §E)

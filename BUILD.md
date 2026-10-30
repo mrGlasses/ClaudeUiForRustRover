@@ -17,8 +17,8 @@ and compile against the same install:
 
 ```
 # Windows (PowerShell)
-$env:JAVA_HOME = "C:\Program Files\JetBrains\RustRover 2025.2\jbr"
-.\gradlew.bat buildPlugin -PrustroverPath="C:\Program Files\JetBrains\RustRover 2025.2"
+$env:JAVA_HOME = "C:\Program Files\JetBrains\RustRover 2026.2\jbr"
+.\gradlew.bat buildPlugin -PrustroverPath="C:\Program Files\JetBrains\RustRover 2026.2"
 
 # macOS
 export JAVA_HOME="/Applications/RustRover.app/Contents/jbr/Contents/Home"
