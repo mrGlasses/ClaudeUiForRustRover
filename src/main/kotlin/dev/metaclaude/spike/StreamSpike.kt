@@ -69,72 +69,39 @@ private class StreamSpike(private val project: Project, private val indicator: P
         }
     }
 
+    /**
+     * Spike v2 (v0.11.1). v1 answered 6.1, 6.2 and 6.4 (see STREAM-PROTOCOL.md); this run only covers the open points:
+     *  - JCEF loads now that the optional com.intellij.modules.jcef dependency is declared
+     *  - does `--ide` attach a -p session to our bridge (IDE tools in panel sessions)
+     *  - which MCP servers system/init lists
+     * One short turn, so it costs very little.
+     */
     fun run(): Path {
-        log("INFO", "${PluginInfo.NAME} ${PluginInfo.version} stream spike")
-        log("INFO", "JCEF supported: ${runCatching { JBCefApp.isSupported() }.getOrElse { "error: ${it.message}" }}")
+        val app = com.intellij.openapi.application.ApplicationInfo.getInstance()
+        log("INFO", "${PluginInfo.NAME} ${PluginInfo.version} stream spike v2 on ${app.fullApplicationName} (build ${app.build.asString()})")
+        log("CHECK", "JCEF supported: ${runCatching { JBCefApp.isSupported() }.getOrElse { "error: ${it::class.java.simpleName}: ${it.message}" }}")
 
         val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)
         if (exe == null) { log("FAIL", "claude not found"); return logFile }
-        log("INFO", "claude: $exe / ${ClaudeCli.check(ClaudeUiSettings.instance.state.claudePath).message}")
-
         val root = Path.of(project.basePath ?: return logFile).toRealPath()
-        val tmp = Files.createTempDirectory("claude-ui-spike").toRealPath()
-        val target = tmp.resolve("spike.txt")
         val service = project.service<MetaClaudeService>()
         val port = service.bridgePortForTerminal()
-        log("INFO", "cwd=$root tempDir=$tmp bridgePort=$port connectionsBefore=${service.bridgeConnectionCount()}")
+        log("INFO", "cwd=$root bridgePort=$port connectionsBefore=${service.bridgeConnectionCount()}")
 
-        // ---- Session 1: permission, second turn, mode change, interrupt ----
-        val s1 = start(exe, root, port, resume = null) ?: return logFile
-        var sessionId: String? = null
+        step("session with --ide")
+        val s = start(exe, root, port, resume = null, extraArgs = listOf("--ide")) ?: return logFile
         try {
-            step("initialize")
-            s1.send(control("initialize", JsonObject().apply { add("hooks", null) }))
+            s.send(control("initialize", JsonObject().apply { add("hooks", null) }))
             awaitControlResponse(20)
-
-            step("turn 1: write a file (expects a can_use_tool permission request)")
-            s1.send(user(
-                "This is an automated test of an IDE plugin. Use the Write tool to create the file $target " +
-                    "containing exactly the word hello. Do not read, list or search any other files. Then reply with the single word DONE.",
-            ))
-            val r1 = awaitResult(240)
-            sessionId = r1?.get("session_id")?.asString
-            log("CHECK", "file created: ${Files.exists(target)} content='${runCatching { Files.readString(target).trim() }.getOrDefault("")}' sessionId=$sessionId")
-            log("CHECK", "IDE bridge connections during session: ${service.bridgeConnectionCount()}")
-
-            step("set_permission_mode acceptEdits")
-            s1.send(control("set_permission_mode", JsonObject().apply { addProperty("mode", "acceptEdits") }))
-            awaitControlResponse(20)
-
-            step("turn 2: same process, plain reply")
-            s1.send(user("Reply with the single word PONG and nothing else."))
+            Thread.sleep(3000)
+            log("CHECK", "IDE bridge connections 3 s after start: ${service.bridgeConnectionCount()}")
+            s.send(user("Reply with the single word PONG and nothing else."))
             awaitResult(120)
-
-            step("turn 3: interrupt a long answer")
-            s1.send(user("Count from 1 to 300, one number per line, no other text."))
-            awaitAny(60) { it.get("type")?.asString in setOf("stream_event", "assistant") }
-            s1.send(control("interrupt", JsonObject()))
-            awaitControlResponse(20)
-            awaitResult(60)
+            log("CHECK", "IDE bridge connections after one turn: ${service.bridgeConnectionCount()}")
         } finally {
-            s1.close()
+            s.close()
         }
-
-        // ---- Session 2: resume in a new process ----
-        if (sessionId != null && !indicator.isCanceled) {
-            step("resume $sessionId in a new process")
-            val s2 = start(exe, root, port, resume = sessionId)
-            if (s2 != null) try {
-                s2.send(control("initialize", JsonObject().apply { add("hooks", null) }))
-                awaitControlResponse(20)
-                s2.send(user("What is the name of the file you created earlier in this conversation? Reply with just the file name."))
-                awaitResult(120)
-            } finally {
-                s2.close()
-            }
-        }
-
-        log("DONE", "spike finished; temp dir left in place: $tmp")
+        log("DONE", "spike v2 finished")
         return logFile
     }
 
@@ -157,7 +124,7 @@ private class StreamSpike(private val project: Project, private val indicator: P
         }
     }
 
-    private fun start(exe: String, cwd: Path, port: Int?, resume: String?): Session? {
+    private fun start(exe: String, cwd: Path, port: Int?, resume: String?, extraArgs: List<String> = emptyList()): Session? {
         val cmd = mutableListOf(
             exe, "-p",
             "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
@@ -166,6 +133,7 @@ private class StreamSpike(private val project: Project, private val indicator: P
             "--permission-prompt-tool", "stdio",
         )
         if (resume != null) cmd += listOf("--resume", resume)
+        cmd += extraArgs
         log("INFO", "start: ${cmd.joinToString(" ")}")
         val pb = ProcessBuilder(cmd).directory(cwd.toFile())
         if (port != null) {
@@ -182,6 +150,7 @@ private class StreamSpike(private val project: Project, private val indicator: P
                 val obj = runCatching { JsonParser.parseString(line).asJsonObject }.getOrNull()
                 if (obj?.get("type")?.asString == "stream_event") log("OUT", compactStreamEvent(obj)) else log("OUT", line)
                 if (obj != null) {
+                    if (obj.get("type")?.asString == "system" && obj.get("subtype")?.asString == "init") logInit(obj)
                     if (obj.get("type")?.asString == "control_request") answerControlRequest(session, obj)
                     events.put(obj)
                 }
@@ -212,6 +181,16 @@ private class StreamSpike(private val project: Project, private val indicator: P
                 add("response", payload)
             })
         })
+    }
+
+    /** Names and status only: the full init line is too long for the log. */
+    private fun logInit(obj: JsonObject) {
+        val servers = obj.getAsJsonArray("mcp_servers")?.joinToString { e ->
+            val o = e.asJsonObject
+            "${o.get("name")?.asString}:${o.get("status")?.asString}"
+        }
+        log("CHECK", "init: model=${obj.get("model")?.asString} permissionMode=${obj.get("permissionMode")?.asString} " +
+            "keys=${obj.keySet()} mcp_servers=[$servers]")
     }
 
     /** Partial-message events are many; keep their shape, drop long text. */

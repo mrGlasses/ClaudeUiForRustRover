@@ -101,7 +101,7 @@ class MetaClaudeService(private val project: Project) : Disposable {
     @Synchronized // startup activity, terminal customizer and the Start action can race
     private fun ensureBridge(root: Path): Bridge {
         bridge?.let { return it }
-        BridgeLog.log("${PluginInfo.NAME} ${PluginInfo.version} starting bridge", project.name)
+        BridgeLog.log("${PluginInfo.NAME} ${PluginInfo.version} starting bridge (IDE build ${com.intellij.openapi.application.ApplicationInfo.getInstance().build.asString()})", project.name)
         LockFile.sweepStale(ideName)
         LockFile.sweepStale(LEGACY_IDE_NAME) // dead lock files from builds before the rename
 

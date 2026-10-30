@@ -1,0 +1,2 @@
+<!-- Intentionally empty: only activates the optional JCEF dependency in plugin.xml. -->
+<idea-plugin/>

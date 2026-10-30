@@ -17,6 +17,8 @@
   <depends>com.intellij.modules.platform</depends>
   <!-- Bundled with RustRover: lets `claude` in IDE terminals connect without /ide. -->
   <depends>org.jetbrains.plugins.terminal</depends>
+  <!-- IDE 2026.2+ ships JCEF as a separate bundled plugin; older builds have it in the core. Optional so both load. -->
+  <depends optional="true" config-file="claude-ui-jcef.xml">com.intellij.modules.jcef</depends>
 
   <extensions defaultExtensionNs="com.intellij">
     <!-- MetaClaudeService is a light service (@Service), so it is not registered here. -->

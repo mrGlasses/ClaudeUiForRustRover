@@ -16,7 +16,7 @@ Everything below is **not started** unless marked otherwise.
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
-| 6 Spikes | **Spike tool written (v0.11.0): Tools > "Claude UI: Run Stream Spike (Dev)"; waiting for your run** |
+| 6 Spikes | **Spike v1 run: 6.1, 6.2, 6.4 pass, panel is feasible (STREAM-PROTOCOL.md). v0.11.1 = spike v2 for `--ide`, MCP servers, JCEF; waiting for your run** |
 | 7–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -181,6 +181,12 @@ JCEF support and bridge connections. `--permission-mode default` is explicit bec
 Research notes: allow replies must echo `updatedInput` on CLI 2.1; a reported bug has the CLI not sending `can_use_tool` at all.
 
 **Done when:** a throwaway panel can send a prompt, render the streamed answer, approve one permission, and stop a turn.
+
+Spike v1 result (2026-10-30, CLI 2.1.312): **6.1 pass** (multi-turn in one process, every event type documented),
+**6.2 pass** (`can_use_tool` arrives with permission suggestions; allow + `updatedInput` accepted, file written),
+**6.4 pass** (`set_permission_mode`, `interrupt` work mid-session), `--resume` in a new process works.
+**6.3 open**: the bridge env vars don't attach `-p` sessions (0 connections). **6.5 open**: `JBCefApp` not loadable
+(IDE 2026.2 moved JCEF into a bundled plugin; v0.11.1 declares it as an optional dependency). Details: `STREAM-PROTOCOL.md`.
 If 6.1 or 6.2 fails, the panel waits, and terminal mode (Phase 5) remains the product.
 
 ### Phase 7 — Chat core (PARITY §B, §E)
