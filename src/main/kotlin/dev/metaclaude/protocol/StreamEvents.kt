@@ -38,7 +38,7 @@ object StreamEvents {
             addProperty("model", e.str("model") ?: "")
             addProperty("permissionMode", e.str("permissionMode") ?: "")
         })
-        "status" -> if (e.str("status") == "requesting") listOf(msg("busy")) else emptyList()
+        "status" -> if (e.str("status") == "requesting") listOf(msg("busy") {}) else emptyList()
         else -> emptyList()
     }
 
