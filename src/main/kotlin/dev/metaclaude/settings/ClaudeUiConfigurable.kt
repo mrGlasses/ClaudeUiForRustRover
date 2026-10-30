@@ -74,7 +74,7 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
             }
             row {
                 checkBox("Show message times and date lines").bindSelected(settings.state::showMessageTimestamps)
-                    .comment("Applies when the chat panel is reopened.")
+                    .comment("Applies right away to open chat panels.")
             }
         }
     }
@@ -82,6 +82,13 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
     override fun apply() {
         super.apply()
         MetaClaudeService.applySettingsToOpenProjects() // a mode change starts or stops the bridge right away
+        applyToChatPanels()
+    }
+
+    /** The chat panel lives in claude-ui-jcef.xml (only with JCEF), so reach it only when its class can load. */
+    private fun applyToChatPanels() {
+        runCatching { Class.forName("dev.metaclaude.panel.ChatPanel") }.getOrNull() ?: return
+        dev.metaclaude.panel.ChatPanel.applySettingsToOpenPanels()
     }
 
     private fun officialStatus(): String = when (OfficialPluginDetector.state()) {

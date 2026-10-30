@@ -17,7 +17,7 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | ☑ 7a done (v0.14.2). 7b tested (v0.16.0): times, copy ok. ☑ 7a, 7b done (v0.16.2 tested 2026-10-30). **7c written (v0.17.0): Focus, dates, /copy, `/` menu, LaTeX, sign-in; waiting for your test** |
+| 7 Chat core | ☑ 7a done (v0.14.2). 7b tested (v0.16.0): times, copy ok. ☑ 7a, 7b done (v0.16.2 tested 2026-10-30). 7c tested (v0.17.0). **v0.17.1: time/date setting applies live; waiting for your test** |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8–16 | Not started |
 
@@ -275,6 +275,10 @@ no fonts, CSS or inline styles, so the CSP is unchanged; DOMPurify gets the Math
 because the sanitizer would leave its text visible); sign-in card when the CLI isn't signed in (`error:
 "authentication_failed"` on an assistant event, or an error result asking for /login), whose button opens a Claude
 terminal tab for `/login`. Simulated in Chromium under the panel CSP (menu, /copy, Focus, math, injected `<script>` stays text).
+v0.17.0 test (2026-10-30): Focus, `/` menu, `/copy 2`, LaTeX ok; sign-in skipped (needs a logged-out CLI). Turning off
+times/dates had no effect: closing the tool window keeps the page, so `hello` never came again. v0.17.1 sends a `settings`
+message on load and whenever the settings page is applied. After New session the `/` menu keeps the last session's CLI
+commands, which is fine (same CLI, same commands).
 Not yet (rest of Phase 7): `focusView` setting (Focus view does not survive a restart yet).
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,

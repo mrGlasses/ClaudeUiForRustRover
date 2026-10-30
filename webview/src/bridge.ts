@@ -13,7 +13,8 @@ export type ToKotlin =
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
-  | { type: "hello"; version: string; ideBuild: string; showTimestamps: boolean }
+  | { type: "hello"; version: string; ideBuild: string }
+  | { type: "settings"; showTimestamps: boolean }
   | { type: "sessionInfo"; model: string; permissionMode: string; slashCommands?: string[] }
   | { type: "busy" }
   | { type: "textDelta"; messageId: string; key: string; text: string }

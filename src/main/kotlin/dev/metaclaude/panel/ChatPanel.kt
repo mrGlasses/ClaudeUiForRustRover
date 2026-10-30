@@ -70,6 +70,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         panelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK or InputEvent.ALT_DOWN_MASK), "toggleFocus")
 
         toKotlin.addHandler { json -> handle(json); null }
+        openPanels.add(this)
 
         browser.jbCefClient.addLoadHandler(object : CefLoadHandlerAdapter() {
             override fun onLoadEnd(cefBrowser: CefBrowser, frame: CefFrame, httpStatusCode: Int) {
@@ -102,12 +103,11 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         val msg = runCatching { JsonParser.parseString(json).asJsonObject }.getOrNull()
         val type = msg?.get("type")?.takeIf { it.isJsonPrimitive }?.asString
         when (type) {
-            "ready" -> send(JsonObject().apply {
+            "ready" -> sendAll(JsonObject().apply {
                 addProperty("type", "hello")
                 addProperty("version", PluginInfo.version)
                 addProperty("ideBuild", ApplicationInfo.getInstance().build.asString())
-                addProperty("showTimestamps", ClaudeUiSettings.instance.state.showMessageTimestamps)
-            })
+            }, settingsMessage())
             // Sign-in card: signing in is interactive, so it happens in a Claude terminal tab (`/login` there).
             "signIn" -> project.service<MetaClaudeService>().startSession()
             "send" -> {
@@ -189,6 +189,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         }.registerCustomShortcutSet(CustomShortcutSet(key), browser.component, this)
     }
 
+    private fun sendAll(vararg msgs: JsonObject) = msgs.forEach { send(it) }
+
     private fun send(msg: JsonObject) {
         // A JSON object is a valid JS expression; Gson escapes quotes and control characters.
         browser.cefBrowser.executeJavaScript("window.__claudeUiReceive && window.__claudeUiReceive($msg);", browser.cefBrowser.url, 0)
@@ -223,11 +225,23 @@ ${themeCss()}</style></head><body><div id="app"></div>
         ChatPanel::class.java.getResourceAsStream(path)?.use { it.readAllBytes().toString(Charsets.UTF_8) }
             ?: error("missing $path: the webview bundle was not packaged (run npm run build in webview/)")
 
-    override fun dispose() = Unit
+    override fun dispose() {
+        openPanels.remove(this)
+    }
+
+    /** Panel settings, sent with `hello` and again whenever they change (v0.17.0: reopening the tool window keeps the page). */
+    private fun settingsMessage() = JsonObject().apply {
+        addProperty("type", "settings")
+        addProperty("showTimestamps", ClaudeUiSettings.instance.state.showMessageTimestamps)
+    }
 
     companion object {
         private const val MAX_PROMPT = 100_000
         private const val MAX_COPY = 2_000_000
+        private val openPanels: MutableSet<ChatPanel> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+        /** Called after Settings > Tools > Clawed UI is applied. */
+        fun applySettingsToOpenPanels() = openPanels.forEach { it.send(it.settingsMessage()) }
 
         fun isSafeExternalUrl(url: String): Boolean {
             if (url.length > 2048) return false

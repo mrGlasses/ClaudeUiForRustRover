@@ -397,6 +397,8 @@ function handle(msg: FromKotlin): void {
   switch (msg.type) {
     case "hello":
       status.textContent = "Ready";
+      break;
+    case "settings":
       root.classList.toggle("no-times", !msg.showTimestamps);
       break;
     case "sessionInfo":
