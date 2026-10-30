@@ -33,6 +33,9 @@ root.append(header, transcript, composer);
 let busy = false;
 let model = "";
 const textBlocks = new Map<string, { el: HTMLDivElement; text: string }>();
+// Streamed text blocks per message, in order, not yet replaced by their final text. The CLI sends the final text of
+// each block as its own one-block message, so finals are matched in order, not by index (v0.14.0 duplicated text).
+const unfinished = new Map<string, string[]>();
 const toolCards = new Map<string, HTMLDivElement>();
 let renderQueued = new Set<string>();
 
@@ -126,13 +129,19 @@ function handle(msg: FromKotlin): void {
       setBusy(true);
       break;
     case "textDelta": {
+      if (!textBlocks.has(msg.key)) {
+        const list = unfinished.get(msg.messageId) ?? [];
+        list.push(msg.key);
+        unfinished.set(msg.messageId, list);
+      }
       const b = textBlock(msg.key);
       b.text += msg.text;
       renderBlock(msg.key);
       break;
     }
     case "textFinal": {
-      const b = textBlock(msg.key);
+      const streamed = unfinished.get(msg.messageId)?.shift();
+      const b = textBlock(streamed ?? msg.key);
       b.text = msg.text;
       renderBlock(msg.key);
       break;
@@ -170,6 +179,7 @@ function handle(msg: FromKotlin): void {
     }
     case "sessionReset":
       textBlocks.clear();
+      unfinished.clear();
       toolCards.clear();
       transcript.replaceChildren(empty);
       model = "";

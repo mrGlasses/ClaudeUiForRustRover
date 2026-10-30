@@ -67,11 +67,18 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             }
         }, browser.cefBrowser)
 
-        // Hand cursor over links (6.6 test): JCEF applies cursor changes to an inner component only; mirror them on
-        // the visible one. Returning false keeps JCEF's own handling too.
+        // Hand cursor over links: v0.14.0 set it on browser.component only, and the inner component that actually
+        // receives the mouse (cefBrowser.uiComponent, off-screen mode) kept the default arrow. Set both.
+        // Distinct cursor types are logged once each so the next test shows whether JCEF calls us at all.
+        val seenCursors = mutableSetOf<Int>()
         browser.jbCefClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
             override fun onCursorChange(cefBrowser: CefBrowser, cursorType: Int): Boolean {
-                SwingUtilities.invokeLater { browser.component.cursor = Cursor.getPredefinedCursor(cursorType.coerceIn(0, 13)) }
+                if (seenCursors.add(cursorType)) BridgeLog.log("panel cursor type $cursorType", "${project.name}/panel")
+                SwingUtilities.invokeLater {
+                    val cursor = Cursor.getPredefinedCursor(cursorType.coerceIn(0, 13))
+                    browser.component.cursor = cursor
+                    cefBrowser.uiComponent?.cursor = cursor
+                }
                 return false
             }
         }, browser.cefBrowser)

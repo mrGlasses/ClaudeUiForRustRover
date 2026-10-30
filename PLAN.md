@@ -17,7 +17,7 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | **7a written (v0.14.0): real conversation in the panel; waiting for CI + your test** |
+| 7 Chat core | 7a tested (v0.14.0): works, but text appeared twice and no hand cursor. **7a fix (v0.14.1): waiting for your test** |
 | 8–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -223,6 +223,12 @@ spike-shaped lines). The panel: prompt box (Enter / Shift+Enter), streamed sanit
 Stop button and Esc (interrupt), New session, cost and duration per turn. **Permission requests are denied** with a notice until
 the Phase 8 cards. Cursor: a display handler mirrors JCEF cursor changes on the visible component. Simulated in Chromium under the
 panel CSP before pushing (rendering, keys, injected HTML stays text, no network).
+7a test (v0.14.0), 2026-10-30: conversation, Read card, denied permission, Esc and New session all work. Two bugs:
+(1) every answer appeared twice: the CLI sends one `assistant` event per content block (one-element `content`, index 0),
+while the stream index also counts thinking blocks, so `msg:1` (streamed) and `msg:0` (final) never matched. Fix (v0.14.1):
+both messages carry `messageId` and the panel gives each final text to the oldest unfinished streamed block of that message.
+(2) no hand cursor: the cursor was set only on the outer component; v0.14.1 also sets it on `cefBrowser.uiComponent` and logs
+each cursor type JCEF reports once (`panel cursor type N`; 12 = hand), so the next log shows whether the handler runs at all.
 Not yet (rest of Phase 7): thinking blocks, to-do list, queued messages, Focus view, timestamps, copy, `/` menu, LaTeX, sign-in screen.
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,
@@ -291,7 +297,8 @@ performance on long conversations, README, license, screenshots, changelog, Mark
 
 | When | Decision |
 |---|---|
-| Before Phase 0 | Final plugin **name and id** (permanent once published) |
+| Before Phase 16 | Final plugin **name and id** (permanent once published). 2026-10-30: rename to an English joke name, choice pending |
+| Decided 2026-10-30 | **Full scope**: no publishing deadline, build the complete plan well. Positioning: no Node, only your official `claude` CLI; Rust focus as the differentiator |
 | Phase 6 | After the spikes: build the chat panel, or stay terminal-only for now |
 | Phase 6.5 | **UI stack: decided 2026-10-29, JCEF web view** with the panel security rules in `CLAUDE.md` |
 | Phase 14 | Keymap choices where VS Code keys clash with JetBrains (Ctrl+N, Ctrl+Shift+T, Ctrl+Alt+F, Ctrl+Shift+Esc) |

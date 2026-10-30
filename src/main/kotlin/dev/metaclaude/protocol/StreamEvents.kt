@@ -51,12 +51,18 @@ object StreamEvents {
         val id = e.str("api_message_id") ?: return emptyList()
         val index = ev.get("index")?.takeIf { it.isJsonPrimitive }?.asInt ?: 0
         return listOf(msg("textDelta") {
+            addProperty("messageId", id)
             addProperty("key", "$id:$index")
             addProperty("text", delta.str("text") ?: "")
         })
     }
 
-    /** Whole assistant message: final text per block (replaces the streamed text) and tool calls. */
+    /**
+     * Whole assistant message: final text per block (replaces the streamed text) and tool calls.
+     * The CLI sends one `assistant` event per content block, each with a one-element `content`, so the index here is
+     * always 0 while the stream index counts thinking blocks too. The panel therefore matches a final text to the
+     * oldest unfinished streamed block of the same messageId; `key` is only a fallback (v0.14.0 duplicated text).
+     */
     private fun assistant(e: JsonObject): List<JsonObject> {
         val m = e.obj("message") ?: return emptyList()
         val id = m.str("id") ?: return emptyList()
@@ -65,7 +71,8 @@ object StreamEvents {
             val block = el as? JsonObject ?: return@mapIndexedNotNull null
             when (block.str("type")) {
                 "text" -> msg("textFinal") {
-                    addProperty("key", "$id:$index")
+                    addProperty("messageId", id)
+                    addProperty("key", "$id:final:$index")
                     addProperty("text", block.str("text") ?: "")
                 }
                 "tool_use" -> msg("toolUse") {

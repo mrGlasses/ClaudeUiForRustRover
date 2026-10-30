@@ -13,8 +13,8 @@ export type FromKotlin =
   | { type: "hello"; version: string; ideBuild: string }
   | { type: "sessionInfo"; model: string; permissionMode: string }
   | { type: "busy" }
-  | { type: "textDelta"; key: string; text: string }
-  | { type: "textFinal"; key: string; text: string }
+  | { type: "textDelta"; messageId: string; key: string; text: string }
+  | { type: "textFinal"; messageId: string; key: string; text: string }
   | { type: "toolUse"; id: string; name: string; summary: string }
   | { type: "toolResult"; toolUseId: string; isError: boolean; preview: string }
   | { type: "notice"; text: string }

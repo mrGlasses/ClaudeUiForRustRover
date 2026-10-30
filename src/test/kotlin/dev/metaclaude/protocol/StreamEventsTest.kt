@@ -22,6 +22,7 @@ class StreamEventsTest {
         val out = map("""{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Hel"}},"session_id":"s","parent_tool_use_id":null,"uuid":"u","api_message_id":"msg_1"}""")
         assertEquals("textDelta", out.single().get("type").asString)
         assertEquals("msg_1:1", out.single().get("key").asString)
+        assertEquals("msg_1", out.single().get("messageId").asString)
         assertEquals("Hel", out.single().get("text").asString)
     }
 
@@ -35,7 +36,8 @@ class StreamEventsTest {
     fun `assistant message gives final text and tool calls in order`() {
         val out = map("""{"type":"assistant","message":{"id":"msg_2","role":"assistant","content":[{"type":"text","text":"I'll write it."},{"type":"tool_use","id":"toolu_1","name":"Write","input":{"file_path":"C:\\tmp\\spike.txt","content":"hello"}}]},"parent_tool_use_id":null,"session_id":"s"}""")
         assertEquals(listOf("textFinal", "toolUse"), out.map { it.get("type").asString })
-        assertEquals("msg_2:0", out[0].get("key").asString)
+        assertEquals("msg_2", out[0].get("messageId").asString)
+        assertEquals("msg_2:final:0", out[0].get("key").asString)
         assertEquals("Write", out[1].get("name").asString)
         assertEquals("C:\\tmp\\spike.txt", out[1].get("summary").asString)
     }
