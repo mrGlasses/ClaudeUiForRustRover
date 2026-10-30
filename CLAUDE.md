@@ -24,6 +24,14 @@ Read first: `PLAN.md` (phases, current status), `PARITY.md` (feature checklist),
 - **Notifications have no reply; requests always do** (result or JSON-RPC error). Unknown methods with an id get `-32601`.
 - **Security**: the server binds to loopback only; the auth header is compared in constant time; the token is fresh per IDE start;
   **never log the token or message bodies** (they can contain source code). Lock files: owner-only permissions.
+- **Chat panel (JCEF web UI) security**, decided 2026-10-29; every rule applies from the first line of panel code:
+  1. No HTML from outside runs: Markdown is rendered with raw HTML off, then sanitized (DOMPurify). Never `innerHTML` unsanitized text.
+  2. Strict CSP: only scripts bundled in the plugin (nonce), nothing inline, no remote resources, no network requests from the panel.
+  3. No navigation: the panel never leaves its page; link clicks go to Kotlin, which opens only `http`/`https` in the system browser.
+  4. Narrow JS → Kotlin bridge: a closed set of message types, each validated in Kotlin (e.g. a permission answer only for a
+     request that is actually pending). JS never gets file, process or network access.
+  5. Native confirmation (IDE dialog, not the web panel) for risky actions: saving a permanent permission rule, bypass mode.
+  6. DevTools off in release builds.
 - **Windows paths**: the user is on Windows. Normalize drive-letter case and separators in everything sent to or compared with the CLI.
 - **Threading**: UI and documents on the EDT / in write actions; never block the EDT waiting for the CLI.
 

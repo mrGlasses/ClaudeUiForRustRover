@@ -16,7 +16,7 @@ Everything below is **not started** unless marked otherwise.
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
-| 6 Spikes | **6.1, 6.2, 6.4, 6.5 pass: the panel is feasible. 6.3 (IDE tools in panel sessions) needs our own MCP server: spike v3 next. UI stack decision pending** |
+| 6 Spikes | **6.1, 6.2, 6.4, 6.5 pass: the panel is feasible. UI stack decided: JCEF web + security rules (CLAUDE.md). 6.3 (own MCP server) spike v3 next** |
 | 7–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -263,9 +263,9 @@ performance on long conversations, README, license, screenshots, changelog, Mark
 |---|---|
 | Before Phase 0 | Final plugin **name and id** (permanent once published) |
 | Phase 6 | After the spikes: build the chat panel, or stay terminal-only for now |
-| Phase 6.5 | UI stack (recommendation: JCEF web view) |
+| Phase 6.5 | **UI stack: decided 2026-10-29, JCEF web view** with the panel security rules in `CLAUDE.md` |
 | Phase 14 | Keymap choices where VS Code keys clash with JetBrains (Ctrl+N, Ctrl+Shift+T, Ctrl+Alt+F, Ctrl+Shift+Esc) |
-| Phase 16 | Publish on the Marketplace or keep private; **license** |
+| Phase 16 | Publish on the Marketplace or keep private. **License: decided 2026-10-29, Apache-2.0** (+ `DISCLAIMER.md`) |
 | Any time | Optional: link GitHub (claude.ai Settings > Connectors) so Claude pushes and you only install and test |
 
 ## Rough size

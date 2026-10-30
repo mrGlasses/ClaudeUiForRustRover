@@ -24,6 +24,13 @@ class ClaudeUiConfigurable : BoundConfigurable("Claude UI") {
     private val settings get() = ClaudeUiSettings.instance
 
     override fun createPanel(): DialogPanel = panel {
+        row {
+            comment(
+                "Unofficial plugin, provided \"as is\" without warranty. Claude Code acts on your files within the permissions " +
+                    "you approve: review changes and keep backups. The authors are not liable for data loss or other damage " +
+                    "(see DISCLAIMER.md in the source repository).",
+            )
+        }
         group("Connection") {
             row("Integration mode:") {
                 comboBox(IntegrationMode.entries)
