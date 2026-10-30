@@ -16,8 +16,9 @@ Everything below is **not started** unless marked otherwise.
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
-| 6 Spikes | **All spikes pass** (6.1–6.5). **6.6: v0.13.0** web panel pipeline + "Claude Chat" preview window; waiting for CI + your test |
-| 7–16 | Not started |
+| 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
+| 7 Chat core | Next. First item: hand cursor over links (tested: JCEF shows the default arrow) |
+| 8–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -213,6 +214,8 @@ version now comes from `claude-ui.properties` written by Gradle. Rule added to C
 If 6.1 or 6.2 fails, the panel waits, and terminal mode (Phase 5) remains the product.
 
 ### Phase 7 — Chat core (PARITY §B, §E)
+Carry-over from the 6.6 test: links don't show the hand cursor in JCEF (the `<a>` already asks for it, so the cursor change
+probably isn't forwarded by the embedded browser; check CefDisplayHandler.onCursorChange / rendering mode before touching CSS).
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,
 LaTeX math, files Claude sends, sign-in screen, the `/` command menu.
