@@ -154,6 +154,15 @@ function showTodos(items: { text: string; status: string }[]): void {
   todoBox.hidden = items.length === 0;
 }
 
+// Task tools (TaskCreate / TaskUpdate) build the same list one item at a time, keyed by the id the CLI assigns.
+type Task = { text: string; activeForm?: string; status: string };
+const tasks = new Map<string, Task>();
+const pendingTasks = new Map<string, Task>(); // by TaskCreate tool_use id, until its result gives the task id
+
+function showTasks(): void {
+  showTodos([...tasks.values()].map((t) => ({ text: t.status === "in_progress" && t.activeForm ? t.activeForm : t.text, status: t.status })));
+}
+
 // ---------- queue ----------
 function renderQueue(): void {
   queueBox.replaceChildren(
@@ -213,10 +222,8 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && busy) {
     ev.preventDefault();
     post({ type: "interrupt" });
-  } else if (ev.key.toLowerCase() === "o" && ev.ctrlKey && !ev.shiftKey && !ev.altKey) {
-    ev.preventDefault();
-    setShowThinking(!showThinking);
   }
+  // Ctrl+O is registered in Kotlin as a panel shortcut (the IDE keymap gets it first) and arrives as toggleThinking.
 });
 newButton.addEventListener("click", () => post({ type: "newSession" }));
 
@@ -303,6 +310,32 @@ function handle(msg: FromKotlin): void {
     case "todos":
       showTodos(msg.items);
       break;
+    case "taskCreate":
+      pendingTasks.set(msg.toolUseId, { text: msg.subject, activeForm: msg.activeForm, status: "pending" });
+      break;
+    case "taskCreated": {
+      const t = pendingTasks.get(msg.toolUseId);
+      pendingTasks.delete(msg.toolUseId);
+      if (t) {
+        tasks.set(msg.taskId, t);
+        showTasks();
+      }
+      break;
+    }
+    case "taskUpdate": {
+      if (msg.status === "deleted") tasks.delete(msg.taskId);
+      const t = tasks.get(msg.taskId);
+      if (t) {
+        if (msg.status) t.status = msg.status;
+        if (msg.activeForm) t.activeForm = msg.activeForm;
+        if (msg.subject) t.text = msg.subject;
+      }
+      showTasks();
+      break;
+    }
+    case "toggleThinking":
+      setShowThinking(!showThinking);
+      break;
     case "toolUse": {
       const card = el("div", "tool");
       card.append(el("span", "tool-name", msg.name), el("span", "tool-summary", msg.summary), el("span", "tool-state", "…"));
@@ -348,6 +381,8 @@ function handle(msg: FromKotlin): void {
       turnTexts = [];
       queue.length = 0;
       renderQueue();
+      tasks.clear();
+      pendingTasks.clear();
       showTodos([]);
       transcript.replaceChildren(empty);
       model = "";

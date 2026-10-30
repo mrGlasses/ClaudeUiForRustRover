@@ -17,7 +17,7 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | ☑ 7a done (v0.14.2). **7b written (v0.16.0): thinking, to-do, queue, times, copy; waiting for your test** |
+| 7 Chat core | ☑ 7a done (v0.14.2). 7b tested (v0.16.0): times, copy ok. **7b fixes (v0.16.1): Ctrl+O, to-do, line breaks; waiting for your test** |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8–16 | Not started |
 
@@ -249,6 +249,14 @@ reads Queue while you type, Stop otherwise), times on messages and turn footers,
 Kotlin to the IDE clipboard; the page has no clipboard access). The log now names each tool Claude uses and the raw
 `tool_name` of denied requests: v0.15.0 denied a request shown as `GetDiagnostics`, which is probably the display name of our
 `mcp__clawed-ui__getDiagnostics`; the next log confirms it, and whether CLI 2.1.314 still uses TodoWrite.
+7b test (v0.16.0), 2026-10-30: times, Copy and the denied-request log work; `GetDiagnostics` is the display name of our
+`mcp__clawed-ui__getDiagnostics` (log: `tool_name=mcp__clawed-ui__getDiagnostics`). Three fixes in v0.16.1:
+(1) Ctrl+O did nothing: the IDE keymap takes it before the page. Now a panel-local shortcut (registerCustomShortcutSet on
+the browser component) sends `toggleThinking` to the page. (2) No to-do list: Claude Code leaves TodoWrite and the task
+tools out by default on Opus 4.8+ / Sonnet 5+ (code.claude.com/docs/en/agent-sdk/todo-tracking). New setting
+Tools > Clawed UI > Chat Panel > "Show a to-do list" (off by default) starts claude with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`;
+the panel now also reads TaskCreate / TaskUpdate (id from `tool_use_result.task.id`) besides TodoWrite. (3) "One per line"
+came out as one paragraph: Markdown now renders single newlines as line breaks (`breaks: true`).
 Not yet (rest of Phase 7): Focus view, date lines and the timestamp setting, `/copy`, `/` menu, LaTeX, sign-in screen.
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,

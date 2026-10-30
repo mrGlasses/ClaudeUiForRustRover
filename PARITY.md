@@ -84,7 +84,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Streaming Markdown responses, code blocks | Stream + UI | ◐ v0.14.0 (pending test) |
 | Tool-call rows with results; live subagent progress rows | Stream + UI | ◐ tool cards v0.14.0; subagents later |
 | Thinking blocks collapsed, Ctrl+O expands or collapses all | Stream + UI | ◐ v0.16.0 (text only when the CLI sends it) |
-| Latest to-do list stays visible | Stream + UI | ◐ v0.16.0 (TodoWrite) |
+| Latest to-do list stays visible | Stream + UI | ◐ v0.16.1: TodoWrite and TaskCreate/TaskUpdate; opt-in setting, since recent models leave the task tools out |
 | Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ☐ |
 | Message timestamps and date lines, `showMessageTimestamps` | UI | ◐ v0.16.0: times on messages and turns; no date lines or setting yet |
 | `scrollToBottomOnSend` | UI | ☐ |

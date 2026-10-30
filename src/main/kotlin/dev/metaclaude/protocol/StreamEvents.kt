@@ -9,7 +9,9 @@ import com.google.gson.JsonObject
  * The panel never sees raw CLI events: it gets only what it renders, and every text it gets is rendered either
  * sanitized (Markdown) or as plain text. Shapes from STREAM-PROTOCOL.md (CLI 2.1.312). Pure: unit-tested.
  *
- * Phase 7b adds thinking blocks (start / delta / stop) and the to-do list (TodoWrite).
+ * Phase 7b adds thinking blocks (start / delta / stop) and the to-do list: TodoWrite (whole list) or the task tools
+ * TaskCreate / TaskUpdate (one item at a time; the new id arrives in the result's `tool_use_result.task.id`).
+ * Task tools are off by default on recent models (code.claude.com/docs/en/agent-sdk/todo-tracking).
  * Still out of scope: subagent output (parent_tool_use_id != null, Phase 11), permission cards (Phase 8).
  */
 object StreamEvents {
@@ -96,14 +98,22 @@ object StreamEvents {
                     addProperty("key", "$id:final:$index")
                     addProperty("text", block.str("text") ?: "")
                 }
-                "tool_use" -> if (block.str("name") == "TodoWrite") todos(block.obj("input")) else msg("toolUse") {
-                    addProperty("id", block.str("id") ?: "")
-                    addProperty("name", block.str("name") ?: "tool")
-                    addProperty("summary", toolSummary(block.obj("input")))
+                "tool_use" -> when (block.str("name")) {
+                    "TodoWrite" -> todos(block.obj("input"))
+                    "TaskCreate" -> taskCreate(block)
+                    "TaskUpdate" -> taskUpdate(block.obj("input"))
+                    "TaskGet", "TaskList" -> null // reading the list back: nothing to show
+                    else -> toolUse(block)
                 }
                 else -> null
             }
         }
+    }
+
+    private fun toolUse(block: JsonObject) = msg("toolUse") {
+        addProperty("id", block.str("id") ?: "")
+        addProperty("name", block.str("name") ?: "tool")
+        addProperty("summary", toolSummary(block.obj("input")))
     }
 
     /** Tool results and the interrupt marker arrive as `user` messages. */
@@ -112,10 +122,13 @@ object StreamEvents {
         return content.mapNotNull { el ->
             val block = el as? JsonObject ?: return@mapNotNull null
             when (block.str("type")) {
-                "tool_result" -> msg("toolResult") {
-                    addProperty("toolUseId", block.str("tool_use_id") ?: "")
-                    addProperty("isError", block.get("is_error")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false)
-                    addProperty("preview", textOf(block.get("content")).take(PREVIEW_MAX))
+                "tool_result" -> {
+                    // TaskCreate's result carries the new task id (structured output on the user message).
+                    val createdId = e.obj("tool_use_result")?.obj("task")?.str("id")
+                    if (createdId != null) msg("taskCreated") {
+                        addProperty("toolUseId", block.str("tool_use_id") ?: "")
+                        addProperty("taskId", createdId)
+                    } else toolResult(block)
                 }
                 "text" -> {
                     val text = block.str("text") ?: ""
@@ -123,6 +136,32 @@ object StreamEvents {
                 }
                 else -> null
             }
+        }
+    }
+
+    private fun toolResult(block: JsonObject) = msg("toolResult") {
+        addProperty("toolUseId", block.str("tool_use_id") ?: "")
+        addProperty("isError", block.get("is_error")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false)
+        addProperty("preview", textOf(block.get("content")).take(PREVIEW_MAX))
+    }
+
+    /** TaskCreate input: `subject`, `activeForm` (or `active_form`). The id comes later with `taskCreated`. */
+    private fun taskCreate(block: JsonObject): JsonObject = msg("taskCreate") {
+        val input = block.obj("input")
+        addProperty("toolUseId", block.str("id") ?: "")
+        addProperty("subject", (input?.str("subject") ?: "").take(SUMMARY_MAX))
+        (input?.str("activeForm") ?: input?.str("active_form"))?.let { addProperty("activeForm", it.take(SUMMARY_MAX)) }
+    }
+
+    /** TaskUpdate input: `taskId` (or `id` / `task_id`), optional `status` (incl. `deleted`), `activeForm`, `subject`. */
+    private fun taskUpdate(input: JsonObject?): JsonObject? {
+        if (input == null) return null
+        val id = input.str("taskId") ?: input.str("id") ?: input.str("task_id") ?: return null
+        return msg("taskUpdate") {
+            addProperty("taskId", id)
+            input.str("status")?.takeIf { it in TODO_STATUSES || it == "deleted" }?.let { addProperty("status", it) }
+            (input.str("activeForm") ?: input.str("active_form"))?.let { addProperty("activeForm", it.take(SUMMARY_MAX)) }
+            input.str("subject")?.let { addProperty("subject", it.take(SUMMARY_MAX)) }
         }
     }
 

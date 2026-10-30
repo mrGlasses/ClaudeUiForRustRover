@@ -21,6 +21,10 @@ export type FromKotlin =
   | { type: "thinkingDelta"; key: string; text: string }
   | { type: "blockStop"; key: string }
   | { type: "todos"; items: { text: string; status: "pending" | "in_progress" | "completed" }[] }
+  | { type: "taskCreate"; toolUseId: string; subject: string; activeForm?: string }
+  | { type: "taskCreated"; toolUseId: string; taskId: string }
+  | { type: "taskUpdate"; taskId: string; status?: string; activeForm?: string; subject?: string }
+  | { type: "toggleThinking" }
   | { type: "toolUse"; id: string; name: string; summary: string }
   | { type: "toolResult"; toolUseId: string; isError: boolean; preview: string }
   | { type: "notice"; text: string }

@@ -4,7 +4,7 @@ import DOMPurify from "dompurify";
 
 const marked = new Marked({
   gfm: true,
-  breaks: false,
+  breaks: true, // a single newline is a line break, as in chat (v0.16.0: "one per line" came out as one paragraph)
   renderer: {
     // Raw HTML inside Markdown is shown as text, never parsed.
     html({ text }: Tokens.HTML | Tokens.Tag): string {

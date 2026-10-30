@@ -63,6 +63,12 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                     .comment("On: text from git-ignored files is never sent. Excluded and out-of-project files are never sent.")
             }
         }
+        group("Chat Panel") {
+            row {
+                checkBox("Show a to-do list").bindSelected(settings.state::todoTools)
+                    .comment("Turns on Claude Code's task tools, which recent models leave out by default. Applies to new conversations.")
+            }
+        }
     }
 
     override fun apply() {

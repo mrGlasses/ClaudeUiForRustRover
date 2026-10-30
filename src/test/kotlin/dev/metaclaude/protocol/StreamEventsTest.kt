@@ -100,4 +100,20 @@ class StreamEventsTest {
         assertEquals(listOf("Write tests", "Fixing bug", "Odd"), items.map { it.get("text").asString })
         assertEquals(listOf("completed", "in_progress", "pending"), items.map { it.get("status").asString })
     }
+
+    @Test
+    fun `task tools build the to-do list item by item`() {
+        val create = map("""{"type":"assistant","message":{"id":"msg_5","role":"assistant","content":[{"type":"tool_use","id":"toolu_c","name":"TaskCreate","input":{"subject":"Review README","activeForm":"Reviewing README"}}]},"parent_tool_use_id":null}""").single()
+        assertEquals("taskCreate", create.get("type").asString)
+        assertEquals("toolu_c", create.get("toolUseId").asString)
+        assertEquals("Review README", create.get("subject").asString)
+        val created = map("""{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_c","type":"tool_result","content":"Task #1 created"}]},"tool_use_result":{"task":{"id":"1","subject":"Review README"}},"parent_tool_use_id":null}""").single()
+        assertEquals("taskCreated", created.get("type").asString)
+        assertEquals("1", created.get("taskId").asString)
+        val update = map("""{"type":"assistant","message":{"id":"msg_6","role":"assistant","content":[{"type":"tool_use","id":"toolu_u","name":"TaskUpdate","input":{"task_id":"1","status":"in_progress"}}]},"parent_tool_use_id":null}""").single()
+        assertEquals("taskUpdate", update.get("type").asString)
+        assertEquals("1", update.get("taskId").asString)
+        assertEquals("in_progress", update.get("status").asString)
+        assertTrue(map("""{"type":"assistant","message":{"id":"msg_7","role":"assistant","content":[{"type":"tool_use","id":"toolu_l","name":"TaskList","input":{}}]},"parent_tool_use_id":null}""").isEmpty())
+    }
 }

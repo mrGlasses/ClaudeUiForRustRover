@@ -4,7 +4,11 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.application.ApplicationInfo
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
@@ -25,6 +29,8 @@ import dev.metaclaude.cli.ClaudeCli
 import dev.metaclaude.settings.ClaudeUiSettings
 import java.awt.Color
 import java.awt.Cursor
+import java.awt.event.InputEvent
+import java.awt.event.KeyEvent
 import java.awt.datatransfer.StringSelection
 import java.nio.file.Path
 import javax.swing.SwingUtilities
@@ -32,6 +38,7 @@ import java.net.URI
 import java.security.SecureRandom
 import java.util.Base64
 import javax.swing.JComponent
+import javax.swing.KeyStroke
 
 /**
  * The JCEF web panel. Security rules (CLAUDE.md, "Chat panel security"):
@@ -53,6 +60,15 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         Disposer.register(parent, this)
         Disposer.register(this, browser)
         Disposer.register(browser, toKotlin)
+
+        // Ctrl+O (VS Code: expand/collapse thinking). The IDE keymap sees keys before the page does (v0.16.0: Ctrl+O never
+        // reached the page), so register it as a shortcut local to the panel, which wins over the keymap while it has focus.
+        object : DumbAwareAction() {
+            override fun actionPerformed(e: AnActionEvent) = send(JsonObject().apply { addProperty("type", "toggleThinking") })
+            override fun getActionUpdateThread() = ActionUpdateThread.BGT
+        }.registerCustomShortcutSet(
+            CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK)), browser.component, this,
+        )
 
         toKotlin.addHandler { json -> handle(json); null }
 
@@ -149,7 +165,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             return null
         }
         return try {
-            ChatSession(project, exe, root.toRealPath(), this, onPanelMessage = { send(it) }, onExit = { code ->
+            ChatSession(project, exe, root.toRealPath(), this, todoTools = ClaudeUiSettings.instance.state.todoTools, onPanelMessage = { send(it) }, onExit = { code ->
                 session = null
                 send(JsonObject().apply {
                     addProperty("type", "error")

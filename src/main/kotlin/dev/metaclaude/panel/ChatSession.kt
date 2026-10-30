@@ -36,6 +36,7 @@ class ChatSession(
     parent: Disposable,
     private val onPanelMessage: (JsonObject) -> Unit,
     private val onExit: (exitCode: Int) -> Unit,
+    todoTools: Boolean = false,
 ) : Disposable {
     private val tag = "${project.name}/panel"
     private val mcp = HttpMcpServer(
@@ -62,9 +63,11 @@ class ChatSession(
             "--permission-prompt-tool", "stdio",
             "--mcp-config", mcpConfig.toString(),
         )
-        process = ProcessBuilder(cmd).directory(root.toFile()).start()
+        process = ProcessBuilder(cmd).directory(root.toFile()).apply {
+            if (todoTools) environment()["CLAUDE_CODE_ENABLE_TODO_TOOLS"] = "1"
+        }.start()
         stdin = process.outputStream.bufferedWriter(StandardCharsets.UTF_8)
-        BridgeLog.log("chat session started (pid ${process.pid()})", tag)
+        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"})", tag)
 
         thread(name = "claude-ui-chat-out", isDaemon = true) {
             runCatching {
@@ -87,7 +90,7 @@ class ChatSession(
         StreamEvents.toPanel(event).forEach { m ->
             // Tool names only (never inputs): shows which tools the CLI version really uses (to-do, diagnostics...).
             if (m.get("type")?.asString == "toolUse") BridgeLog.log("tool use: ${m.get("name")?.asString}", tag)
-            if (m.get("type")?.asString == "todos") BridgeLog.log("tool use: TodoWrite (to-do list)", tag)
+            if (m.get("type")?.asString in setOf("todos", "taskCreate", "taskUpdate")) BridgeLog.log("tool use: to-do (${m.get("type")?.asString})", tag)
             onPanelMessage(m)
         }
     }

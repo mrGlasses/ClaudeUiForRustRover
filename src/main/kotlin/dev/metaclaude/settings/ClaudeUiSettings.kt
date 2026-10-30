@@ -26,6 +26,11 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var attachOpenFile by property(true)
         /** VS Code `respectGitIgnore`: never send text from git-ignored files. */
         var respectGitIgnore by property(true)
+        /**
+         * Chat panel to-do list. Claude Code leaves its task tools out by default on recent models (Opus 4.8+, Sonnet 5+);
+         * on, the panel starts claude with CLAUDE_CODE_ENABLE_TODO_TOOLS=1 so Claude keeps a visible list.
+         */
+        var todoTools by property(false)
     }
 
     var integrationMode: IntegrationMode
