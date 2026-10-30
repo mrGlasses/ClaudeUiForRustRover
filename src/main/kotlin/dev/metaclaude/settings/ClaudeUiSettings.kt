@@ -31,6 +31,11 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
          * on, the panel starts claude with CLAUDE_CODE_ENABLE_TODO_TOOLS=1 so Claude keeps a visible list.
          */
         var todoTools by property(false)
+        /**
+         * Chat panel thinking blocks. Without Claude Code's `showThinkingSummaries` the CLI sends empty thinking blocks
+         * (v0.16.1 test); on, the panel starts claude with `--settings {"showThinkingSummaries":true}`.
+         */
+        var thinkingSummaries by property(true)
     }
 
     var integrationMode: IntegrationMode

@@ -29,7 +29,17 @@ transcript.append(empty);
 // To-do list (TodoWrite): one list, replaced on every update, shown above the composer.
 const todoBox = el("details", "todos");
 todoBox.open = true;
+// The list is Claude's (like VS Code's): you can fold it or hide it, not tick items. Hidden comes back on the next update.
 const todoSummary = el("summary");
+const todoLabel = el("span", "todo-label");
+const todoHide = el("button", "link-button todo-hide", "Hide");
+todoHide.title = "Hide until Claude updates the list";
+todoHide.addEventListener("click", (ev) => {
+  ev.preventDefault(); // don't also fold/unfold
+  ev.stopPropagation();
+  todoBox.hidden = true;
+});
+todoSummary.append(todoLabel, todoHide);
 const todoList = el("ul", "todo-list");
 todoBox.append(todoSummary, todoList);
 todoBox.hidden = true;
@@ -150,7 +160,7 @@ function showTodos(items: { text: string; status: string }[]): void {
     }),
   );
   const done = items.filter((i) => i.status === "completed").length;
-  todoSummary.textContent = `To-do ${done}/${items.length}`;
+  todoLabel.textContent = `To-do ${done}/${items.length}`;
   todoBox.hidden = items.length === 0;
 }
 

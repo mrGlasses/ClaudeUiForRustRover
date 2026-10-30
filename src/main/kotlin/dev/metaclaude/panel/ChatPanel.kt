@@ -165,7 +165,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             return null
         }
         return try {
-            ChatSession(project, exe, root.toRealPath(), this, todoTools = ClaudeUiSettings.instance.state.todoTools, onPanelMessage = { send(it) }, onExit = { code ->
+            ChatSession(project, exe, root.toRealPath(), this, todoTools = ClaudeUiSettings.instance.state.todoTools,
+                thinkingSummaries = ClaudeUiSettings.instance.state.thinkingSummaries, onPanelMessage = { send(it) }, onExit = { code ->
                 session = null
                 send(JsonObject().apply {
                     addProperty("type", "error")

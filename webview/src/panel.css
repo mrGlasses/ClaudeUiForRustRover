@@ -66,6 +66,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 
 .todos { border-top: 1px solid var(--border); padding: 4px 12px; font-size: 12px; max-height: 35vh; overflow-y: auto; }
 .todos summary { cursor: pointer; color: var(--muted); }
+.todo-label { margin-right: 10px; }
+.todo-hide { font-size: 11px; }
 .todo-list { list-style: none; margin: 4px 0; padding: 0; }
 .todo { display: flex; gap: 6px; }
 .todo.completed .todo-text { text-decoration: line-through; color: var(--muted); }

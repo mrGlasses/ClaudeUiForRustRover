@@ -68,6 +68,10 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                 checkBox("Show a to-do list").bindSelected(settings.state::todoTools)
                     .comment("Turns on Claude Code's task tools, which recent models leave out by default. Applies to new conversations.")
             }
+            row {
+                checkBox("Show Claude's reasoning").bindSelected(settings.state::thinkingSummaries)
+                    .comment("Thinking blocks show a summary of Claude's reasoning (Claude Code's showThinkingSummaries). Applies to new conversations.")
+            }
         }
     }
 

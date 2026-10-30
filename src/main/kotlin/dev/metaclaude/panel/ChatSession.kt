@@ -37,6 +37,7 @@ class ChatSession(
     private val onPanelMessage: (JsonObject) -> Unit,
     private val onExit: (exitCode: Int) -> Unit,
     todoTools: Boolean = false,
+    thinkingSummaries: Boolean = false,
 ) : Disposable {
     private val tag = "${project.name}/panel"
     private val mcp = HttpMcpServer(
@@ -48,6 +49,9 @@ class ChatSession(
         runCatching { Files.setPosixFilePermissions(f, PosixFilePermissions.fromString("rw-------")) }
         Files.writeString(f, mcp.mcpConfigJson(MCP_NAME)) // holds the token: owner-only, deleted on dispose
     }
+    // Extra Claude Code settings as a file, not inline JSON: claude.cmd goes through cmd.exe, which mangles quotes.
+    private val settingsFile: Path? = if (!thinkingSummaries) null else
+        Files.createTempFile("clawed-ui-settings", ".json").also { Files.writeString(it, """{"showThinkingSummaries":true}""") }
     private val process: Process
     private val stdin: BufferedWriter
     private var counter = 0
@@ -62,12 +66,12 @@ class ChatSession(
             "--permission-mode", "default",
             "--permission-prompt-tool", "stdio",
             "--mcp-config", mcpConfig.toString(),
-        )
+        ) + (settingsFile?.let { listOf("--settings", it.toString()) } ?: emptyList())
         process = ProcessBuilder(cmd).directory(root.toFile()).apply {
             if (todoTools) environment()["CLAUDE_CODE_ENABLE_TODO_TOOLS"] = "1"
         }.start()
         stdin = process.outputStream.bufferedWriter(StandardCharsets.UTF_8)
-        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"})", tag)
+        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"})", tag)
 
         thread(name = "claude-ui-chat-out", isDaemon = true) {
             runCatching {
@@ -157,6 +161,7 @@ class ChatSession(
         }
         mcp.close()
         runCatching { Files.deleteIfExists(mcpConfig) }
+        settingsFile?.let { f -> runCatching { Files.deleteIfExists(f) } }
     }
 
     private companion object {

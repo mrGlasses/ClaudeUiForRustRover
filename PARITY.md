@@ -83,7 +83,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|---|
 | Streaming Markdown responses, code blocks | Stream + UI | ◐ v0.14.0 (pending test) |
 | Tool-call rows with results; live subagent progress rows | Stream + UI | ◐ tool cards v0.14.0; subagents later |
-| Thinking blocks collapsed, Ctrl+O expands or collapses all | Stream + UI | ◐ v0.16.0 (text only when the CLI sends it) |
+| Thinking blocks collapsed, Ctrl+O expands or collapses all | Stream + UI | ◐ v0.16.2: reasoning summaries via showThinkingSummaries (setting, on) |
 | Latest to-do list stays visible | Stream + UI | ◐ v0.16.1: TodoWrite and TaskCreate/TaskUpdate; opt-in setting, since recent models leave the task tools out |
 | Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ☐ |
 | Message timestamps and date lines, `showMessageTimestamps` | UI | ◐ v0.16.0: times on messages and turns; no date lines or setting yet |
@@ -173,7 +173,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Reopen Closed Session (`enableReopenClosedSessionShortcut`) | Ctrl+Shift+T | Only when Claude has focus: Ctrl+Shift+T is "Go to Test" in JetBrains | ☐ |
 | Insert @-Mention | Alt+K | Same, if free | ☐ |
 | Toggle Focus view | Ctrl+Alt+F | Check: Ctrl+Alt+F is "Introduce Field" in JetBrains | ☐ |
-| Expand/collapse thinking | Ctrl+O | Only inside the panel | ◐ v0.16.0 |
+| Expand/collapse thinking | Ctrl+O | Only inside the panel | ☑ v0.16.1 (panel-local shortcut) |
 | Accept/Reject Change at Cursor, Rename/Group/Mark Unread tab, Show Logs, Logout, Focus last message, Open in Side Bar/Terminal/New Window | — | Actions without default keys | ☐ |
 
 ## L. Settings — Phase 14 (settings page)

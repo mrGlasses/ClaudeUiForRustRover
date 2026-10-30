@@ -17,7 +17,7 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | ☑ 7a done (v0.14.2). 7b tested (v0.16.0): times, copy ok. **7b fixes (v0.16.1): Ctrl+O, to-do, line breaks; waiting for your test** |
+| 7 Chat core | ☑ 7a done (v0.14.2). 7b tested (v0.16.0): times, copy ok. 7b fixes (v0.16.1) tested. **v0.16.2: reasoning text, to-do Hide; waiting for your test** |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8–16 | Not started |
 
@@ -257,6 +257,12 @@ tools out by default on Opus 4.8+ / Sonnet 5+ (code.claude.com/docs/en/agent-sdk
 Tools > Clawed UI > Chat Panel > "Show a to-do list" (off by default) starts claude with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`;
 the panel now also reads TaskCreate / TaskUpdate (id from `tool_use_result.task.id`) besides TodoWrite. (3) "One per line"
 came out as one paragraph: Markdown now renders single newlines as line breaks (`breaks: true`).
+v0.16.1 test: Ctrl+O and the to-do list work. Thinking blocks were always empty: without Claude Code's
+`showThinkingSummaries` the CLI sends no reasoning text. v0.16.2 adds "Show Claude's reasoning" (on by default), which
+passes `--settings <temp file>` with `{"showThinkingSummaries":true}` (a file, because claude.cmd runs through cmd.exe,
+which mangles quotes in arguments). The to-do list gets a Hide button (back on the next update); like VS Code's, the list
+belongs to Claude, so items can't be ticked by hand. Note: the CLI keeps tasks from earlier sessions of the project; the
+panel shows only the ones created in the current conversation.
 Not yet (rest of Phase 7): Focus view, date lines and the timestamp setting, `/copy`, `/` menu, LaTeX, sign-in screen.
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,
