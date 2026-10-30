@@ -106,7 +106,7 @@ class McpDispatcher(
             add("tools", JsonObject().apply { addProperty("listChanged", true) })
         })
         add("serverInfo", JsonObject().apply {
-            addProperty("name", "claude-meta-rustrover"); addProperty("version", "0.0.1")
+            addProperty("name", "clawed-ui"); addProperty("version", "0.0.1")
         })
     }
 

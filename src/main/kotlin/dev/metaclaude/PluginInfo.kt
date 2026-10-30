@@ -4,11 +4,11 @@ import java.util.Properties
 
 object PluginInfo {
     /** Must match <id> in plugin.xml. */
-    const val ID = "io.github.mrglasses.claudeui"
-    const val NAME = "Claude UI for RustRover"
+    const val ID = "io.github.mrglasses.clawedui"
+    const val NAME = "Clawed UI"
 
     /** Label shown in the CLI's /ide list. */
-    const val IDE_NAME = "RustRover (Claude UI)"
+    const val IDE_NAME = "RustRover (Clawed UI)"
 
     /**
      * Written into claude-ui.properties by Gradle (processResources) from `version` in build.gradle.kts.

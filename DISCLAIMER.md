@@ -1,6 +1,6 @@
 # Disclaimer and terms of use
 
-**Claude UI for RustRover** ("the plugin") is an unofficial, community-made plugin. It is **not affiliated with, endorsed by or
+**Clawed UI** ("the plugin") is an unofficial, community-made plugin. It is **not affiliated with, endorsed by or
 supported by Anthropic or JetBrains**. "Claude" and "Claude Code" are trademarks of Anthropic; "RustRover" is a trademark of JetBrains.
 
 ## What the plugin does

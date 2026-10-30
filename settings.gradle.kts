@@ -1,1 +1,1 @@
-rootProject.name = "claude-meta-plugin"
+rootProject.name = "clawed-ui"

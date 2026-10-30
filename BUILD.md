@@ -1,6 +1,6 @@
 # Building without installing Java or an IDE
 
-The result you want is `build/distributions/claude-meta-plugin-*.zip` — **that** is what you pick in
+The result you want is `build/distributions/clawed-ui-*.zip` — **that** is what you pick in
 Settings > Plugins > gear > Install Plugin from Disk (not the source zip).
 
 Expect compile errors on the first run (see "Not verified" in SKETCH.md); send them back and they get fixed.

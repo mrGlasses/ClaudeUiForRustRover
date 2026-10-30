@@ -60,7 +60,7 @@ class MetaClaudeService(private val project: Project) : Disposable {
             if (exe == null) {
                 notify(
                     "Claude CLI not found",
-                    "Install Claude Code, or set its path in Settings > Tools > Claude UI.",
+                    "Install Claude Code, or set its path in Settings > Tools > Clawed UI.",
                     NotificationAction.createSimple("Open settings") {
                         ShowSettingsUtil.getInstance().showSettingsDialog(project, ClaudeUiConfigurable::class.java)
                     },
@@ -103,10 +103,10 @@ class MetaClaudeService(private val project: Project) : Disposable {
         bridge?.let { return it }
         BridgeLog.log("${PluginInfo.NAME} ${PluginInfo.version} starting bridge (IDE build ${com.intellij.openapi.application.ApplicationInfo.getInstance().build.asString()})", project.name)
         LockFile.sweepStale(ideName)
-        LockFile.sweepStale(LEGACY_IDE_NAME) // dead lock files from builds before the rename
+        LEGACY_IDE_NAMES.forEach(LockFile::sweepStale) // dead lock files from builds before the renames
 
         val token = AuthToken.generate()
-        val scope = Disposer.newDisposable(this, "Claude UI bridge")
+        val scope = Disposer.newDisposable(this, "Clawed UI bridge")
         val diffs = DiffCoordinator(project, scope) // answers pending diffs when the bridge stops
         val tracker = SelectionTracker(project, scope) { method, params -> bridge?.server?.broadcastNotification(method, params) }
         val registry = ToolRegistry(listOf(
@@ -159,7 +159,7 @@ class MetaClaudeService(private val project: Project) : Disposable {
                 IntegrationMode.BUILTIN -> if (bridge?.server?.connections.isNullOrEmpty()) notify(
                     "Claude did not attach to the IDE bridge",
                     "Bridge listening on port ${bridge?.port}, lock file ${bridge?.lock?.path}. " +
-                        "Run /ide inside the session, or test the CLI in Settings > Tools > Claude UI.",
+                        "Run /ide inside the session, or test the CLI in Settings > Tools > Clawed UI.",
                 )
                 else -> if (LockScanner.forWorkspace(root, bridge?.port).isEmpty()) notify(
                     "Official Claude plugin is not advertising this project",
@@ -175,7 +175,7 @@ class MetaClaudeService(private val project: Project) : Disposable {
     }
 
     private fun notify(title: String, body: String, action: NotificationAction? = null) {
-        NotificationGroupManager.getInstance().getNotificationGroup("Claude UI")
+        NotificationGroupManager.getInstance().getNotificationGroup("Clawed UI")
             .createNotification(title, body, NotificationType.WARNING)
             .also { n -> action?.let(n::addAction) }
             .notify(project)
@@ -186,7 +186,7 @@ class MetaClaudeService(private val project: Project) : Disposable {
     }
 
     companion object {
-        private const val LEGACY_IDE_NAME = "RustRover (Claude Meta)"
+        private val LEGACY_IDE_NAMES = listOf("RustRover (Claude Meta)", "RustRover (Claude UI)")
 
         /** After a settings change: every open window starts or stops its bridge. */
         fun applySettingsToOpenProjects() {

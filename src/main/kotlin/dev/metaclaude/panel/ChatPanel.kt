@@ -136,7 +136,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         if (exe == null || root == null) {
             send(JsonObject().apply {
                 addProperty("type", "error")
-                addProperty("message", "Claude CLI not found. Set its path in Settings > Tools > Claude UI.")
+                addProperty("message", "Claude CLI not found. Set its path in Settings > Tools > Clawed UI.")
             })
             return null
         }

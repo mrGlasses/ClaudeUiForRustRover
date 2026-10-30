@@ -99,7 +99,7 @@ class ChatSession(
         BridgeLog.log("permission request for '$tool' denied (cards come in Phase 8)", tag)
         write(controlResponse(id, JsonObject().apply {
             addProperty("behavior", "deny")
-            addProperty("message", "The Claude UI chat panel cannot approve tool use yet. Ask the user to use a Claude terminal session for edits and commands.")
+            addProperty("message", "The Clawed UI chat panel cannot approve tool use yet. Ask the user to use a Claude terminal session for edits and commands.")
         }))
         onPanelMessage(JsonObject().apply {
             addProperty("type", "notice")
@@ -152,6 +152,6 @@ class ChatSession(
     }
 
     private companion object {
-        const val MCP_NAME = "claude-ui"
+        const val MCP_NAME = "clawed-ui"
     }
 }

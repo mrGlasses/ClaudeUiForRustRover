@@ -1,4 +1,4 @@
-# Claude UI for RustRover — action plan
+# Clawed UI — action plan
 
 Goal: **full parity with the Claude Code VS Code extension**, plus Rust-specific extras, using the user's own `claude` CLI.
 The official JetBrains plugin stays optional. The feature-by-feature checklist is in **PARITY.md**.
@@ -17,7 +17,8 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | 7a tested; duplicated text fixed (v0.14.1). **Hand cursor, second try (v0.14.2): waiting for your test** |
+| 7 Chat core | ☑ 7a done (v0.14.2 tested 2026-10-30: no duplicates, hand cursor works). Next: 7b |
+| Rename | **v0.15.0: Clawed UI** (id `io.github.mrglasses.clawedui`); waiting for your test |
 | 8–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -232,7 +233,15 @@ each cursor type JCEF reports once (`panel cursor type N`; 12 = hand), so the ne
 v0.14.1 test: no more duplicates; still no hand, and the log has no `panel cursor type` line, so JCEF never calls
 `onCursorChange` here. v0.14.2 drops that handler: the page posts `cursor` (`pointer`/`default`, the only accepted values)
 when the mouse enters or leaves a link, button or `<summary>`, and Kotlin sets the Swing cursor.
-Rename decided 2026-10-30: **Clawed** (final form, e.g. "Clawed UI", still open); done in its own commit.
+v0.14.2 test: hand cursor works over links, buttons and Output.
+
+### Rename to Clawed UI (v0.15.0, 2026-10-30)
+Name **Clawed UI** ("clawed" sounds like "Claude"; claws for Ferris), id `io.github.mrglasses.clawedui`, `/ide` label
+**RustRover (Clawed UI)**, settings under Tools > Clawed UI, panel MCP server `clawed-ui`. Kept on purpose: the settings file
+`claude-ui.xml` (settings carry over), Kotlin package names, the `~/.claude-meta` log folder. Lock files of the old label are swept.
+A new id is a new plugin for the IDE: uninstall "Claude UI for RustRover" before installing.
+Marketplace search (checked 2026-10-30, plugins-ranking docs) matches id, name, description, tags and vendor, then weighs
+downloads and rating, so "Claude" in the description and tags makes the plugin findable but a new plugin ranks low at first.
 Not yet (rest of Phase 7): thinking blocks, to-do list, queued messages, Focus view, timestamps, copy, `/` menu, LaTeX, sign-in screen.
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,
@@ -301,7 +310,7 @@ performance on long conversations, README, license, screenshots, changelog, Mark
 
 | When | Decision |
 |---|---|
-| Before Phase 16 | Final plugin **name and id** (permanent once published). 2026-10-30: **Clawed** chosen (exact form pending) |
+| Before Phase 16 | Final plugin **name and id** (permanent once published). 2026-10-30: **Clawed UI**, id `io.github.mrglasses.clawedui` (v0.15.0) |
 | Decided 2026-10-30 | **Full scope**: no publishing deadline, build the complete plan well. Positioning: no Node, only your official `claude` CLI; Rust focus as the differentiator |
 | Phase 6 | After the spikes: build the chat panel, or stay terminal-only for now |
 | Phase 6.5 | **UI stack: decided 2026-10-29, JCEF web view** with the panel security rules in `CLAUDE.md` |

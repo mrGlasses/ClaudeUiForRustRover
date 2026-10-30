@@ -9,7 +9,8 @@ import com.intellij.openapi.components.service
 import dev.metaclaude.compat.IntegrationMode
 
 /**
- * Application-wide settings, saved in claude-ui.xml in the IDE's config folder.
+ * Application-wide settings, saved in claude-ui.xml in the IDE's config folder. The file keeps its pre-rename name
+ * (Clawed UI, 2026-10-30) so existing settings carry over.
  * Only settings that already have an effect live here; the VS Code panel settings come with the phases that use them.
  */
 @Service(Service.Level.APP)

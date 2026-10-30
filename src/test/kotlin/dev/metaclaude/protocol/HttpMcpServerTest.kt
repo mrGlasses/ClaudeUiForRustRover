@@ -79,8 +79,8 @@ class HttpMcpServerTest {
 
     @Test
     fun `mcp config points at this server with the token`() {
-        val cfg = JsonParser.parseString(server.mcpConfigJson("claude-ui")).asJsonObject
-            .getAsJsonObject("mcpServers").getAsJsonObject("claude-ui")
+        val cfg = JsonParser.parseString(server.mcpConfigJson("clawed-ui")).asJsonObject
+            .getAsJsonObject("mcpServers").getAsJsonObject("clawed-ui")
         assertEquals("http", cfg.get("type").asString)
         assertEquals(server.url, cfg.get("url").asString)
         assertEquals("Bearer $token", cfg.getAsJsonObject("headers").get("Authorization").asString)

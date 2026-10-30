@@ -66,7 +66,7 @@ Deny (from SDK docs, not yet exercised): `"response":{"behavior":"deny","message
 ## Spike v3 (2026-10-30, v0.12.2): IDE tools in panel sessions via our own MCP server
 
 **Works.** `HttpMcpServer` (loopback, bearer token) passed with `--mcp-config <file>`:
-- `system/init` lists `claude-ui:connected` and the tool `mcp__claude-ui__getDiagnostics`.
+- `system/init` lists `claude-ui:connected` and the tool `mcp__claude-ui__getDiagnostics` (renamed `clawed-ui` in v0.15.0).
 - The CLI first POSTs `server/discover` (id `server-discover-probe-1`); our `-32601` reply is fine, it then continues.
 - `initialize` asks for protocol **2025-11-25**; we echo it. Then `notifications/initialized`, `tools/list`, `tools/call`.
 - Calling our tool triggers a normal `can_use_tool` permission request (`tool_name` = `mcp__claude-ui__getDiagnostics`),

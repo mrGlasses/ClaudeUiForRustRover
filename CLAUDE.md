@@ -1,4 +1,4 @@
-# Claude UI for RustRover — rules for Claude
+# Clawed UI — rules for Claude
 
 A JetBrains (RustRover) plugin that gives the user's own `claude` CLI an IDE integration, aiming at parity with the
 Claude Code VS Code extension. The official Anthropic JetBrains plugin is optional, detected at runtime, never a dependency.

@@ -1,11 +1,12 @@
 <idea-plugin>
   <!-- id must match PluginInfo.ID. It can still change freely until the first Marketplace release. -->
-  <id>io.github.mrglasses.claudeui</id>
-  <name>Claude UI for RustRover</name>
+  <id>io.github.mrglasses.clawedui</id>
+  <name>Clawed UI</name>
   <vendor url="https://github.com/mrGlasses">mrGlasses</vendor>
   <description><![CDATA[
-    Integrates your own installed Claude Code CLI with RustRover: diff review, selection sharing and
-    diagnostics over Claude Code's IDE protocol. The official Claude Code JetBrains plugin is optional.
+    A visual interface for your own installed Claude Code CLI in RustRover: chat panel, diff review, selection
+    sharing and diagnostics over Claude Code's IDE protocol. No Node.js needed, and the official Claude Code
+    JetBrains plugin is optional.
     <p><b>Unofficial community plugin</b>, not affiliated with Anthropic or JetBrains.
     Claude Code can read, change and delete files and run commands within the permissions you approve:
     review every change and keep backups. Provided "as is", without warranty; the authors are not liable
@@ -25,10 +26,10 @@
 
   <extensions defaultExtensionNs="com.intellij">
     <!-- MetaClaudeService is a light service (@Service), so it is not registered here. -->
-    <notificationGroup id="Claude UI" displayType="BALLOON"/>
+    <notificationGroup id="Clawed UI" displayType="BALLOON"/>
     <projectActivity implementation="dev.metaclaude.BridgeStartupActivity"/>
     <applicationConfigurable parentId="tools" instance="dev.metaclaude.settings.ClaudeUiConfigurable"
-                             id="dev.metaclaude.settings" displayName="Claude UI"/>
+                             id="dev.metaclaude.settings" displayName="Clawed UI"/>
   </extensions>
 
   <extensions defaultExtensionNs="org.jetbrains.plugins.terminal">
@@ -48,7 +49,7 @@
     </action>
     <!-- Phase 6 developer spike; removed when the chat panel lands. -->
     <action id="dev.metaclaude.StreamSpike" class="dev.metaclaude.spike.StreamSpikeAction"
-            text="Claude UI: Run Stream Spike (Dev)"
+            text="Clawed UI: Run Stream Spike (Dev)"
             description="Drive claude in stream-json mode and record the protocol to ~/.claude-meta/spike-*.log">
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>

@@ -19,8 +19,8 @@ import dev.metaclaude.compat.OfficialPluginDetector
 import dev.metaclaude.compat.OfficialState
 import javax.swing.JLabel
 
-/** Settings > Tools > Claude UI. */
-class ClaudeUiConfigurable : BoundConfigurable("Claude UI") {
+/** Settings > Tools > Clawed UI. */
+class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
     private val settings get() = ClaudeUiSettings.instance
 
     override fun createPanel(): DialogPanel = panel {

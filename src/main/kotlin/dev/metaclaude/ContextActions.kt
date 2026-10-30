@@ -36,7 +36,7 @@ class SendAtMentionAction : DumbAwareAction() {
 
         val sent = project.service<MetaClaudeService>().sendAtMention(CliPaths.forCli(file.path), startLine, endLine)
         if (!sent) {
-            NotificationGroupManager.getInstance().getNotificationGroup("Claude UI")
+            NotificationGroupManager.getInstance().getNotificationGroup("Clawed UI")
                 .createNotification(
                     "No Claude session connected",
                     "Run claude in a terminal, then /ide and pick ${PluginInfo.IDE_NAME}.",

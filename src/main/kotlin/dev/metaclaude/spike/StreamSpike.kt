@@ -45,10 +45,10 @@ import kotlin.concurrent.thread
 class StreamSpikeAction : DumbAwareAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        object : Task.Backgroundable(project, "Claude UI: stream spike", true) {
+        object : Task.Backgroundable(project, "Clawed UI: stream spike", true) {
             override fun run(indicator: ProgressIndicator) {
                 val log = StreamSpike(project, indicator).run()
-                NotificationGroupManager.getInstance().getNotificationGroup("Claude UI")
+                NotificationGroupManager.getInstance().getNotificationGroup("Clawed UI")
                     .createNotification("Stream spike finished", "Log: $log", NotificationType.INFORMATION)
                     .notify(project)
             }
@@ -256,6 +256,6 @@ private class StreamSpike(private val project: Project, private val indicator: P
     private fun awaitControlResponse(seconds: Long) = awaitAny(seconds) { it.get("type")?.asString == "control_response" }
 
     private companion object {
-        const val SERVER_NAME = "claude-ui"
+        const val SERVER_NAME = "clawed-ui"
     }
 }
