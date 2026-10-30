@@ -9,11 +9,13 @@ import com.google.gson.JsonObject
  * The panel never sees raw CLI events: it gets only what it renders, and every text it gets is rendered either
  * sanitized (Markdown) or as plain text. Shapes from STREAM-PROTOCOL.md (CLI 2.1.312). Pure: unit-tested.
  *
- * Out of scope for Phase 7a: thinking blocks, subagent output (parent_tool_use_id != null), permission cards.
+ * Phase 7b adds thinking blocks (start / delta / stop) and the to-do list (TodoWrite).
+ * Still out of scope: subagent output (parent_tool_use_id != null, Phase 11), permission cards (Phase 8).
  */
 object StreamEvents {
     private const val SUMMARY_MAX = 200
     private const val PREVIEW_MAX = 600
+    private val TODO_STATUSES = setOf("pending", "in_progress", "completed")
 
     fun toPanel(event: JsonObject): List<JsonObject> {
         // Subagent traffic is shown in Phase 11 (agent map); the main transcript skips it.
@@ -42,19 +44,38 @@ object StreamEvents {
         else -> emptyList()
     }
 
-    /** Token streaming: only text deltas, keyed by message id + content block index. */
+    /**
+     * Token streaming, keyed by message id + content block index: text deltas, and thinking blocks (start, deltas, stop).
+     * Thinking text can be empty (the CLI sent `"thinking":""` with only a signature in spike v3); the panel then shows
+     * just "Thought for N s". `blockStop` is sent for every block; the panel ignores it for blocks it doesn't track.
+     */
     private fun streamEvent(e: JsonObject): List<JsonObject> {
         val ev = e.obj("event") ?: return emptyList()
-        if (ev.str("type") != "content_block_delta") return emptyList()
-        val delta = ev.obj("delta") ?: return emptyList()
-        if (delta.str("type") != "text_delta") return emptyList()
         val id = e.str("api_message_id") ?: return emptyList()
         val index = ev.get("index")?.takeIf { it.isJsonPrimitive }?.asInt ?: 0
-        return listOf(msg("textDelta") {
-            addProperty("messageId", id)
-            addProperty("key", "$id:$index")
-            addProperty("text", delta.str("text") ?: "")
-        })
+        val key = "$id:$index"
+        return when (ev.str("type")) {
+            "content_block_start" ->
+                if (ev.obj("content_block")?.str("type") == "thinking") listOf(msg("thinkingStart") { addProperty("key", key) })
+                else emptyList()
+            "content_block_stop" -> listOf(msg("blockStop") { addProperty("key", key) })
+            "content_block_delta" -> {
+                val delta = ev.obj("delta") ?: return emptyList()
+                when (delta.str("type")) {
+                    "text_delta" -> listOf(msg("textDelta") {
+                        addProperty("messageId", id)
+                        addProperty("key", key)
+                        addProperty("text", delta.str("text") ?: "")
+                    })
+                    "thinking_delta" -> listOf(msg("thinkingDelta") {
+                        addProperty("key", key)
+                        addProperty("text", delta.str("thinking") ?: "")
+                    })
+                    else -> emptyList()
+                }
+            }
+            else -> emptyList()
+        }
     }
 
     /**
@@ -75,7 +96,7 @@ object StreamEvents {
                     addProperty("key", "$id:final:$index")
                     addProperty("text", block.str("text") ?: "")
                 }
-                "tool_use" -> msg("toolUse") {
+                "tool_use" -> if (block.str("name") == "TodoWrite") todos(block.obj("input")) else msg("toolUse") {
                     addProperty("id", block.str("id") ?: "")
                     addProperty("name", block.str("name") ?: "tool")
                     addProperty("summary", toolSummary(block.obj("input")))
@@ -103,6 +124,18 @@ object StreamEvents {
                 else -> null
             }
         }
+    }
+
+    /** TodoWrite replaces the whole list each time: `todos: [{content, status, activeForm}]`. Unknown statuses become pending. */
+    private fun todos(input: JsonObject?): JsonObject = msg("todos") {
+        val items = JsonArray()
+        (input?.get("todos") as? JsonArray)?.forEach { el ->
+            val t = el as? JsonObject ?: return@forEach
+            val status = t.str("status")?.takeIf { it in TODO_STATUSES } ?: "pending"
+            val text = (if (status == "in_progress") t.str("activeForm") else null) ?: t.str("content") ?: return@forEach
+            items.add(JsonObject().apply { addProperty("text", text.take(SUMMARY_MAX)); addProperty("status", status) })
+        }
+        add("items", items)
     }
 
     /** One line saying what the tool works on: file, command, pattern or URL. Never the whole input. */

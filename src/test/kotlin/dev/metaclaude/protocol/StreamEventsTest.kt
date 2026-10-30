@@ -75,4 +75,29 @@ class StreamEventsTest {
         assertTrue(s.length <= 201 && !s.contains('\n'))
         assertEquals("", StreamEvents.toolSummary(JsonObject()))
     }
+
+    @Test
+    fun `thinking blocks start, stream and stop`() {
+        val start = map("""{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}},"parent_tool_use_id":null,"api_message_id":"msg_3"}""")
+        assertEquals("thinkingStart", start.single().get("type").asString)
+        assertEquals("msg_3:0", start.single().get("key").asString)
+        val delta = map("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me"}},"parent_tool_use_id":null,"api_message_id":"msg_3"}""")
+        assertEquals("thinkingDelta", delta.single().get("type").asString)
+        assertEquals("Let me", delta.single().get("text").asString)
+        val stop = map("""{"type":"stream_event","event":{"type":"content_block_stop","index":0},"parent_tool_use_id":null,"api_message_id":"msg_3"}""")
+        assertEquals("blockStop", stop.single().get("type").asString)
+        assertEquals("msg_3:0", stop.single().get("key").asString)
+        // a text block start is not a thinking start
+        assertTrue(map("""{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}},"parent_tool_use_id":null,"api_message_id":"msg_3"}""").isEmpty())
+    }
+
+    @Test
+    fun `TodoWrite becomes the to-do list, not a tool card`() {
+        val out = map("""{"type":"assistant","message":{"id":"msg_4","role":"assistant","content":[{"type":"tool_use","id":"toolu_9","name":"TodoWrite","input":{"todos":[{"content":"Write tests","status":"completed","activeForm":"Writing tests"},{"content":"Fix bug","status":"in_progress","activeForm":"Fixing bug"},{"content":"Odd","status":"weird"}]}}]},"parent_tool_use_id":null}""")
+        val todos = out.single()
+        assertEquals("todos", todos.get("type").asString)
+        val items = todos.getAsJsonArray("items").map { it.asJsonObject }
+        assertEquals(listOf("Write tests", "Fixing bug", "Odd"), items.map { it.get("text").asString })
+        assertEquals(listOf("completed", "in_progress", "pending"), items.map { it.get("status").asString })
+    }
 }

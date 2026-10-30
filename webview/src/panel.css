@@ -53,3 +53,27 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 .send { align-self: flex-end; padding: 4px 14px; color: var(--fg); background: transparent; border: 1px solid var(--border); border-radius: 6px; font: inherit; cursor: pointer; }
 .send:hover { border-color: var(--link); }
 .send.stop { border-color: var(--error); color: var(--error); }
+
+/* 7b */
+.msg.user .time { color: var(--muted); font-size: 10px; text-align: right; margin-top: 2px; white-space: normal; }
+.meta { display: flex; gap: 10px; align-items: baseline; }
+.meta .copy { font-size: 11px; }
+
+.thinking { color: var(--muted); font-size: 12px; }
+.thinking summary { cursor: pointer; font-style: italic; }
+.thinking-body { font-family: var(--font); white-space: pre-wrap; margin: 4px 0 0; padding-left: 10px; border-left: 2px solid var(--border); }
+.thinking.no-text .thinking-body { font-style: italic; }
+
+.todos { border-top: 1px solid var(--border); padding: 4px 12px; font-size: 12px; max-height: 35vh; overflow-y: auto; }
+.todos summary { cursor: pointer; color: var(--muted); }
+.todo-list { list-style: none; margin: 4px 0; padding: 0; }
+.todo { display: flex; gap: 6px; }
+.todo.completed .todo-text { text-decoration: line-through; color: var(--muted); }
+.todo.in_progress .todo-text { font-weight: 600; }
+.todo-mark { color: var(--muted); }
+.todo.completed .todo-mark { color: var(--ok); }
+
+.queue { border-top: 1px solid var(--border); padding: 4px 12px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.queued { display: flex; gap: 8px; align-items: baseline; }
+.queued-label { color: var(--muted); }
+.queued-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -17,8 +17,8 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | ☑ 7a done (v0.14.2 tested 2026-10-30: no duplicates, hand cursor works). Next: 7b |
-| Rename | **v0.15.0: Clawed UI** (id `io.github.mrglasses.clawedui`); waiting for your test |
+| 7 Chat core | ☑ 7a done (v0.14.2). **7b written (v0.16.0): thinking, to-do, queue, times, copy; waiting for your test** |
+| Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -242,7 +242,14 @@ Name **Clawed UI** ("clawed" sounds like "Claude"; claws for Ferris), id `io.git
 A new id is a new plugin for the IDE: uninstall "Claude UI for RustRover" before installing.
 Marketplace search (checked 2026-10-30, plugins-ranking docs) matches id, name, description, tags and vendor, then weighs
 downloads and rating, so "Claude" in the description and tags makes the plugin findable but a new plugin ranks low at first.
-Not yet (rest of Phase 7): thinking blocks, to-do list, queued messages, Focus view, timestamps, copy, `/` menu, LaTeX, sign-in screen.
+7b (v0.16.0): thinking blocks from `content_block_start`/`thinking_delta`/`content_block_stop` ("Thinking…" then
+"Thought for N s"; Ctrl+O opens or closes all; if the CLI sends no reasoning text the block says so), the TodoWrite list
+above the composer (replaces its tool card), messages typed while busy are queued (removable, sent after each turn; the button
+reads Queue while you type, Stop otherwise), times on messages and turn footers, Copy per turn (Markdown source, through
+Kotlin to the IDE clipboard; the page has no clipboard access). The log now names each tool Claude uses and the raw
+`tool_name` of denied requests: v0.15.0 denied a request shown as `GetDiagnostics`, which is probably the display name of our
+`mcp__clawed-ui__getDiagnostics`; the next log confirms it, and whether CLI 2.1.314 still uses TodoWrite.
+Not yet (rest of Phase 7): Focus view, date lines and the timestamp setting, `/copy`, `/` menu, LaTeX, sign-in screen.
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,
 LaTeX math, files Claude sends, sign-in screen, the `/` command menu.

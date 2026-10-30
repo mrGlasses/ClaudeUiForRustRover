@@ -7,7 +7,8 @@ export type ToKotlin =
   | { type: "interrupt" }
   | { type: "newSession" }
   | { type: "openLink"; url: string }
-  | { type: "cursor"; shape: "pointer" | "default" };
+  | { type: "cursor"; shape: "pointer" | "default" }
+  | { type: "copy"; text: string };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
@@ -16,6 +17,10 @@ export type FromKotlin =
   | { type: "busy" }
   | { type: "textDelta"; messageId: string; key: string; text: string }
   | { type: "textFinal"; messageId: string; key: string; text: string }
+  | { type: "thinkingStart"; key: string }
+  | { type: "thinkingDelta"; key: string; text: string }
+  | { type: "blockStop"; key: string }
+  | { type: "todos"; items: { text: string; status: "pending" | "in_progress" | "completed" }[] }
   | { type: "toolUse"; id: string; name: string; summary: string }
   | { type: "toolResult"; toolUseId: string; isError: boolean; preview: string }
   | { type: "notice"; text: string }

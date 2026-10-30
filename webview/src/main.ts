@@ -1,4 +1,5 @@
-// Phase 7a chat panel: send prompts, stream Claude's answer as sanitized Markdown, show tool calls, stop a turn.
+// Chat panel. 7a: send prompts, stream Claude's answer as sanitized Markdown, tool calls, stop a turn.
+// 7b: thinking blocks (Ctrl+O), to-do list, queued messages, timestamps, copy a response.
 // Text from Claude goes through renderMarkdown (sanitized); everything else uses textContent.
 import { onMessage, post, type FromKotlin } from "./bridge";
 import { renderMarkdown } from "./markdown";
@@ -10,6 +11,10 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
+function clock(d = new Date()): string {
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 // ---------- layout ----------
 const root = document.getElementById("app")!;
 const header = el("div", "header");
@@ -18,8 +23,20 @@ const newButton = el("button", "link-button", "New session");
 header.append(status, newButton);
 
 const transcript = el("div", "transcript");
-const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops.");
+const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, Ctrl+O shows thinking.");
 transcript.append(empty);
+
+// To-do list (TodoWrite): one list, replaced on every update, shown above the composer.
+const todoBox = el("details", "todos");
+todoBox.open = true;
+const todoSummary = el("summary");
+const todoList = el("ul", "todo-list");
+todoBox.append(todoSummary, todoList);
+todoBox.hidden = true;
+
+// Messages typed while Claude works wait here and go out one by one after each turn.
+const queueBox = el("div", "queue");
+queueBox.hidden = true;
 
 const composer = el("div", "composer");
 const input = el("textarea", "input");
@@ -27,7 +44,7 @@ input.rows = 3;
 input.placeholder = "Message Claude…";
 const sendButton = el("button", "send", "Send");
 composer.append(input, sendButton);
-root.append(header, transcript, composer);
+root.append(header, transcript, todoBox, queueBox, composer);
 
 // ---------- state ----------
 let busy = false;
@@ -37,12 +54,18 @@ const textBlocks = new Map<string, { el: HTMLDivElement; text: string }>();
 // each block as its own one-block message, so finals are matched in order, not by index (v0.14.0 duplicated text).
 const unfinished = new Map<string, string[]>();
 const toolCards = new Map<string, HTMLDivElement>();
-let renderQueued = new Set<string>();
+const renderQueued = new Set<string>();
+type Thinking = { box: HTMLDetailsElement; label: HTMLElement; body: HTMLPreElement; text: string; started: number; done: boolean };
+const thinking = new Map<string, Thinking>();
+let showThinking = false; // Ctrl+O
+let turnTexts: string[] = []; // keys of this turn's text blocks, for Copy
+const queue: string[] = [];
 
 function setBusy(b: boolean): void {
   busy = b;
-  sendButton.textContent = b ? "Stop" : "Send";
-  sendButton.classList.toggle("stop", b);
+  const typing = input.value.trim() !== "";
+  sendButton.textContent = b ? (typing ? "Queue" : "Stop") : "Send";
+  sendButton.classList.toggle("stop", b && !typing);
   status.textContent = b ? `Working${model ? ` · ${model}` : ""}…` : model ? `Ready · ${model}` : "Ready";
 }
 
@@ -76,32 +99,123 @@ function textBlock(key: string): { el: HTMLDivElement; text: string } {
   if (!b) {
     b = { el: el("div", "msg assistant markdown"), text: "" };
     textBlocks.set(key, b);
+    turnTexts.push(key);
     append(b.el);
   }
   return b;
 }
 
+// ---------- thinking ----------
+function thinkingBlock(key: string): Thinking {
+  let t = thinking.get(key);
+  if (!t) {
+    const box = el("details", "thinking");
+    box.open = showThinking;
+    const label = el("summary", undefined, "Thinking…");
+    const body = el("pre", "thinking-body");
+    box.append(label, body);
+    t = { box, label, body, text: "", started: Date.now(), done: false };
+    thinking.set(key, t);
+    append(box);
+  }
+  return t;
+}
+
+function finishThinking(t: Thinking): void {
+  if (t.done) return;
+  t.done = true;
+  const secs = Math.max(1, Math.round((Date.now() - t.started) / 1000));
+  t.label.textContent = `Thought for ${secs} s`;
+  if (!t.text) {
+    // The CLI may send only a signature, no readable reasoning: say so instead of an empty box.
+    t.box.classList.add("no-text");
+    t.body.textContent = "Claude didn't share the text of this reasoning.";
+  }
+}
+
+function setShowThinking(show: boolean): void {
+  showThinking = show;
+  thinking.forEach((t) => (t.box.open = show));
+}
+
+// ---------- to-do list ----------
+const TODO_MARK: Record<string, string> = { pending: "○", in_progress: "▶", completed: "●" };
+
+function showTodos(items: { text: string; status: string }[]): void {
+  todoList.replaceChildren(
+    ...items.map((i) => {
+      const li = el("li", `todo ${i.status}`);
+      li.append(el("span", "todo-mark", TODO_MARK[i.status] ?? "○"), el("span", "todo-text", i.text));
+      return li;
+    }),
+  );
+  const done = items.filter((i) => i.status === "completed").length;
+  todoSummary.textContent = `To-do ${done}/${items.length}`;
+  todoBox.hidden = items.length === 0;
+}
+
+// ---------- queue ----------
+function renderQueue(): void {
+  queueBox.replaceChildren(
+    ...queue.map((text, i) => {
+      const row = el("div", "queued");
+      const remove = el("button", "link-button", "×");
+      remove.title = "Remove from queue";
+      remove.addEventListener("click", () => {
+        queue.splice(i, 1);
+        renderQueue();
+      });
+      row.append(el("span", "queued-label", "Queued"), el("span", "queued-text", text), remove);
+      return row;
+    }),
+  );
+  queueBox.hidden = queue.length === 0;
+}
+
 // ---------- sending ----------
-function sendPrompt(): void {
-  const text = input.value.trim();
-  if (!text || busy) return;
-  append(el("div", "msg user", text), true);
-  input.value = "";
+function userMessage(text: string): void {
+  const m = el("div", "msg user");
+  m.append(el("div", "user-text", text), el("div", "time", clock()));
+  append(m, true);
+}
+
+function dispatch(text: string): void {
+  userMessage(text);
+  turnTexts = [];
   setBusy(true);
   post({ type: "send", text });
 }
 
-sendButton.addEventListener("click", () => (busy ? post({ type: "interrupt" }) : sendPrompt()));
+function submit(): void {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  if (busy) {
+    queue.push(text);
+    renderQueue();
+    setBusy(true);
+  } else {
+    dispatch(text);
+  }
+}
+
+sendButton.addEventListener("click", () => (busy && !input.value.trim() ? post({ type: "interrupt" }) : submit()));
+input.addEventListener("input", () => {
+  if (busy) setBusy(true); // Stop <-> Queue label
+});
 input.addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
     ev.preventDefault();
-    sendPrompt();
+    submit();
   }
 });
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && busy) {
     ev.preventDefault();
     post({ type: "interrupt" });
+  } else if (ev.key.toLowerCase() === "o" && ev.ctrlKey && !ev.shiftKey && !ev.altKey) {
+    ev.preventDefault();
+    setShowThinking(!showThinking);
   }
 });
 newButton.addEventListener("click", () => post({ type: "newSession" }));
@@ -123,6 +237,23 @@ document.addEventListener("mouseover", (ev) => {
   cursorShape = shape;
   post({ type: "cursor", shape });
 });
+
+/** Footer of a turn: time, duration, cost and a Copy button for the turn's text (Markdown source). */
+function turnFooter(parts: string[]): HTMLElement {
+  const meta = el("div", "meta");
+  meta.append(el("span", undefined, [clock(), ...parts].join(" · ")));
+  const text = turnTexts.map((k) => textBlocks.get(k)?.text ?? "").filter((t) => t).join("\n\n");
+  if (text) {
+    const copy = el("button", "link-button copy", "Copy");
+    copy.addEventListener("click", () => {
+      post({ type: "copy", text });
+      copy.textContent = "Copied";
+      setTimeout(() => (copy.textContent = "Copy"), 1500);
+    });
+    meta.append(copy);
+  }
+  return meta;
+}
 
 // ---------- receiving ----------
 function handle(msg: FromKotlin): void {
@@ -149,12 +280,29 @@ function handle(msg: FromKotlin): void {
       break;
     }
     case "textFinal": {
-      const streamed = unfinished.get(msg.messageId)?.shift();
-      const b = textBlock(streamed ?? msg.key);
+      const key = unfinished.get(msg.messageId)?.shift() ?? msg.key;
+      const b = textBlock(key);
       b.text = msg.text;
-      renderBlock(msg.key);
+      renderBlock(key);
       break;
     }
+    case "thinkingStart":
+      thinkingBlock(msg.key);
+      break;
+    case "thinkingDelta": {
+      const t = thinkingBlock(msg.key);
+      t.text += msg.text;
+      t.body.textContent = t.text; // plain text, never HTML
+      break;
+    }
+    case "blockStop": {
+      const t = thinking.get(msg.key);
+      if (t) finishThinking(t);
+      break;
+    }
+    case "todos":
+      showTodos(msg.items);
+      break;
     case "toolUse": {
       const card = el("div", "tool");
       card.append(el("span", "tool-name", msg.name), el("span", "tool-summary", msg.summary), el("span", "tool-state", "…"));
@@ -178,18 +326,29 @@ function handle(msg: FromKotlin): void {
       append(el("div", "notice", msg.text));
       break;
     case "turnEnd": {
+      thinking.forEach(finishThinking); // an interrupt can leave a block without its stop event
       const parts: string[] = [];
       if (msg.durationMs) parts.push(`${(msg.durationMs / 1000).toFixed(1)} s`);
       if (msg.costUsd) parts.push(`$${msg.costUsd.toFixed(4)}`);
       if (msg.isError) parts.push("ended with an error");
-      if (parts.length) append(el("div", "meta", parts.join(" · ")));
+      append(turnFooter(parts));
       setBusy(false);
+      const next = queue.shift();
+      if (next !== undefined) {
+        renderQueue();
+        dispatch(next);
+      }
       break;
     }
     case "sessionReset":
       textBlocks.clear();
       unfinished.clear();
       toolCards.clear();
+      thinking.clear();
+      turnTexts = [];
+      queue.length = 0;
+      renderQueue();
+      showTodos([]);
       transcript.replaceChildren(empty);
       model = "";
       setBusy(false);

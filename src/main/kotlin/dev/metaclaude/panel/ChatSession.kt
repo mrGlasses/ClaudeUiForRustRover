@@ -84,7 +84,12 @@ class ChatSession(
     private fun onLine(line: String) {
         val event = runCatching { JsonParser.parseString(line).asJsonObject }.getOrNull() ?: return
         if (event.get("type")?.asString == "control_request") return answerControlRequest(event)
-        StreamEvents.toPanel(event).forEach(onPanelMessage)
+        StreamEvents.toPanel(event).forEach { m ->
+            // Tool names only (never inputs): shows which tools the CLI version really uses (to-do, diagnostics...).
+            if (m.get("type")?.asString == "toolUse") BridgeLog.log("tool use: ${m.get("name")?.asString}", tag)
+            if (m.get("type")?.asString == "todos") BridgeLog.log("tool use: TodoWrite (to-do list)", tag)
+            onPanelMessage(m)
+        }
     }
 
     /** Phase 7a: deny every permission request (no cards yet), and tell the user why. */
@@ -96,7 +101,7 @@ class ChatSession(
             return
         }
         val tool = request.get("display_name")?.asString ?: request.get("tool_name")?.asString ?: "a tool"
-        BridgeLog.log("permission request for '$tool' denied (cards come in Phase 8)", tag)
+        BridgeLog.log("permission request for '$tool' (tool_name=${request.get("tool_name")?.asString}) denied (cards come in Phase 8)", tag)
         write(controlResponse(id, JsonObject().apply {
             addProperty("behavior", "deny")
             addProperty("message", "The Clawed UI chat panel cannot approve tool use yet. Ask the user to use a Claude terminal session for edits and commands.")

@@ -5,6 +5,7 @@ import com.google.gson.JsonParser
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationInfo
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.JBColor
@@ -24,6 +25,7 @@ import dev.metaclaude.cli.ClaudeCli
 import dev.metaclaude.settings.ClaudeUiSettings
 import java.awt.Color
 import java.awt.Cursor
+import java.awt.datatransfer.StringSelection
 import java.nio.file.Path
 import javax.swing.SwingUtilities
 import java.net.URI
@@ -109,6 +111,12 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 if (url != null && isSafeExternalUrl(url)) BrowserUtil.browse(url)
                 else BridgeLog.log("panel: refused openLink (not an http/https URL)", project.name)
             }
+            // Copy a response: the page has no clipboard access of its own; Kotlin puts plain text on the IDE clipboard.
+            "copy" -> {
+                val text = msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString
+                if (text.isNullOrEmpty() || text.length > MAX_COPY) BridgeLog.log("panel: refused copy (empty or over $MAX_COPY chars)", project.name)
+                else CopyPasteManager.getInstance().setContents(StringSelection(text))
+            }
             // Hand cursor over links. JCEF never reported cursor changes here (no onCursorChange call in the v0.14.1
             // log), so the page says when the mouse is over something clickable. Only these two values are accepted.
             "cursor" -> {
@@ -193,6 +201,7 @@ ${themeCss()}</style></head><body><div id="app"></div>
 
     companion object {
         private const val MAX_PROMPT = 100_000
+        private const val MAX_COPY = 2_000_000
 
         fun isSafeExternalUrl(url: String): Boolean {
             if (url.length > 2048) return false

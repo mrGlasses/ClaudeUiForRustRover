@@ -34,7 +34,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Feature | Via | Phase | Status |
 |---|---|---|---|
 | Multi-line input (Shift+Enter), `useCtrlEnterToSend` | UI | 7 | ◐ Shift+Enter v0.14.0 |
-| Queued messages while Claude works ("Message queued") | Stream | 7 | ☐ |
+| Queued messages while Claude works ("Message queued") | Stream | 7 | ◐ v0.16.0: queued in the panel, sent after each turn, removable |
 | Paste text stays visible; invisible-character notices | UI/CLI | 7 | ☐ |
 | `/` command menu with inline suggestions | Stream/CLI | 7 | ☐ |
 | Permission mode indicator (Auto / Manual / Plan / Edit automatically / Bypass) | Stream | 8 | ☐ |
@@ -83,14 +83,14 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|---|
 | Streaming Markdown responses, code blocks | Stream + UI | ◐ v0.14.0 (pending test) |
 | Tool-call rows with results; live subagent progress rows | Stream + UI | ◐ tool cards v0.14.0; subagents later |
-| Thinking blocks collapsed, Ctrl+O expands or collapses all | Stream + UI | ☐ |
-| Latest to-do list stays visible | Stream + UI | ☐ |
+| Thinking blocks collapsed, Ctrl+O expands or collapses all | Stream + UI | ◐ v0.16.0 (text only when the CLI sends it) |
+| Latest to-do list stays visible | Stream + UI | ◐ v0.16.0 (TodoWrite) |
 | Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ☐ |
-| Message timestamps and date lines, `showMessageTimestamps` | UI | ☐ |
+| Message timestamps and date lines, `showMessageTimestamps` | UI | ◐ v0.16.0: times on messages and turns; no date lines or setting yet |
 | `scrollToBottomOnSend` | UI | ☐ |
 | `spinnerVerbs` | UI | ☐ |
 | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, ```` ```math ````), copy gives TeX source | UI (KaTeX in the web view) | ☐ |
-| Copy response (hover button), `/copy`, `/copy 2` | UI | ☐ |
+| Copy response (hover button), `/copy`, `/copy 2` | UI | ◐ v0.16.0: Copy per turn (Markdown source); no `/copy` yet |
 | Bookmarks (bookmark response, Bookmarks panel, `/bookmarks`) | UI/CLI | ☐ |
 | Files Claude sends ("Sent report.md …", click to open; network paths not linked) | Stream + UI | ☐ |
 | Stop button / Esc ends the turn (background agents keep running) | Stream | ◐ v0.14.0 (pending test) |
@@ -173,7 +173,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Reopen Closed Session (`enableReopenClosedSessionShortcut`) | Ctrl+Shift+T | Only when Claude has focus: Ctrl+Shift+T is "Go to Test" in JetBrains | ☐ |
 | Insert @-Mention | Alt+K | Same, if free | ☐ |
 | Toggle Focus view | Ctrl+Alt+F | Check: Ctrl+Alt+F is "Introduce Field" in JetBrains | ☐ |
-| Expand/collapse thinking | Ctrl+O | Only inside the panel | ☐ |
+| Expand/collapse thinking | Ctrl+O | Only inside the panel | ◐ v0.16.0 |
 | Accept/Reject Change at Cursor, Rename/Group/Mark Unread tab, Show Logs, Logout, Focus last message, Open in Side Bar/Terminal/New Window | — | Actions without default keys | ☐ |
 
 ## L. Settings — Phase 14 (settings page)
