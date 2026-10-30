@@ -15,7 +15,6 @@ import dev.metaclaude.PluginInfo
 import dev.metaclaude.protocol.BridgeLog
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
-import org.cef.handler.CefDisplayHandlerAdapter
 import org.cef.handler.CefLoadHandler
 import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.handler.CefRequestHandlerAdapter
@@ -67,22 +66,6 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             }
         }, browser.cefBrowser)
 
-        // Hand cursor over links: v0.14.0 set it on browser.component only, and the inner component that actually
-        // receives the mouse (cefBrowser.uiComponent, off-screen mode) kept the default arrow. Set both.
-        // Distinct cursor types are logged once each so the next test shows whether JCEF calls us at all.
-        val seenCursors = mutableSetOf<Int>()
-        browser.jbCefClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
-            override fun onCursorChange(cefBrowser: CefBrowser, cursorType: Int): Boolean {
-                if (seenCursors.add(cursorType)) BridgeLog.log("panel cursor type $cursorType", "${project.name}/panel")
-                SwingUtilities.invokeLater {
-                    val cursor = Cursor.getPredefinedCursor(cursorType.coerceIn(0, 13))
-                    browser.component.cursor = cursor
-                    cefBrowser.uiComponent?.cursor = cursor
-                }
-                return false
-            }
-        }, browser.cefBrowser)
-
         // Rule 3: once our page is up, every navigation is cancelled (links go through openLink instead).
         browser.jbCefClient.addRequestHandler(object : CefRequestHandlerAdapter() {
             override fun onBeforeBrowse(
@@ -125,6 +108,20 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 val url = msg.get("url")?.takeIf { it.isJsonPrimitive }?.asString
                 if (url != null && isSafeExternalUrl(url)) BrowserUtil.browse(url)
                 else BridgeLog.log("panel: refused openLink (not an http/https URL)", project.name)
+            }
+            // Hand cursor over links. JCEF never reported cursor changes here (no onCursorChange call in the v0.14.1
+            // log), so the page says when the mouse is over something clickable. Only these two values are accepted.
+            "cursor" -> {
+                val hand = when (msg.get("shape")?.takeIf { it.isJsonPrimitive }?.asString) {
+                    "pointer" -> true
+                    "default" -> false
+                    else -> return
+                }
+                SwingUtilities.invokeLater {
+                    val cursor = Cursor.getPredefinedCursor(if (hand) Cursor.HAND_CURSOR else Cursor.DEFAULT_CURSOR)
+                    browser.component.cursor = cursor
+                    browser.cefBrowser.uiComponent?.cursor = cursor
+                }
             }
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }

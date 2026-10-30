@@ -6,7 +6,8 @@ export type ToKotlin =
   | { type: "send"; text: string }
   | { type: "interrupt" }
   | { type: "newSession" }
-  | { type: "openLink"; url: string };
+  | { type: "openLink"; url: string }
+  | { type: "cursor"; shape: "pointer" | "default" };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =

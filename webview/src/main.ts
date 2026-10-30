@@ -115,6 +115,15 @@ document.addEventListener("click", (ev) => {
   if (/^https?:/i.test(href)) post({ type: "openLink", url: href });
 });
 
+// The embedded browser doesn't change the IDE's mouse cursor, so ask Kotlin for the hand over clickable things.
+let cursorShape: "pointer" | "default" = "default";
+document.addEventListener("mouseover", (ev) => {
+  const shape = (ev.target as Element | null)?.closest("a, button, summary") ? "pointer" : "default";
+  if (shape === cursorShape) return;
+  cursorShape = shape;
+  post({ type: "cursor", shape });
+});
+
 // ---------- receiving ----------
 function handle(msg: FromKotlin): void {
   switch (msg.type) {
