@@ -14,7 +14,12 @@ import com.intellij.ui.jcef.JBCefApp
 import dev.metaclaude.MetaClaudeService
 import dev.metaclaude.PluginInfo
 import dev.metaclaude.cli.ClaudeCli
+import dev.metaclaude.protocol.AuthToken
+import dev.metaclaude.protocol.HttpMcpServer
+import dev.metaclaude.protocol.McpDispatcher
+import dev.metaclaude.protocol.ToolRegistry
 import dev.metaclaude.settings.ClaudeUiSettings
+import dev.metaclaude.tools.GetDiagnostics
 import java.io.BufferedWriter
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -70,38 +75,52 @@ private class StreamSpike(private val project: Project, private val indicator: P
     }
 
     /**
-     * Spike v2 (v0.11.1). v1 answered 6.1, 6.2 and 6.4 (see STREAM-PROTOCOL.md); this run only covers the open points:
-     *  - JCEF loads now that the optional com.intellij.modules.jcef dependency is declared
-     *  - does `--ide` attach a -p session to our bridge (IDE tools in panel sessions)
-     *  - which MCP servers system/init lists
-     * One short turn, so it costs very little.
+     * Spike v3 (v0.12.1), PLAN 6.3. v1 and v2 results are in STREAM-PROTOCOL.md: `-p` never attaches to the IDE bridge,
+     * so panel sessions need IDE tools from our own MCP server. This run starts HttpMcpServer (loopback + token), hands it to
+     * `claude -p` with --mcp-config, and asks Claude to call its getDiagnostics tool once. One short turn.
      */
     fun run(): Path {
         val app = com.intellij.openapi.application.ApplicationInfo.getInstance()
-        log("INFO", "${PluginInfo.NAME} ${PluginInfo.version} stream spike v2 on ${app.fullApplicationName} (build ${app.build.asString()})")
-        log("CHECK", "JCEF supported: ${runCatching { JBCefApp.isSupported() }.getOrElse { "error: ${it::class.java.simpleName}: ${it.message}" }}")
-
+        log("INFO", "${PluginInfo.NAME} ${PluginInfo.version} stream spike v3 on ${app.fullApplicationName} (build ${app.build.asString()})")
         val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)
         if (exe == null) { log("FAIL", "claude not found"); return logFile }
         val root = Path.of(project.basePath ?: return logFile).toRealPath()
-        val service = project.service<MetaClaudeService>()
-        val port = service.bridgePortForTerminal()
-        log("INFO", "cwd=$root bridgePort=$port connectionsBefore=${service.bridgeConnectionCount()}")
 
-        step("session with --ide")
-        val s = start(exe, root, port, resume = null, extraArgs = listOf("--ide")) ?: return logFile
-        try {
-            s.send(control("initialize", JsonObject().apply { add("hooks", null) }))
-            awaitControlResponse(20)
-            Thread.sleep(3000)
-            log("CHECK", "IDE bridge connections 3 s after start: ${service.bridgeConnectionCount()}")
-            s.send(user("Reply with the single word PONG and nothing else."))
-            awaitResult(120)
-            log("CHECK", "IDE bridge connections after one turn: ${service.bridgeConnectionCount()}")
-        } finally {
-            s.close()
+        // com.sun.net.httpserver must exist in the IDE's runtime (JBR): if not, this is where we find out.
+        val mcp = try {
+            HttpMcpServer(
+                AuthToken.generate(),
+                McpDispatcher(ToolRegistry(listOf(GetDiagnostics(project))), logTag = "${project.name}/panel-mcp", echoClientProtocolVersion = true),
+                logTag = "${project.name}/panel-mcp",
+            )
+        } catch (e: Throwable) {
+            log("FAIL", "could not start the panel MCP server: ${e::class.java.name}: ${e.message}")
+            return logFile
         }
-        log("DONE", "spike v2 finished")
+        // The config holds the token: a file in the user's own temp folder, deleted at the end (no quoting issues on Windows).
+        val config = Files.createTempFile("claude-ui-mcp", ".json")
+        try {
+            Files.writeString(config, mcp.mcpConfigJson(SERVER_NAME))
+            log("INFO", "panel MCP server at ${mcp.url} (token not logged), config $config")
+
+            step("session with --mcp-config")
+            val s = start(exe, root, null, resume = null, extraArgs = listOf("--mcp-config", config.toString())) ?: return logFile
+            try {
+                s.send(control("initialize", JsonObject().apply { add("hooks", null) }))
+                awaitControlResponse(20)
+                s.send(user(
+                    "This is an automated test of an IDE plugin. Call the mcp__${SERVER_NAME}__getDiagnostics tool once with no " +
+                        "arguments. Do not use any other tool. Then reply with only the number of files in its result.",
+                ))
+                awaitResult(180)
+            } finally {
+                s.close()
+            }
+        } finally {
+            mcp.close()
+            runCatching { Files.deleteIfExists(config) }
+        }
+        log("DONE", "spike v3 finished (see bridge.log lines tagged panel-mcp for the server side)")
         return logFile
     }
 
@@ -189,8 +208,9 @@ private class StreamSpike(private val project: Project, private val indicator: P
             val o = e.asJsonObject
             "${o.get("name")?.asString}:${o.get("status")?.asString}"
         }
+        val ours = obj.getAsJsonArray("tools")?.map { it.asString }?.filter { it.contains(SERVER_NAME) }
         log("CHECK", "init: model=${obj.get("model")?.asString} permissionMode=${obj.get("permissionMode")?.asString} " +
-            "keys=${obj.keySet()} mcp_servers=[$servers]")
+            "mcp_servers=[$servers] ourTools=$ours")
     }
 
     /** Partial-message events are many; keep their shape, drop long text. */
@@ -234,4 +254,8 @@ private class StreamSpike(private val project: Project, private val indicator: P
 
     private fun awaitResult(seconds: Long) = awaitAny(seconds) { it.get("type")?.asString == "result" }
     private fun awaitControlResponse(seconds: Long) = awaitAny(seconds) { it.get("type")?.asString == "control_response" }
+
+    private companion object {
+        const val SERVER_NAME = "claude-ui"
+    }
 }

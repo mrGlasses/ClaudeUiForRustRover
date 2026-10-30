@@ -54,6 +54,8 @@ class McpDispatcher(
     private val tools: ToolRegistry,
     private val onIdeConnected: () -> Unit = {},
     private val logTag: String? = null,
+    /** HTTP MCP (panel): answer with the client's protocol version when we know it. The IDE bridge keeps 2025-03-26. */
+    private val echoClientProtocolVersion: Boolean = false,
 ) {
     fun handle(raw: String, reply: (String) -> Unit) {
         try {
@@ -75,7 +77,12 @@ class McpDispatcher(
         BridgeLog.log("<- $method id=$id" + (if (tool != null) " tool=$tool" else ""), logTag)
 
         when (method) {
-            "initialize" -> reply(result(id, initializeResult()))
+            "initialize" -> {
+                val requested = msg.getAsJsonObject("params")?.get("protocolVersion")?.asString
+                val version = if (echoClientProtocolVersion && requested in KNOWN_VERSIONS) requested!! else DEFAULT_VERSION
+                BridgeLog.log("   initialize: client protocolVersion=$requested, answering $version", logTag)
+                reply(result(id, initializeResult(version)))
+            }
             "notifications/initialized" -> Unit
             "ide_connected" -> onIdeConnected()       // CLI says hello; see "notification timing" in SKETCH.md
             "ping" -> reply(result(id, JsonObject()))
@@ -93,8 +100,8 @@ class McpDispatcher(
         }
     }
 
-    private fun initializeResult() = JsonObject().apply {
-        addProperty("protocolVersion", "2025-03-26") // SPIKE: confirm whether the CLI wants its own version echoed
+    private fun initializeResult(version: String) = JsonObject().apply {
+        addProperty("protocolVersion", version)
         add("capabilities", JsonObject().apply {
             add("tools", JsonObject().apply { addProperty("listChanged", true) })
         })
@@ -110,4 +117,9 @@ class McpDispatcher(
     private fun error(id: JsonElement?, code: Int, message: String) = envelope(id).apply {
         add("error", JsonObject().apply { addProperty("code", code); addProperty("message", message) })
     }.toString()
+
+    private companion object {
+        const val DEFAULT_VERSION = "2025-03-26"
+        val KNOWN_VERSIONS = setOf("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
+    }
 }

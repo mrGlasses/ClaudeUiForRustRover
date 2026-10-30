@@ -16,7 +16,7 @@ Everything below is **not started** unless marked otherwise.
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
-| 6 Spikes | **6.1, 6.2, 6.4, 6.5 pass: the panel is feasible. UI stack decided: JCEF web + security rules (CLAUDE.md). 6.3 (own MCP server) spike v3 next** |
+| 6 Spikes | **6.1, 6.2, 6.4, 6.5 pass; build moved to 2026.2 (v0.12.0, tested). v0.12.1 = spike v3: own HTTP MCP server via `--mcp-config`; waiting for your run** |
 | 7–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -193,7 +193,12 @@ Spike v2 result (2026-10-30, RustRover 2026.2.4): **6.5 pass** (JCEF available w
 (spike v3). The user's RustRover is **2026.2** while we compile against 2025.2: move the build target to 2026.2 before the panel work.
 v0.12.0: build target moved to **RustRover 2026.2.4** (the user's IDE). That platform needs **Java 25** (CI: Temurin 25),
 Kotlin **2.4.21** (reads the bundled 2.4.0 stdlib), IntelliJ Platform Gradle Plugin **2.19.0** (needs **Gradle 9**: wrapper 9.8.2),
-and JCEF as `bundledPlugin("com.intellij.modules.jcef")`. The plugin now installs on 2026.2 (build 262) and later only.
+and JCEF as `bundledPlugin("com.intellij.modules.jcef")`. The plugin now installs on 2026.2 (build 262) and later only. Tested 2026-10-29: build green, sessions, Alt+K and settings work.
+
+v0.12.1 (spike v3, PLAN 6.3): `protocol/HttpMcpServer.kt` serves MCP over HTTP (JSON responses, no SSE) on loopback with a
+bearer token, reusing `McpDispatcher` (which can now echo the client's protocol version). The spike passes it to `claude -p`
+with `--mcp-config <temp file>` (a file, to avoid quoting the token on the Windows command line) and asks Claude to call
+`mcp__claude-ui__getDiagnostics` once. Unit tests cover auth, notifications (202), GET (405), version echo and tool calls.
 If 6.1 or 6.2 fails, the panel waits, and terminal mode (Phase 5) remains the product.
 
 ### Phase 7 — Chat core (PARITY §B, §E)
