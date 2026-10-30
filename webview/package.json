@@ -1,0 +1,19 @@
+{
+  "name": "claude-ui-webview",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Chat panel for Claude UI for RustRover (bundled into the plugin, runs in JCEF)",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dompurify": "3.4.17",
+    "marked": "18.1.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

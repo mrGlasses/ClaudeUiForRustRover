@@ -1,0 +1,23 @@
+/* Colors come from the IDE theme: ChatPanel.kt sets these variables on :root. */
+:root {
+  --bg: #2b2d30;
+  --fg: #dfe1e5;
+  --muted: #868a91;
+  --border: #43454a;
+  --code-bg: #1e1f22;
+  --link: #548af7;
+  --font: system-ui, sans-serif;
+  --mono: "JetBrains Mono", Consolas, monospace;
+}
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.5 var(--font); }
+#app { padding: 12px 16px; max-width: 900px; }
+.status { color: var(--muted); margin-bottom: 8px; }
+.markdown a { color: var(--link); }
+.markdown code { font-family: var(--mono); background: var(--code-bg); padding: 1px 4px; border-radius: 3px; }
+.markdown pre { background: var(--code-bg); padding: 8px 10px; border-radius: 4px; overflow-x: auto; }
+.markdown pre code { padding: 0; background: none; }
+.ping {
+  margin-top: 12px; padding: 4px 12px; color: var(--fg); background: transparent;
+  border: 1px solid var(--border); border-radius: 4px; font: inherit; cursor: pointer;
+}
+.ping:hover { border-color: var(--link); }

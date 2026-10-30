@@ -16,7 +16,7 @@ Everything below is **not started** unless marked otherwise.
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
-| 6 Spikes | **All spikes pass** (6.1–6.5; 6.3 via our own HTTP MCP server, v0.12.2). Remaining: frontend build in CI (6.6) |
+| 6 Spikes | **All spikes pass** (6.1–6.5). **6.6: v0.13.0** web panel pipeline + "Claude Chat" preview window; waiting for CI + your test |
 | 7–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -181,6 +181,13 @@ JCEF support and bridge connections. `--permission-mode default` is explicit bec
 Research notes: allow replies must echo `updatedInput` on CLI 2.1; a reported bug has the CLI not sending `can_use_tool` at all.
 
 **Done when:** a throwaway panel can send a prompt, render the streamed answer, approve one permission, and stop a turn.
+
+v0.13.0 (6.6): `webview/` (TypeScript, esbuild, marked + DOMPurify) is built in CI (Node 24, `npm ci`, typecheck, build) and packaged
+as `/webview/panel.js|css`. `panel/ChatPanel.kt` loads it in JCEF with every panel security rule: CSP with a fresh nonce per load,
+no remote resources, navigation cancelled, a closed validated message set (`ready`, `ping`, `openLink`), DevTools menu off, IDE
+theme colors as CSS variables. The "Claude Chat" tool window is declared in `claude-ui-jcef.xml`, so it only exists with JCEF.
+Checked before pushing in Chromium under the same CSP: injected `<img onerror>`/`<script>` shown as text, `javascript:` link removed,
+link click routed to Kotlin, no CSP violations, no network requests.
 
 Spike v1 result (2026-10-30, CLI 2.1.312): **6.1 pass** (multi-turn in one process, every event type documented),
 **6.2 pass** (`can_use_tool` arrives with permission suggestions; allow + `updatedInput` accepted, file written),

@@ -7,7 +7,7 @@ plugins {
 
 group = "io.github.mrglasses"
 // Bump on every pushed change: the bridge logs it first, so you can tell which build is installed.
-version = "0.12.2"
+version = "0.13.0"
 
 repositories {
     mavenCentral()
@@ -45,6 +45,12 @@ tasks.processResources {
     val v = project.version.toString()
     inputs.property("version", v)
     filesMatching("claude-ui.properties") { expand("version" to v) }
+    // The chat panel bundle, built by `npm ci && npm run build` in webview/ (CI does it before Gradle).
+    from("webview/dist") { into("webview") }
+    val panelJs = file("webview/dist/panel.js")
+    doFirst {
+        check(panelJs.isFile) { "webview/dist/panel.js is missing: run `npm ci && npm run build` in webview/ first" }
+    }
 }
 
 tasks.test {

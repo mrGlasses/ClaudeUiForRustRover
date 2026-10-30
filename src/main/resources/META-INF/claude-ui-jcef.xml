@@ -1,2 +1,7 @@
-<!-- Intentionally empty: only activates the optional JCEF dependency in plugin.xml. -->
-<idea-plugin/>
+<!-- Loaded only when com.intellij.modules.jcef is present (optional dependency in plugin.xml). -->
+<idea-plugin>
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow id="Claude Chat" anchor="right" secondary="false" icon="AllIcons.Toolwindows.ToolWindowMessages"
+                factoryClass="dev.metaclaude.panel.ChatToolWindowFactory"/>
+  </extensions>
+</idea-plugin>

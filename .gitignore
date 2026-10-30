@@ -4,3 +4,5 @@ build/
 .intellijPlatform/
 .idea/workspace.xml
 .idea/shelf/
+webview/node_modules/
+webview/dist/
