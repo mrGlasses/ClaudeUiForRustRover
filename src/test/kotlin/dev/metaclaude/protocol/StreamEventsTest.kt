@@ -116,4 +116,20 @@ class StreamEventsTest {
         assertEquals("in_progress", update.get("status").asString)
         assertTrue(map("""{"type":"assistant","message":{"id":"msg_7","role":"assistant","content":[{"type":"tool_use","id":"toolu_l","name":"TaskList","input":{}}]},"parent_tool_use_id":null}""").isEmpty())
     }
+
+    @Test
+    fun `init lists slash commands for the menu`() {
+        val out = map("""{"type":"system","subtype":"init","model":"m","permissionMode":"default","slash_commands":["compact","/review","", "compact"]}""").single()
+        assertEquals(listOf("compact", "review"), out.getAsJsonArray("slashCommands").map { it.asString })
+    }
+
+    @Test
+    fun `not signed in gives the sign-in card`() {
+        val a = map("""{"type":"assistant","error":"authentication_failed","message":{"id":"msg_8","role":"assistant","content":[{"type":"text","text":"Not logged in · Please run /login"}]},"parent_tool_use_id":null}""")
+        assertEquals("signIn", a.first().get("type").asString)
+        val r = map("""{"type":"result","subtype":"success","is_error":true,"result":"Invalid API key · Please run /login","duration_ms":10}""")
+        assertEquals(listOf("signIn", "turnEnd"), r.map { it.get("type").asString })
+        val ok = map("""{"type":"result","subtype":"success","is_error":false,"result":"see /login docs","duration_ms":10}""")
+        assertEquals(listOf("turnEnd"), ok.map { it.get("type").asString })
+    }
 }

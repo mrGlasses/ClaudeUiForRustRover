@@ -8,12 +8,13 @@ export type ToKotlin =
   | { type: "newSession" }
   | { type: "openLink"; url: string }
   | { type: "cursor"; shape: "pointer" | "default" }
-  | { type: "copy"; text: string };
+  | { type: "copy"; text: string }
+  | { type: "signIn" };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
-  | { type: "hello"; version: string; ideBuild: string }
-  | { type: "sessionInfo"; model: string; permissionMode: string }
+  | { type: "hello"; version: string; ideBuild: string; showTimestamps: boolean }
+  | { type: "sessionInfo"; model: string; permissionMode: string; slashCommands?: string[] }
   | { type: "busy" }
   | { type: "textDelta"; messageId: string; key: string; text: string }
   | { type: "textFinal"; messageId: string; key: string; text: string }
@@ -25,6 +26,8 @@ export type FromKotlin =
   | { type: "taskCreated"; toolUseId: string; taskId: string }
   | { type: "taskUpdate"; taskId: string; status?: string; activeForm?: string; subject?: string }
   | { type: "toggleThinking" }
+  | { type: "toggleFocus" }
+  | { type: "signIn" }
   | { type: "toolUse"; id: string; name: string; summary: string }
   | { type: "toolResult"; toolUseId: string; isError: boolean; preview: string }
   | { type: "notice"; text: string }

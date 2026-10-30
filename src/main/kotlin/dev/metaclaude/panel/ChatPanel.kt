@@ -10,7 +10,9 @@ import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ide.CopyPasteManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import dev.metaclaude.MetaClaudeService
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.JBColor
 import com.intellij.ui.jcef.JBCefBrowser
@@ -61,14 +63,11 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         Disposer.register(this, browser)
         Disposer.register(browser, toKotlin)
 
-        // Ctrl+O (VS Code: expand/collapse thinking). The IDE keymap sees keys before the page does (v0.16.0: Ctrl+O never
-        // reached the page), so register it as a shortcut local to the panel, which wins over the keymap while it has focus.
-        object : DumbAwareAction() {
-            override fun actionPerformed(e: AnActionEvent) = send(JsonObject().apply { addProperty("type", "toggleThinking") })
-            override fun getActionUpdateThread() = ActionUpdateThread.BGT
-        }.registerCustomShortcutSet(
-            CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK)), browser.component, this,
-        )
+        // Ctrl+O (expand/collapse thinking) and Ctrl+Alt+F (Focus view), as in VS Code. The IDE keymap sees keys before the
+        // page does (v0.16.0: Ctrl+O never reached the page), so they are shortcuts local to the panel, which win over the
+        // keymap while the panel has focus.
+        panelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK), "toggleThinking")
+        panelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK or InputEvent.ALT_DOWN_MASK), "toggleFocus")
 
         toKotlin.addHandler { json -> handle(json); null }
 
@@ -107,7 +106,10 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 addProperty("type", "hello")
                 addProperty("version", PluginInfo.version)
                 addProperty("ideBuild", ApplicationInfo.getInstance().build.asString())
+                addProperty("showTimestamps", ClaudeUiSettings.instance.state.showMessageTimestamps)
             })
+            // Sign-in card: signing in is interactive, so it happens in a Claude terminal tab (`/login` there).
+            "signIn" -> project.service<MetaClaudeService>().startSession()
             "send" -> {
                 val text = msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
                 if (text.isNullOrEmpty() || text.length > MAX_PROMPT) {
@@ -178,6 +180,13 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             send(JsonObject().apply { addProperty("type", "error"); addProperty("message", "Could not start Claude: ${e.message}") })
             null
         }
+    }
+
+    private fun panelShortcut(key: KeyStroke, messageType: String) {
+        object : DumbAwareAction() {
+            override fun actionPerformed(e: AnActionEvent) = send(JsonObject().apply { addProperty("type", messageType) })
+            override fun getActionUpdateThread() = ActionUpdateThread.BGT
+        }.registerCustomShortcutSet(CustomShortcutSet(key), browser.component, this)
     }
 
     private fun send(msg: JsonObject) {

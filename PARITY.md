@@ -26,7 +26,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | `preferredLocation` setting | Same setting | UI | ☐ |
 | `lockEditorGroups` | Adapt: open files outside the Claude editor split | Adapt | ☐ |
 | Terminal mode (`useTerminal`) and "Open in Terminal" | Terminal tool window running `claude` | UI | ☑ v0.10.0: "Claude" tab in the Terminal tool window (tested) |
-| Sign-in screen, "Not logged in" handling | Detect from stream, show sign-in button that runs `/login` | Stream/CLI | ☐ |
+| Sign-in screen, "Not logged in" handling | Detect from stream, show sign-in button that runs `/login` | Stream/CLI | ◐ v0.17.0: sign-in card opens a Claude terminal tab for `/login` |
 | Onboarding checklist, "Open Walkthrough", `hideOnboarding` | Getting-started page in the tool window | UI | ☐ |
 
 ## B. Prompt box — Phases 7, 9, 12
@@ -36,7 +36,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Multi-line input (Shift+Enter), `useCtrlEnterToSend` | UI | 7 | ◐ Shift+Enter v0.14.0 |
 | Queued messages while Claude works ("Message queued") | Stream | 7 | ◐ v0.16.0: queued in the panel, sent after each turn, removable |
 | Paste text stays visible; invisible-character notices | UI/CLI | 7 | ☐ |
-| `/` command menu with inline suggestions | Stream/CLI | 7 | ☐ |
+| `/` command menu with inline suggestions | Stream/CLI | 7 | ◐ v0.17.0: panel commands + the CLI's `slash_commands` (after the first message) |
 | Permission mode indicator (Auto / Manual / Plan / Edit automatically / Bypass) | Stream | 8 | ☐ |
 | Model name button and picker, Effort row, Ultracode switch, `/model` | Stream | 12 | ☐ |
 | Extended thinking toggle | Stream | 12 | ☐ |
@@ -85,12 +85,12 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Tool-call rows with results; live subagent progress rows | Stream + UI | ◐ tool cards v0.14.0; subagents later |
 | Thinking blocks collapsed, Ctrl+O expands or collapses all | Stream + UI | ◐ v0.16.2: reasoning summaries via showThinkingSummaries (setting, on) |
 | Latest to-do list stays visible | Stream + UI | ◐ v0.16.1: TodoWrite and TaskCreate/TaskUpdate; opt-in setting, since recent models leave the task tools out |
-| Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ☐ |
-| Message timestamps and date lines, `showMessageTimestamps` | UI | ◐ v0.16.0: times on messages and turns; no date lines or setting yet |
+| Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ◐ v0.17.0: button, `/focus`, Ctrl+Alt+F; no `focusView` setting yet |
+| Message timestamps and date lines, `showMessageTimestamps` | UI | ☑ v0.17.0 |
 | `scrollToBottomOnSend` | UI | ☐ |
 | `spinnerVerbs` | UI | ☐ |
-| LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, ```` ```math ````), copy gives TeX source | UI (KaTeX in the web view) | ☐ |
-| Copy response (hover button), `/copy`, `/copy 2` | UI | ◐ v0.16.0: Copy per turn (Markdown source); no `/copy` yet |
+| LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, ```` ```math ````), copy gives TeX source | UI (KaTeX in the web view) | ☑ v0.17.0 (KaTeX → MathML, no fonts or inline styles) |
+| Copy response (hover button), `/copy`, `/copy 2` | UI | ☑ v0.17.0 (Copy per turn, `/copy`, `/copy N`) |
 | Bookmarks (bookmark response, Bookmarks panel, `/bookmarks`) | UI/CLI | ☐ |
 | Files Claude sends ("Sent report.md …", click to open; network paths not linked) | Stream + UI | ☐ |
 | Stop button / Esc ends the turn (background agents keep running) | Stream | ◐ v0.14.0 (pending test) |
@@ -172,7 +172,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | New Conversation (`enableNewConversationShortcut`) | Ctrl+N | Only when Claude has focus: Ctrl+N is "Go to Class" in JetBrains | ☐ |
 | Reopen Closed Session (`enableReopenClosedSessionShortcut`) | Ctrl+Shift+T | Only when Claude has focus: Ctrl+Shift+T is "Go to Test" in JetBrains | ☐ |
 | Insert @-Mention | Alt+K | Same, if free | ☐ |
-| Toggle Focus view | Ctrl+Alt+F | Check: Ctrl+Alt+F is "Introduce Field" in JetBrains | ☐ |
+| Toggle Focus view | Ctrl+Alt+F | Panel-local shortcut, so "Introduce Field" still works in the editor | ◐ v0.17.0 |
 | Expand/collapse thinking | Ctrl+O | Only inside the panel | ☑ v0.16.1 (panel-local shortcut) |
 | Accept/Reject Change at Cursor, Rename/Group/Mark Unread tab, Show Logs, Logout, Focus last message, Open in Side Bar/Terminal/New Window | — | Actions without default keys | ☐ |
 

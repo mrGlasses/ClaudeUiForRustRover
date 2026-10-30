@@ -72,6 +72,10 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                 checkBox("Show Claude's reasoning").bindSelected(settings.state::thinkingSummaries)
                     .comment("Thinking blocks show a summary of Claude's reasoning (Claude Code's showThinkingSummaries). Applies to new conversations.")
             }
+            row {
+                checkBox("Show message times and date lines").bindSelected(settings.state::showMessageTimestamps)
+                    .comment("Applies when the chat panel is reopened.")
+            }
         }
     }
 

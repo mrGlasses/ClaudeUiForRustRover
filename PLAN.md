@@ -17,7 +17,7 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | ☑ 7a done (v0.14.2). 7b tested (v0.16.0): times, copy ok. 7b fixes (v0.16.1) tested. **v0.16.2: reasoning text, to-do Hide; waiting for your test** |
+| 7 Chat core | ☑ 7a done (v0.14.2). 7b tested (v0.16.0): times, copy ok. ☑ 7a, 7b done (v0.16.2 tested 2026-10-30). **7c written (v0.17.0): Focus, dates, /copy, `/` menu, LaTeX, sign-in; waiting for your test** |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8–16 | Not started |
 
@@ -263,7 +263,19 @@ passes `--settings <temp file>` with `{"showThinkingSummaries":true}` (a file, b
 which mangles quotes in arguments). The to-do list gets a Hide button (back on the next update); like VS Code's, the list
 belongs to Claude, so items can't be ticked by hand. Note: the CLI keeps tasks from earlier sessions of the project; the
 panel shows only the ones created in the current conversation.
-Not yet (rest of Phase 7): Focus view, date lines and the timestamp setting, `/copy`, `/` menu, LaTeX, sign-in screen.
+v0.16.2 test (2026-10-30): reasoning summaries and the to-do list work (log: thinking summaries on, TaskCreate x3,
+TaskUpdate). 7b done.
+
+7c (v0.17.0): Focus view (header button, `/focus`, Ctrl+Alt+F as a panel-local shortcut) hides tool cards and thinking;
+a date line before the first message of each day; setting "Show message times and date lines" (VS Code
+`showMessageTimestamps`, sent with `hello`); `/copy`, `/copy N` and `/clear` run in the panel and never reach Claude;
+the `/` menu (arrows, Enter/Tab, Esc) lists the panel commands plus the CLI's `slash_commands` from `system/init`
+(so CLI commands appear after the first message); LaTeX through KaTeX 0.19.0 with MathML output only (Chromium draws it;
+no fonts, CSS or inline styles, so the CSP is unchanged; DOMPurify gets the MathML profile; the TeX annotation is removed
+because the sanitizer would leave its text visible); sign-in card when the CLI isn't signed in (`error:
+"authentication_failed"` on an assistant event, or an error result asking for /login), whose button opens a Claude
+terminal tab for `/login`. Simulated in Chromium under the panel CSP (menu, /copy, Focus, math, injected `<script>` stays text).
+Not yet (rest of Phase 7): `focusView` setting (Focus view does not survive a restart yet).
 Sending and receiving, streaming Markdown, code blocks, tool-call rows, thinking blocks (Ctrl+O), to-do list, queued messages,
 Shift+Enter / `useCtrlEnterToSend`, Stop / Esc, timestamps, scroll setting, Focus view (Ctrl+Alt+F), copy response, `/copy`, spinner verbs,
 LaTeX math, files Claude sends, sign-in screen, the `/` command menu.

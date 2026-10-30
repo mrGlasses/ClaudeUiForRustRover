@@ -25,9 +25,9 @@ object StreamEvents {
         return when (event.str("type")) {
             "system" -> system(event)
             "stream_event" -> streamEvent(event)
-            "assistant" -> assistant(event)
+            "assistant" -> signIn(event.str("error") == "authentication_failed") + assistant(event)
             "user" -> user(event)
-            "result" -> listOf(msg("turnEnd") {
+            "result" -> signIn(isSignInError(event)) + listOf(msg("turnEnd") {
                 addProperty("stopReason", event.str("stop_reason") ?: "")
                 event.get("total_cost_usd")?.takeIf { it.isJsonPrimitive }?.let { addProperty("costUsd", it.asDouble) }
                 event.get("duration_ms")?.takeIf { it.isJsonPrimitive }?.let { addProperty("durationMs", it.asLong) }
@@ -41,6 +41,14 @@ object StreamEvents {
         "init" -> listOf(msg("sessionInfo") {
             addProperty("model", e.str("model") ?: "")
             addProperty("permissionMode", e.str("permissionMode") ?: "")
+            // For the panel's `/` menu: names only, bounded.
+            val commands = JsonArray()
+            (e.get("slash_commands") as? JsonArray)?.asSequence()
+                ?.mapNotNull { it.takeIf { c -> c.isJsonPrimitive }?.asString?.trim()?.removePrefix("/") }
+                ?.filter { it.isNotEmpty() && it.length <= 64 }
+                ?.distinct()?.take(300)
+                ?.forEach { commands.add(it) }
+            add("slashCommands", commands)
         })
         "status" -> if (e.str("status") == "requesting") listOf(msg("busy") {}) else emptyList()
         else -> emptyList()
@@ -176,6 +184,17 @@ object StreamEvents {
         }
         add("items", items)
     }
+
+    /**
+     * The CLI isn't signed in. Seen as `error: "authentication_failed"` on an assistant event (Agent SDK message type), or
+     * as an error result whose text asks for /login. The panel shows a sign-in card (sign-in happens in a terminal).
+     */
+    private fun signIn(yes: Boolean): List<JsonObject> = if (yes) listOf(msg("signIn") {}) else emptyList()
+
+    private val SIGN_IN_TEXT = Regex("""(?i)/login|not logged in|invalid api key|please log ?in""")
+
+    private fun isSignInError(e: JsonObject): Boolean =
+        e.get("is_error")?.takeIf { it.isJsonPrimitive }?.asBoolean == true && SIGN_IN_TEXT.containsMatchIn(e.str("result") ?: "")
 
     /** One line saying what the tool works on: file, command, pattern or URL. Never the whole input. */
     fun toolSummary(input: JsonObject?): String {

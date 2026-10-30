@@ -36,6 +36,8 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
          * (v0.16.1 test); on, the panel starts claude with `--settings {"showThinkingSummaries":true}`.
          */
         var thinkingSummaries by property(true)
+        /** VS Code `showMessageTimestamps`: times on messages and date lines in the chat panel. */
+        var showMessageTimestamps by property(true)
     }
 
     var integrationMode: IntegrationMode

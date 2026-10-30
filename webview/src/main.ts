@@ -1,5 +1,6 @@
 // Chat panel. 7a: send prompts, stream Claude's answer as sanitized Markdown, tool calls, stop a turn.
 // 7b: thinking blocks (Ctrl+O), to-do list, queued messages, timestamps, copy a response.
+// 7c: Focus view (Ctrl+Alt+F), date lines + timestamp setting, /copy, the `/` menu, LaTeX (markdown.ts), sign-in card.
 // Text from Claude goes through renderMarkdown (sanitized); everything else uses textContent.
 import { onMessage, post, type FromKotlin } from "./bridge";
 import { renderMarkdown } from "./markdown";
@@ -19,11 +20,15 @@ function clock(d = new Date()): string {
 const root = document.getElementById("app")!;
 const header = el("div", "header");
 const status = el("span", "status", "Starting…");
+const focusButton = el("button", "link-button", "Focus");
+focusButton.title = "Hide tool calls and thinking (Ctrl+Alt+F)";
 const newButton = el("button", "link-button", "New session");
-header.append(status, newButton);
+const headerButtons = el("span", "header-buttons");
+headerButtons.append(focusButton, newButton);
+header.append(status, headerButtons);
 
 const transcript = el("div", "transcript");
-const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, Ctrl+O shows thinking.");
+const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, / opens commands, Ctrl+O shows thinking, Ctrl+Alt+F toggles Focus view.");
 transcript.append(empty);
 
 // To-do list (TodoWrite): one list, replaced on every update, shown above the composer.
@@ -48,13 +53,17 @@ todoBox.hidden = true;
 const queueBox = el("div", "queue");
 queueBox.hidden = true;
 
+// `/` menu: panel commands plus the CLI's (from system/init, known after the first message).
+const slashMenu = el("div", "slash-menu");
+slashMenu.hidden = true;
+
 const composer = el("div", "composer");
 const input = el("textarea", "input");
 input.rows = 3;
 input.placeholder = "Message Claude…";
 const sendButton = el("button", "send", "Send");
 composer.append(input, sendButton);
-root.append(header, transcript, todoBox, queueBox, composer);
+root.append(header, transcript, todoBox, queueBox, slashMenu, composer);
 
 // ---------- state ----------
 let busy = false;
@@ -70,6 +79,14 @@ const thinking = new Map<string, Thinking>();
 let showThinking = false; // Ctrl+O
 let turnTexts: string[] = []; // keys of this turn's text blocks, for Copy
 const queue: string[] = [];
+const turnHistory: string[] = []; // each finished turn's text, for /copy
+let lastDay = "";
+let cliCommands: string[] = [];
+const PANEL_COMMANDS: { name: string; hint: string }[] = [
+  { name: "copy", hint: "copy the last response (/copy 2: the one before)" },
+  { name: "clear", hint: "start a new session" },
+  { name: "focus", hint: "toggle Focus view" },
+];
 
 function setBusy(b: boolean): void {
   busy = b;
@@ -192,7 +209,16 @@ function renderQueue(): void {
 }
 
 // ---------- sending ----------
+function dayLine(): void {
+  const d = new Date();
+  const day = d.toDateString();
+  if (day === lastDay) return;
+  lastDay = day;
+  append(el("div", "day-line", d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long", year: "numeric" })));
+}
+
 function userMessage(text: string): void {
+  dayLine();
   const m = el("div", "msg user");
   m.append(el("div", "user-text", text), el("div", "time", clock()));
   append(m, true);
@@ -205,10 +231,33 @@ function dispatch(text: string): void {
   post({ type: "send", text });
 }
 
+/** Panel commands run here and never reach Claude. Returns true when [text] was one. */
+function panelCommand(text: string): boolean {
+  const copy = /^\/copy(?:\s+(\d+))?$/.exec(text);
+  if (copy) {
+    const n = copy[1] ? Number(copy[1]) : 1;
+    const t = turnHistory[turnHistory.length - n];
+    if (t) post({ type: "copy", text: t });
+    append(el("div", "notice", t ? `Copied response ${n === 1 ? "" : `${n} back `}to the clipboard.` : "Nothing to copy yet."));
+    return true;
+  }
+  if (text === "/clear") {
+    post({ type: "newSession" });
+    return true;
+  }
+  if (text === "/focus") {
+    toggleFocus();
+    return true;
+  }
+  return false;
+}
+
 function submit(): void {
   const text = input.value.trim();
   if (!text) return;
   input.value = "";
+  closeMenu();
+  if (panelCommand(text)) return;
   if (busy) {
     queue.push(text);
     renderQueue();
@@ -221,21 +270,91 @@ function submit(): void {
 sendButton.addEventListener("click", () => (busy && !input.value.trim() ? post({ type: "interrupt" }) : submit()));
 input.addEventListener("input", () => {
   if (busy) setBusy(true); // Stop <-> Queue label
+  updateMenu();
 });
 input.addEventListener("keydown", (ev) => {
+  if (!slashMenu.hidden && menuKey(ev)) return;
   if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
     ev.preventDefault();
     submit();
   }
 });
 document.addEventListener("keydown", (ev) => {
-  if (ev.key === "Escape" && busy) {
+  if (ev.key === "Escape" && !slashMenu.hidden) {
+    ev.preventDefault();
+    closeMenu();
+  } else if (ev.key === "Escape" && busy) {
     ev.preventDefault();
     post({ type: "interrupt" });
   }
   // Ctrl+O is registered in Kotlin as a panel shortcut (the IDE keymap gets it first) and arrives as toggleThinking.
 });
 newButton.addEventListener("click", () => post({ type: "newSession" }));
+focusButton.addEventListener("click", () => toggleFocus());
+
+// ---------- Focus view ----------
+function toggleFocus(): void {
+  const on = transcript.classList.toggle("focus");
+  focusButton.textContent = on ? "Focus on" : "Focus";
+}
+
+// ---------- `/` menu ----------
+let menuItems: { name: string; hint: string }[] = [];
+let menuIndex = 0;
+
+function updateMenu(): void {
+  const m = /^\/(\S*)$/.exec(input.value);
+  if (!m) return closeMenu();
+  const q = m[1].toLowerCase();
+  const all = [...PANEL_COMMANDS, ...cliCommands.filter((c) => !PANEL_COMMANDS.some((p) => p.name === c)).map((name) => ({ name, hint: "" }))];
+  menuItems = all.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 50);
+  if (menuItems.length === 0) return closeMenu();
+  menuIndex = Math.min(menuIndex, menuItems.length - 1);
+  renderMenu();
+}
+
+function renderMenu(): void {
+  slashMenu.replaceChildren(
+    ...menuItems.map((c, i) => {
+      const row = el("button", `slash-item${i === menuIndex ? " active" : ""}`);
+      row.append(el("span", "slash-name", `/${c.name}`), el("span", "slash-hint", c.hint));
+      row.addEventListener("mousedown", (ev) => {
+        ev.preventDefault(); // keep the focus in the input
+        pickMenu(i);
+      });
+      return row;
+    }),
+  );
+  slashMenu.hidden = false;
+  slashMenu.querySelector(".active")?.scrollIntoView({ block: "nearest" });
+}
+
+function pickMenu(i: number): void {
+  input.value = `/${menuItems[i].name} `;
+  closeMenu();
+  input.focus();
+}
+
+function closeMenu(): void {
+  slashMenu.hidden = true;
+  menuIndex = 0;
+}
+
+/** Arrow keys move, Enter/Tab pick, while the menu is open. */
+function menuKey(ev: KeyboardEvent): boolean {
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    menuIndex = (menuIndex + (ev.key === "ArrowDown" ? 1 : menuItems.length - 1)) % menuItems.length;
+    renderMenu();
+    return true;
+  }
+  if ((ev.key === "Enter" && !ev.shiftKey) || ev.key === "Tab") {
+    ev.preventDefault();
+    pickMenu(menuIndex);
+    return true;
+  }
+  return false;
+}
 
 // Every link click goes to Kotlin (panel rule 3); the panel itself never navigates.
 document.addEventListener("click", (ev) => {
@@ -258,9 +377,10 @@ document.addEventListener("mouseover", (ev) => {
 /** Footer of a turn: time, duration, cost and a Copy button for the turn's text (Markdown source). */
 function turnFooter(parts: string[]): HTMLElement {
   const meta = el("div", "meta");
-  meta.append(el("span", undefined, [clock(), ...parts].join(" · ")));
+  meta.append(el("span", "time", clock()), el("span", undefined, parts.join(" · ")));
   const text = turnTexts.map((k) => textBlocks.get(k)?.text ?? "").filter((t) => t).join("\n\n");
   if (text) {
+    turnHistory.push(text);
     const copy = el("button", "link-button copy", "Copy");
     copy.addEventListener("click", () => {
       post({ type: "copy", text });
@@ -277,9 +397,11 @@ function handle(msg: FromKotlin): void {
   switch (msg.type) {
     case "hello":
       status.textContent = "Ready";
+      root.classList.toggle("no-times", !msg.showTimestamps);
       break;
     case "sessionInfo":
       model = msg.model;
+      cliCommands = msg.slashCommands ?? [];
       setBusy(busy);
       break;
     case "busy":
@@ -346,6 +468,22 @@ function handle(msg: FromKotlin): void {
     case "toggleThinking":
       setShowThinking(!showThinking);
       break;
+    case "toggleFocus":
+      toggleFocus();
+      break;
+    case "signIn": {
+      if (transcript.querySelector(".sign-in:last-child")) break; // one card per turn is enough
+      const card = el("div", "sign-in");
+      const button = el("button", "send", "Sign in in a terminal");
+      button.addEventListener("click", () => post({ type: "signIn" }));
+      card.append(
+        el("div", "sign-in-title", "Claude Code isn't signed in."),
+        el("div", undefined, "Signing in is interactive, so it runs in a Claude terminal tab: type /login there, then come back and click New session."),
+        button,
+      );
+      append(card, true);
+      break;
+    }
     case "toolUse": {
       const card = el("div", "tool");
       card.append(el("span", "tool-name", msg.name), el("span", "tool-summary", msg.summary), el("span", "tool-state", "…"));
@@ -389,6 +527,8 @@ function handle(msg: FromKotlin): void {
       toolCards.clear();
       thinking.clear();
       turnTexts = [];
+      turnHistory.length = 0;
+      lastDay = "";
       queue.length = 0;
       renderQueue();
       tasks.clear();
