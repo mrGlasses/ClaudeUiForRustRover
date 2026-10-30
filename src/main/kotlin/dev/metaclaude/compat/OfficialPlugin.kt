@@ -1,7 +1,6 @@
 package dev.metaclaude.compat
 
 import com.intellij.ide.plugins.PluginManagerCore
-import com.intellij.ide.plugins.PluginManager
 import com.intellij.openapi.extensions.PluginId
 
 /**
@@ -26,10 +25,11 @@ object OfficialPluginDetector {
     /** Plugin ID seen in bug reports for the official "Claude Code [Beta]" plugin. */
     const val PLUGIN_ID = "com.anthropic.code.plugin"
 
+    /** Public APIs only (getPlugin / findEnabledPlugin are @ApiStatus.Internal since 2026.2). */
     fun state(): OfficialState {
         val id = PluginId.getId(PLUGIN_ID)
-        if (PluginManagerCore.getPlugin(id) == null) return OfficialState.NOT_INSTALLED
-        return if (PluginManager.getInstance().findEnabledPlugin(id) != null) OfficialState.ENABLED
+        if (!PluginManagerCore.isPluginInstalled(id)) return OfficialState.NOT_INSTALLED
+        return if (PluginManagerCore.isLoaded(id) && !PluginManagerCore.isDisabled(id)) OfficialState.ENABLED
         else OfficialState.DISABLED
     }
 

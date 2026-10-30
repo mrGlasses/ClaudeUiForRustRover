@@ -199,6 +199,10 @@ v0.12.1 (spike v3, PLAN 6.3): `protocol/HttpMcpServer.kt` serves MCP over HTTP (
 bearer token, reusing `McpDispatcher` (which can now echo the client's protocol version). The spike passes it to `claude -p`
 with `--mcp-config <temp file>` (a file, to avoid quoting the token on the Windows command line) and asks Claude to call
 `mcp__claude-ui__getDiagnostics` once. Unit tests cover auth, notifications (202), GET (405), version echo and tool calls.
+
+v0.12.2: plugin verifier flagged 3 internal API usages (`PluginManagerCore.getPlugin`, `PluginManager.findEnabledPlugin`), all in
+version / official-plugin detection. Replaced with public `isPluginInstalled` / `isLoaded` / `isDisabled`, and the plugin's own
+version now comes from `claude-ui.properties` written by Gradle. Rule added to CLAUDE.md.
 If 6.1 or 6.2 fails, the panel waits, and terminal mode (Phase 5) remains the product.
 
 ### Phase 7 — Chat core (PARITY §B, §E)

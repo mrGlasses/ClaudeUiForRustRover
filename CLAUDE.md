@@ -32,6 +32,8 @@ Read first: `PLAN.md` (phases, current status), `PARITY.md` (feature checklist),
      request that is actually pending). JS never gets file, process or network access.
   5. Native confirmation (IDE dialog, not the web panel) for risky actions: saving a permanent permission rule, bypass mode.
   6. DevTools off in release builds.
+- **Public IntelliJ APIs only**: nothing marked `@ApiStatus.Internal` (the plugin verifier flags it and Marketplace rejects it).
+  Before using a platform API, check its annotation in intellij-community (branch `262`).
 - **Windows paths**: the user is on Windows. Normalize drive-letter case and separators in everything sent to or compared with the CLI.
 - **Threading**: UI and documents on the EDT / in write actions; never block the EDT waiting for the CLI.
 

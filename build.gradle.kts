@@ -7,7 +7,7 @@ plugins {
 
 group = "io.github.mrglasses"
 // Bump on every pushed change: the bridge logs it first, so you can tell which build is installed.
-version = "0.12.1"
+version = "0.12.2"
 
 repositories {
     mavenCentral()
@@ -38,6 +38,13 @@ intellijPlatform {
     pluginVerification {
         ides { recommended() }
     }
+}
+
+// claude-ui.properties gets the version at build time (PluginInfo reads it; no internal IntelliJ API needed).
+tasks.processResources {
+    val v = project.version.toString()
+    inputs.property("version", v)
+    filesMatching("claude-ui.properties") { expand("version" to v) }
 }
 
 tasks.test {
