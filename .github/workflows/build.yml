@@ -14,6 +14,17 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: webview/package-lock.json
+      - name: Build chat panel (webview)
+        working-directory: webview
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
       - uses: gradle/actions/setup-gradle@v5
       - name: Test and build plugin zip
         run: |
@@ -41,6 +52,16 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: webview/package-lock.json
+      - name: Build chat panel (webview)
+        working-directory: webview
+        run: |
+          npm ci
+          npm run build
       - uses: gradle/actions/setup-gradle@v5
       - name: Plugin verifier
         run: |
