@@ -63,6 +63,17 @@ Deny (from SDK docs, not yet exercised): `"response":{"behavior":"deny","message
   Claude Code), `claude.ai Claude Docs:connected`, `claude.ai Google Drive:needs-auth`. The panel's MCP dialog can list these.
 - **JCEF works** once `com.intellij.modules.jcef` is declared (optional dependency): `JBCefApp.isSupported() == true`.
 
+## Spike v3 (2026-10-30, v0.12.2): IDE tools in panel sessions via our own MCP server
+
+**Works.** `HttpMcpServer` (loopback, bearer token) passed with `--mcp-config <file>`:
+- `system/init` lists `claude-ui:connected` and the tool `mcp__claude-ui__getDiagnostics`.
+- The CLI first POSTs `server/discover` (id `server-discover-probe-1`); our `-32601` reply is fine, it then continues.
+- `initialize` asks for protocol **2025-11-25**; we echo it. Then `notifications/initialized`, `tools/list`, `tools/call`.
+- Calling our tool triggers a normal `can_use_tool` permission request (`tool_name` = `mcp__claude-ui__getDiagnostics`),
+  so panel MCP tools go through the same permission cards. Allow → the call reached the IDE in ~4 ms, result `[]`
+  (no open file had problems), Claude answered `0`.
+- The config file holds the token: create it owner-only in the temp folder and delete it when the session ends.
+
 ## Sources
 
 - Headless docs: https://code.claude.com/docs/en/headless

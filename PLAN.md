@@ -16,7 +16,7 @@ Everything below is **not started** unless marked otherwise.
 | (5.1, early) Terminal auto-connect | ☑ Done (v0.8.1): `claude` in a new RustRover terminal connects without /ide (tested 2026-10-28) |
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
-| 6 Spikes | **6.1, 6.2, 6.4, 6.5 pass; build moved to 2026.2 (v0.12.0, tested). v0.12.1 = spike v3: own HTTP MCP server via `--mcp-config`; waiting for your run** |
+| 6 Spikes | **All spikes pass** (6.1–6.5; 6.3 via our own HTTP MCP server, v0.12.2). Remaining: frontend build in CI (6.6) |
 | 7–16 | Not started |
 
 ## Two halves, like the VS Code extension
