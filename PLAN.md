@@ -19,7 +19,7 @@ Everything below is **not started** unless marked otherwise.
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
 | 7 Chat core | ☑ Done (7a, 7b, 7c; v0.17.1 tested 2026-10-31). `focusView` setting left for Phase 14 |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
-| 8 Permissions and review | ☑ 8a done (v0.18.1 tested 2026-10-31). **8b written (v0.19.0): edit diffs from the panel, plan as a document with comments, autosave; waiting for your test** |
+| 8 Permissions and review | ☑ 8a done (v0.18.1 tested 2026-10-31). **8b written (v0.19.1; v0.19.0 did not compile): edit diffs from the panel, plan as a document with comments, autosave; waiting for your test** |
 | 9–16 | Not started |
 
 ## Two halves, like the VS Code extension

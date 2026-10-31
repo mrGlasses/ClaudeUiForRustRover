@@ -265,9 +265,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             onComments = { text ->
                 if (text.trim() == plan.trim()) s.denyWith(id, "The user wants changes to the plan but added no comments.", "Kept planning")
                 else s.denyWith(id, "The user annotated your plan: their comments and changes are inline below. Revise the plan " +
-                    "accordingly and present it again.
-
-$text", "Kept planning, with your comments")
+                    "accordingly and present it again.\n\n$text", "Kept planning, with your comments")
             },
         )
     }
