@@ -1,19 +1,19 @@
 package dev.metaclaude.panel
 
-import com.intellij.ide.DataManager
-import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.content.Content
 import dev.metaclaude.protocol.BridgeLog
 import dev.metaclaude.protocol.PanelContext
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
+import javax.swing.SwingUtilities
 
 /**
  * Phase 9b: RustRover's terminal tabs for `@terminal:name` mentions. EDT only.
  *
  * Two kinds of terminal tab exist. The reworked terminal (default in 2026.2) shows its output in an IDE editor, so its text
- * is that editor's document, found through the tab's data context (public APIs only). The classic terminal is a
+ * is that editor's document, found among EditorFactory's editors inside the tab (public APIs only). The classic terminal is a
  * TerminalWidget; its `getText()` is experimental API. v0.21.0 tried only the second and got nothing from the reworked one.
  */
 object TerminalBuffers {
@@ -33,19 +33,28 @@ object TerminalBuffers {
         }
         val widget = TerminalToolWindowManager.findWidgetByContent(content)
         val classic = widget?.let { w -> runCatching { w.getText().toString() }.getOrNull() }?.takeIf { it.isNotBlank() }
-        BridgeLog.log("@terminal '$token': " + (classic?.let { "read ${it.length} chars (classic terminal)" } ?: "could not read the tab"), "${project.name}/panel")
+        BridgeLog.log("@terminal '$token': " + (classic?.let { "read ${it.length} chars (classic terminal)" } ?: "could not read the tab (${describe(content)})"), "${project.name}/panel")
         return classic
     }
 
-    /** The reworked terminal's output editor, through the data context of the tab's components. */
+    /**
+     * The reworked terminal's output editor: every IDE editor (EditorFactory) whose component sits inside this tab. v0.21.1
+     * asked the tab's data context instead and got no editor. If several (output, alternate screen), the showing one with
+     * the most text wins.
+     */
     private fun editorText(content: Content): String? {
-        val candidates = listOfNotNull(content.preferredFocusableComponent, content.component)
-        for (c in candidates) {
-            val editor = runCatching { DataManager.getInstance().getDataContext(c).getData(CommonDataKeys.EDITOR) }.getOrNull() ?: continue
-            val text = editor.document.text
-            if (text.isNotBlank()) return text
-        }
-        return null
+        val root = content.component
+        val editors = EditorFactory.getInstance().allEditors.filter { SwingUtilities.isDescendingFrom(it.component, root) }
+        if (editors.isEmpty()) return null
+        return editors.sortedWith(compareByDescending<com.intellij.openapi.editor.Editor> { it.component.isShowing }.thenByDescending { it.document.textLength })
+            .firstOrNull()?.document?.text?.takeIf { it.isNotBlank() }
+    }
+
+    /** For the log when nothing could be read: what the tab is made of (class names only). */
+    private fun describe(content: Content): String {
+        val editors = EditorFactory.getInstance().allEditors.count { SwingUtilities.isDescendingFrom(it.component, content.component) }
+        return "component=${content.component.javaClass.simpleName}, editors inside=$editors, " +
+            "widget=${TerminalToolWindowManager.findWidgetByContent(content)?.javaClass?.simpleName}"
     }
 
     private fun contents(project: Project): List<Content> =
