@@ -149,6 +149,25 @@ class ChatSession(
 
     fun hasPending(id: String) = pending.containsKey(id)
 
+    /** Tool name and input of a pending request (diff view, plan document). */
+    fun pendingRequest(id: String): Pair<String, JsonObject>? = pending[id]?.let { it.tool to it.input }
+
+    /** Allow with a changed input (the user edited Claude's proposal in the diff). */
+    fun allowWithInput(id: String, input: JsonObject, outcome: String) {
+        val p = pending.remove(id) ?: return
+        BridgeLog.log("permission for '${p.tool}': $outcome", tag)
+        write(controlResponse(id, Permissions.allow(input)))
+        resolved(id, outcome)
+    }
+
+    /** Deny with a message built by the panel (diff rejected, plan comments). Bounded, never logged. */
+    fun denyWith(id: String, message: String, outcome: String) {
+        val p = pending.remove(id) ?: return
+        BridgeLog.log("permission for '${p.tool}': $outcome", tag)
+        write(controlResponse(id, Permissions.deny(message.take(PLAN_FEEDBACK_MAX))))
+        resolved(id, outcome)
+    }
+
     /** The tool name and suggestion of a pending request (to word the native confirmation). */
     fun suggestionOf(id: String, index: Int): JsonObject? = pending[id]?.suggestions?.getOrNull(index)
 
@@ -249,5 +268,6 @@ class ChatSession(
 
     private companion object {
         const val MCP_NAME = "clawed-ui"
+        const val PLAN_FEEDBACK_MAX = 120_000
     }
 }

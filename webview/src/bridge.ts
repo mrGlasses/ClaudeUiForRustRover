@@ -20,7 +20,9 @@ export type ToKotlin =
       answers?: Record<string, string | string[]>;
       response?: string;
     }
-  | { type: "setMode"; mode: string };
+  | { type: "setMode"; mode: string }
+  | { type: "openDiff"; requestId: string }
+  | { type: "openPlan"; requestId: string };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =

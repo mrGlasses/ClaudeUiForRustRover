@@ -42,6 +42,8 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var initialPermissionMode by string("default")
         /** VS Code `allowDangerouslySkipPermissions`: offer "Bypass permissions" in the panel's mode menu. */
         var allowDangerouslySkipPermissions by property(false)
+        /** VS Code `autosave`: save open files before Claude reads or writes them (before each message and each edit). */
+        var autosave by property(true)
     }
 
     var integrationMode: IntegrationMode

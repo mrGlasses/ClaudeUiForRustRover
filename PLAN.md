@@ -19,7 +19,7 @@ Everything below is **not started** unless marked otherwise.
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
 | 7 Chat core | ☑ Done (7a, 7b, 7c; v0.17.1 tested 2026-10-31). `focusView` setting left for Phase 14 |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
-| 8 Permissions and review | ☑ 8a done (v0.18.0 tested 2026-10-31; v0.18.1: "Other…" selects its radio). 8b: diffs from the panel, plan as a document with comments, autosave |
+| 8 Permissions and review | ☑ 8a done (v0.18.1 tested 2026-10-31). **8b written (v0.19.0): edit diffs from the panel, plan as a document with comments, autosave; waiting for your test** |
 | 9–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -309,6 +309,16 @@ permission mode, Allow Bypass permissions. `control_cancel_request` closes a car
 8a test (2026-10-31): command card, deny with instructions, saved rule with native confirmation, questions, plan feedback and
 Edit automatically all work. Read-only commands (`git status`) are approved by the CLI itself, so no card appears for them.
 v0.18.1: clicking "Other…" now selects its radio/checkbox.
+
+8b (v0.19.0): an Edit / MultiEdit / Write request opens in the IDE diff viewer as soon as its card appears (without taking the
+focus; "Open diff" on the card reopens it). `protocol/EditProposal.kt` (pure, unit-tested) computes the proposed text from the
+current editor text (\n line ends); if the old text isn't found, no diff is shown and the card still works. Accept in the diff =
+allow; if you edited the right side, the answer carries your text: Write gets the new `content`, Edit and MultiEdit become one
+replacement of the whole file on disk by your text, in the file's own line ends (CRLF stays CRLF). Reject = deny. Closing the
+diff decides nothing. Answering on the card (or a CLI cancel) closes the diff. The plugin never writes the file: the CLI does.
+Plans: "Open as document to comment" opens the plan as an editable Markdown file with a banner (Send my comments / Approve
+plan); comments go back as a deny with the annotated plan (up to 120k chars). Setting "Save files before Claude reads or writes
+them" (VS Code `autosave`, on): saves all editors before each message and the target file before showing an edit.
 
 ### Phase 9 — Context and mentions (PARITY §C)
 Selection and open-file chips with X, `@` fuzzy file and folder search, Alt+K, `@terminal:name` (JetBrains terminal buffers),

@@ -18,6 +18,7 @@ export type PermissionCard = {
   plan?: string;
   questions?: Question[];
   suggestions: Suggestion[];
+  canDiff?: boolean;
 };
 
 const DESTINATIONS: [string, string][] = [
@@ -59,6 +60,12 @@ export function permissionCard(p: PermissionCard): HTMLElement {
     const plan = el("div", "permission-plan markdown");
     plan.innerHTML = renderMarkdown(p.plan ?? ""); // sanitized
     card.append(plan);
+  }
+  // 8b: edits open in the IDE diff viewer (also automatically); plans can open as a document to comment on.
+  if (p.canDiff || p.kind === "plan") {
+    const open = el("button", "link-button", p.kind === "plan" ? "Open as document to comment" : "Open diff");
+    open.addEventListener("click", () => post({ type: p.kind === "plan" ? "openPlan" : "openDiff", requestId: p.requestId }));
+    card.append(open);
   }
 
   const actions = el("div", "permission-actions");

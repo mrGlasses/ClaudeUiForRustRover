@@ -11,6 +11,7 @@ import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.Messages
 import dev.metaclaude.protocol.Permissions
+import dev.metaclaude.protocol.EditProposal
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.components.service
@@ -56,6 +57,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         .setEnableOpenDevToolsMenuItem(false)
         .build()
     private val toKotlin: JBCefJSQuery = JBCefJSQuery.create(browser)
+    private val diffs = PanelDiffs(project, this)
+    private val plans = PlanDocuments(project, this)
     @Volatile private var pageLoaded = false
     @Volatile private var session: ChatSession? = null
     /** Current permission mode: the next session starts in it; the CLI reports changes (status / init). */
@@ -120,7 +123,10 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 if (text.isNullOrEmpty() || text.length > MAX_PROMPT) {
                     BridgeLog.log("panel: refused send (empty or over $MAX_PROMPT chars)", project.name)
                 } else {
-                    AppExecutorUtil.getAppExecutorService().execute { sessionOrStart()?.send(text) }
+                    AppExecutorUtil.getAppExecutorService().execute {
+                        saveAllIfAutosave() // Claude should read what the user sees
+                        sessionOrStart()?.send(text)
+                    }
                 }
             }
             "interrupt" -> session?.interrupt()
@@ -157,6 +163,12 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 }
             }
             "permissionAnswer" -> permissionAnswer(msg)
+            "openDiff" -> msg.get("requestId")?.takeIf { it.isJsonPrimitive }?.asString?.let { id ->
+                ApplicationManager.getApplication().invokeLater { openDiff(id, focus = true) }
+            }
+            "openPlan" -> msg.get("requestId")?.takeIf { it.isJsonPrimitive }?.asString?.let { id ->
+                ApplicationManager.getApplication().invokeLater { openPlan(id) }
+            }
             "setMode" -> setMode(msg.get("mode")?.takeIf { it.isJsonPrimitive }?.asString)
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
@@ -206,7 +218,71 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             m.get(if (type == "permissionMode") "mode" else "permissionMode")?.takeIf { it.isJsonPrimitive }?.asString
                 ?.takeIf { it.isNotEmpty() }?.let { mode = it }
         }
+        if (type == "permissionResolved") {
+            val id = m.get("requestId").asString
+            ApplicationManager.getApplication().invokeLater { diffs.close(id); plans.close(id) }
+        }
+        val diffable = type == "permission" && m.get("toolName")?.asString in EditProposal.TOOLS
+        if (diffable) m.addProperty("canDiff", true)
         send(m)
+        // Like VS Code: an edit waiting for approval opens in the diff viewer right away (without taking the focus).
+        if (diffable) {
+            val id = m.get("requestId").asString
+            ApplicationManager.getApplication().invokeLater { openDiff(id, focus = false) }
+        }
+    }
+
+    /** EDT. Rule 4: only for a pending Edit / MultiEdit / Write request. */
+    private fun openDiff(id: String, focus: Boolean) {
+        val s = session ?: return
+        val (tool, input) = s.pendingRequest(id)?.takeIf { it.first in EditProposal.TOOLS } ?: return
+        val path = EditProposal.filePath(input)?.let { runCatching { Path.of(it) }.getOrNull() } ?: return
+        if (ClaudeUiSettings.instance.state.autosave) saveFile(path)
+        val shown = diffs.open(id, tool, input, focus,
+            onAccept = { edited ->
+                if (edited == null) s.answer(id, true, null, null, null, null, null)
+                else {
+                    saveFile(path)
+                    val disk = runCatching { java.nio.file.Files.readString(path) }.getOrDefault("")
+                    s.allowWithInput(id, EditProposal.editedInput(tool, input, disk, edited), "Allowed with your edits")
+                }
+            },
+            onReject = { s.denyWith(id, "The user rejected this change in the diff view.", "Rejected in the diff") },
+        )
+        if (!shown && focus) send(JsonObject().apply {
+            addProperty("type", "notice")
+            addProperty("text", "Can't show a diff for this change (the file changed since Claude read it). Use the card's buttons.")
+        })
+    }
+
+    /** EDT. Rule 4: only for a pending ExitPlanMode request. */
+    private fun openPlan(id: String) {
+        val s = session ?: return
+        val (tool, input) = s.pendingRequest(id)?.takeIf { it.first == "ExitPlanMode" } ?: return
+        val plan = input.get("plan")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        plans.open(id, plan,
+            onApprove = { s.answer(id, true, null, null, null, null, null) },
+            onComments = { text ->
+                if (text.trim() == plan.trim()) s.denyWith(id, "The user wants changes to the plan but added no comments.", "Kept planning")
+                else s.denyWith(id, "The user annotated your plan: their comments and changes are inline below. Revise the plan " +
+                    "accordingly and present it again.
+
+$text", "Kept planning, with your comments")
+            },
+        )
+    }
+
+    /** EDT. Unsaved editor changes would not be what Claude reads or edits on disk. */
+    private fun saveFile(path: Path) {
+        val vf = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByNioFile(path) ?: return
+        val fdm = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance()
+        fdm.getCachedDocument(vf)?.let { if (fdm.isDocumentUnsaved(it)) fdm.saveDocument(it) }
+    }
+
+    /** Background thread. */
+    private fun saveAllIfAutosave() {
+        if (!ClaudeUiSettings.instance.state.autosave) return
+        ApplicationManager.getApplication().invokeAndWait { com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().saveAllDocuments() }
     }
 
     /** Rule 4: an answer only for a request that is pending, with a suggestion index and destination that exist. */

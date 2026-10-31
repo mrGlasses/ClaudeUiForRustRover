@@ -86,6 +86,10 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                 checkBox("Allow \"Bypass permissions\" mode").bindSelected(settings.state::allowDangerouslySkipPermissions)
                     .comment("Dangerous: Claude runs every tool without asking. The panel still asks you to confirm before switching to it. Applies to new conversations.")
             }
+            row {
+                checkBox("Save files before Claude reads or writes them").bindSelected(settings.state::autosave)
+                    .comment("Saves unsaved editors before each message and before showing an edit, so Claude sees what you see.")
+            }
         }
     }
 

@@ -67,15 +67,15 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|---|
 | Permission prompt cards (allow / deny / tell Claude what to do instead) | Stream (control requests) | ◐ v0.18.0 |
 | "Save to" destination on rule-saving options (this session / project / all projects), arrow keys to change | Stream | ◐ v0.18.0 (menu; permanent ones confirmed in a native dialog) |
-| Side-by-side diff for edits in Manual mode | Bridge `openDiff` (terminal) / Stream (panel) | ☑ terminal mode (v0.6.2, tested); panel: Phase 8 |
-| Editing the proposed side: Claude is told you changed it | Bridge / Stream | ☑ terminal mode (v0.6.2, tested: the CLI writes your edited text); panel: Phase 8 |
+| Side-by-side diff for edits in Manual mode | Bridge `openDiff` (terminal) / Stream (panel) | ☑ terminal mode (v0.6.2, tested); ◐ panel v0.19.0 |
+| Editing the proposed side: Claude is told you changed it | Bridge / Stream | ☑ terminal mode (v0.6.2, tested: the CLI writes your edited text); ◐ panel v0.19.0 (your text is written; Claude isn't told) |
 | Per-change Accept/Reject buttons in the diff (not shown above 100 changes) | UI | ◐ per-change reject via the diff viewer's own arrows (v0.6.0); dedicated buttons later |
 | Accept / Reject Change at Cursor (context menu + commands) | UI | ☐ |
-| Plan mode: plan opens as a Markdown document with inline comments for feedback | Stream + UI | ◐ v0.18.0: plan card with approve / feedback; document with inline comments in 8b |
+| Plan mode: plan opens as a Markdown document with inline comments for feedback | Stream + UI | ◐ v0.19.0: card + editable document with Send my comments / Approve |
 | `/plan`, `/plan <task>`, `/plan open` | Stream/CLI | ☐ |
 | Questions from Claude (multiple choice + "Other" free text) | Stream | ◐ v0.18.0 |
 | `initialPermissionMode` (user-level only), `allowDangerouslySkipPermissions` | UI + Stream | ◐ v0.18.0 |
-| `autosave`: save files before Claude reads or writes them | UI | ☐ |
+| `autosave`: save files before Claude reads or writes them | UI | ◐ v0.19.0 (before each message and each edit) |
 
 ## E. Conversation rendering — Phase 7
 

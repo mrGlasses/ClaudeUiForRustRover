@@ -3,5 +3,7 @@
   <extensions defaultExtensionNs="com.intellij">
     <toolWindow id="Claude Chat" anchor="right" secondary="false" icon="AllIcons.Toolwindows.ToolWindowMessages"
                 factoryClass="dev.metaclaude.panel.ChatToolWindowFactory"/>
+    <!-- Banner (Send my comments / Approve plan) on a plan opened from the chat panel. -->
+    <editorNotificationProvider implementation="dev.metaclaude.panel.PlanNotificationProvider"/>
   </extensions>
 </idea-plugin>
