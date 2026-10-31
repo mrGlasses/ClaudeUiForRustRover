@@ -54,11 +54,11 @@ Status: ☐ not started · ◐ partial · ☑ done
 | `attachSelection`, `attachOpenFile` settings | UI | ☑ terminal mode (v0.9.0, tested) |
 | Alt+K: insert `@file#5-10` mention | UI + Bridge (`at_mentioned`) | ☑ v0.7.0 (tested); ◐ panel v0.20.0 |
 | `@` fuzzy file and folder mentions (`@auth`, `@src/components/`) | UI (project index) | ◐ v0.20.0 |
-| `@terminal:name`: terminal output as context | UI (read JetBrains terminal buffer) | ☐ |
-| Paste images from the clipboard | Stream (image content) | ☐ |
-| Shift+drag files into the prompt box, X to remove attachment | UI | ☐ |
+| `@terminal:name`: terminal output as context | UI (read JetBrains terminal buffer) | ◐ v0.21.0 (experimental `TerminalWidget.getText`) |
+| Paste images from the clipboard | Stream (image content) | ◐ v0.21.0 |
+| Shift+drag files into the prompt box, X to remove attachment | UI | ◐ v0.21.0 (drop on the panel, Shift optional) |
 | Withhold selections from excluded or git-ignored files (`respectGitIgnore`) | UI | ☑ terminal mode (v0.9.0); ◐ panel v0.20.0 |
-| `@browser` (Claude in Chrome) | CLI | ☐ |
+| `@browser` (Claude in Chrome) | CLI | ☐ moved to Phase 15 (needs the Chrome extension, not the IDE) |
 | PDF page ranges | CLI (nothing to do) | ☑ |
 
 ## D. Permissions and review — Phase 8

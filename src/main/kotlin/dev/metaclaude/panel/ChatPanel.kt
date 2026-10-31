@@ -13,6 +13,7 @@ import com.intellij.openapi.ui.Messages
 import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
+import dev.metaclaude.protocol.CliPaths as CliPathsForDrop
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.components.service
@@ -63,6 +64,48 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
     private val plans = PlanDocuments(project, this)
     private val contextTracker = PanelContextTracker(project, this) { send(it) }
     private val paths = ProjectPaths(project)
+
+    init {
+        installFileDrop()
+    }
+
+    /**
+     * Phase 9b: files dragged from the project view (or the OS) onto the panel become attachments. The page can't receive
+     * IDE drags itself, so the drop lands on the Swing component and Kotlin sends the paths. Shift isn't needed here.
+     */
+    private fun installFileDrop() {
+        val target = (browser.cefBrowser.uiComponent as? JComponent) ?: browser.component
+        com.intellij.ide.dnd.DnDSupport.createBuilder(target)
+            .enableAsNativeTarget()
+            .setTargetChecker { e ->
+                e.isDropPossible = files(e).isNotEmpty()
+                true
+            }
+            .setDropHandler { e ->
+                val dropped = files(e).take(20)
+                if (dropped.isNotEmpty()) send(JsonObject().apply {
+                    addProperty("type", "attachFiles")
+                    add("paths", com.google.gson.JsonArray().apply { dropped.forEach { add(mentionPath(it)) } })
+                })
+            }
+            .setDisposableParent(this)
+            .install()
+    }
+
+    private fun files(e: com.intellij.ide.dnd.DnDEvent): List<java.nio.file.Path> {
+        com.intellij.ide.dnd.FileCopyPasteUtil.getVirtualFileListFromAttachedObject(e.attachedObject)
+            .takeIf { it.isNotEmpty() }?.let { vfs -> return vfs.mapNotNull { runCatching { it.toNioPath() }.getOrNull() } }
+        // A drop from outside the IDE (Explorer): the event itself is the Transferable.
+        return runCatching { com.intellij.ide.dnd.FileCopyPasteUtil.getFiles(e) }.getOrNull() ?: emptyList()
+    }
+
+    /** Project files as "src/a.rs" (like `@` mentions), others as an absolute path. */
+    private fun mentionPath(p: java.nio.file.Path): String {
+        val vf = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByNioFile(p)
+        val root = vf?.let { com.intellij.openapi.roots.ProjectFileIndex.getInstance(project).getContentRootForFile(it) }
+        val rel = if (vf != null && root != null) com.intellij.openapi.vfs.VfsUtilCore.getRelativePath(vf, root) else null
+        return (rel ?: CliPathsForDrop.forCli(p.toString())) + if (vf?.isDirectory == true) "/" else ""
+    }
     @Volatile private var pageLoaded = false
     @Volatile private var session: ChatSession? = null
     /** Current permission mode: the next session starts in it; the CLI reports changes (status / init). */
@@ -132,14 +175,25 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                     // The page says which chips are still on (the user can drop them with X); Kotlin reads the context itself.
                     val withFile = msg.get("includeFile")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
                     val withSelection = msg.get("includeSelection")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
+                    // Rule 4: pasted images are checked (type, base64, size, count) before they reach the CLI.
+                    val images = (msg.get("images") as? com.google.gson.JsonArray)?.take(PanelContext.IMAGES_MAX)?.mapNotNull { e ->
+                        val o = e as? JsonObject ?: return@mapNotNull null
+                        PanelContext.image(o.get("mediaType")?.takeIf { it.isJsonPrimitive }?.asString, o.get("data")?.takeIf { it.isJsonPrimitive }?.asString)
+                    } ?: emptyList()
                     AppExecutorUtil.getAppExecutorService().execute {
                         saveAllIfAutosave() // Claude should read what the user sees
                         var snap: PanelContextTracker.Snapshot? = null
-                        if (withFile || withSelection) ApplicationManager.getApplication().invokeAndWait { snap = contextTracker.snapshot() }
+                        var terminals = emptyList<Pair<String, String>>()
+                        ApplicationManager.getApplication().invokeAndWait {
+                            if (withFile || withSelection) snap = contextTracker.snapshot()
+                            terminals = PanelContext.terminalMentions(text).mapNotNull { t -> TerminalBuffers.text(project, t)?.let { t to it } }
+                        }
                         val content = PanelContext.content(
                             text,
                             snap?.openFile?.takeIf { withFile },
                             snap?.selection?.takeIf { withSelection },
+                            terminals,
+                            images,
                         )
                         sessionOrStart()?.sendContent(content)
                     }
@@ -183,7 +237,9 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 val q = msg.get("query")?.takeIf { it.isJsonPrimitive }?.asString?.take(200) ?: return
                 val seq = msg.get("seq")?.takeIf { it.isJsonPrimitive }?.asInt ?: 0
                 AppExecutorUtil.getAppExecutorService().execute {
-                    val found = runCatching { paths.search(q) }.getOrDefault(emptyList())
+                    var terminals = emptyList<String>()
+                    ApplicationManager.getApplication().invokeAndWait { terminals = TerminalBuffers.tokens(project).map { "terminal:$it" } }
+                    val found = runCatching { paths.search(q, terminals) }.getOrDefault(emptyList())
                     send(JsonObject().apply {
                         addProperty("type", "mentionResults")
                         addProperty("seq", seq)

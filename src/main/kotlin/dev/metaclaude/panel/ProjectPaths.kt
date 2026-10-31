@@ -17,7 +17,8 @@ class ProjectPaths(private val project: Project) {
     @Volatile private var cache: List<String> = emptyList()
     @Volatile private var builtAt = 0L
 
-    fun search(query: String, limit: Int = 30): List<String> = FuzzyPaths.top(query, paths(), limit)
+    /** [extra]: more candidates, e.g. "terminal:Local" for terminal tabs. */
+    fun search(query: String, extra: List<String> = emptyList(), limit: Int = 30): List<String> = FuzzyPaths.top(query, extra + paths(), limit)
 
     private fun paths(): List<String> {
         if (System.currentTimeMillis() - builtAt < MAX_AGE_MS && cache.isNotEmpty()) return cache

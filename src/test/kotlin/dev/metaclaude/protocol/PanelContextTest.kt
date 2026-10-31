@@ -35,4 +35,26 @@ class PanelContextTest {
         assertNull(FuzzyPaths.score("zz", "abc"))
         assertEquals(listOf("src/", "webview/", "PLAN.md"), FuzzyPaths.top("", paths))
     }
+
+    @Test
+    fun `terminal mentions and output blocks`() {
+        assertEquals(listOf("Local-(2)", "cargo"), PanelContext.terminalMentions("see @terminal:Local-(2) and @terminal:cargo, ok @terminal:cargo"))
+        assertEquals("Local-(2)", PanelContext.terminalToken(" Local  (2) "))
+        val b = PanelContext.terminal("cargo", "x".repeat(PanelContext.TERMINAL_MAX + 10))
+        assertTrue(b.startsWith("<terminal_output name=\"cargo\">"))
+        assertTrue(b.contains("[earlier output cut]"))
+        assertTrue(b.length < PanelContext.TERMINAL_MAX + 200)
+    }
+
+    @Test
+    fun `images are checked and go before the prompt`() {
+        assertNull(PanelContext.image("image/svg+xml", "AAAA"))
+        assertNull(PanelContext.image("image/png", "not base64!"))
+        assertNull(PanelContext.image("image/png", "A".repeat(PanelContext.IMAGE_MAX_BASE64 + 4)))
+        val img = PanelContext.image("image/png", "iVBORw0KGgo=")!!
+        val c = PanelContext.content("what is this?", null, null, listOf("t" to "out"), listOf(img))
+        assertEquals(listOf("text", "image", "text"), c.map { it.asJsonObject.get("type").asString })
+        assertEquals("image/png", c[1].asJsonObject.getAsJsonObject("source").get("media_type").asString)
+        assertEquals("what is this?", c[2].asJsonObject.get("text").asString)
+    }
 }

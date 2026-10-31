@@ -21,7 +21,7 @@ Everything below is **not started** unless marked otherwise.
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
-| 9 Context and mentions | **9a written (v0.20.0): context chips, `@` file search, Alt+K into the panel; waiting for your test**. 9b: `@terminal`, pasted images, dragged files |
+| 9 Context and mentions | ☑ 9a done (v0.20.0 tested 2026-10-31). **9b written (v0.21.0): `@terminal`, pasted images, dropped files; waiting for your test**. `@browser` moved to Phase 15 |
 | 10–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -347,6 +347,16 @@ integration (`<ide_opened_file>`, `<ide_selection>`; `protocol/PanelContext.kt`,
 fuzzy search over project files and folders (`FuzzyPaths`, unit-tested; list cached 30 s, excluded and git-ignored files left
 out); picking a folder keeps browsing inside it. Alt+K with the chat panel showing inserts `@path#5-10` into its prompt box;
 otherwise it goes to a terminal session as before. Precheck: 74 tests, verifier Compatible (no new deprecated APIs).
+9a test (2026-10-31): selection, X on a chip, git-ignored file, `@` search, Alt+K: all ok.
+
+9b (v0.21.0): `@` also lists RustRover's terminal tabs as `@terminal:<name>` (spaces written as "-"); at send time Kotlin
+reads that tab's text (`TerminalWidget.getText()`, **experimental API**, wrapped so a change can't break the panel) and adds
+its last 30k characters as a `<terminal_output>` block. Pasted images (PNG, JPEG, GIF, WebP; up to 5, 5 MB each) show as
+chips with a thumbnail and go as `image` blocks; Kotlin checks type, base64 and size again (rule 4). Files dropped on the
+panel (from the project view or Explorer; Shift not needed) become chips and are sent as `@path` mentions after the prompt;
+the drop is caught by the IDE's DnD support on the Swing component, since the page can't receive IDE drags. Chips and
+attachments are taken when you press Enter, so a queued message keeps its own. Precheck caught two compile errors before
+hand-over (`DnDEvent.transferable`, `TerminalWidget.text`). 76 tests; verifier Compatible (+1 experimental: getText).
 
 ### Phase 10 — Sessions (PARITY §F)
 History (search, by time), resume, titles, rename, archive and auto-archive, groups, filters, several conversations in tabs and windows,

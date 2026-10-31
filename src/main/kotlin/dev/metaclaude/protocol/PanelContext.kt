@@ -22,10 +22,56 @@ object PanelContext {
         return "<ide_selection>The user selected the $lines from ${s.path}$body\n\nThis may or may not be related to the current task.</ide_selection>"
     }
 
-    /** `message.content` for a user turn: context blocks first, then the prompt. */
-    fun content(prompt: String, openFile: String?, selection: Selection?): JsonArray = JsonArray().apply {
+    /** A pasted image, already checked by [image]. */
+    class Image(val mediaType: String, val base64: String)
+
+    private val IMAGE_TYPES = setOf("image/png", "image/jpeg", "image/gif", "image/webp")
+    const val IMAGE_MAX_BASE64 = 7_000_000 // about 5 MB of image
+    const val IMAGES_MAX = 5
+    const val TERMINAL_MAX = 30_000
+    private val BASE64 = Regex("^[A-Za-z0-9+/]+={0,2}$")
+
+    /** Rule 4: only the image types the API takes, real base64, bounded size. Null when anything is off. */
+    fun image(mediaType: String?, base64: String?): Image? {
+        if (mediaType == null || mediaType !in IMAGE_TYPES || base64.isNullOrEmpty() || base64.length > IMAGE_MAX_BASE64) return null
+        if (base64.length % 4 != 0 || !BASE64.matches(base64)) return null
+        return Image(mediaType, base64)
+    }
+
+    /** `@terminal:name` tokens in a prompt (names have no spaces: the panel writes spaces as "-"). */
+    fun terminalMentions(prompt: String): List<String> =
+        Regex("""(?:^|\s)@terminal:(\S+)""").findAll(prompt).map { it.groupValues[1].trimEnd('.', ',', ';', ':', '?', '!') }.distinct().toList()
+
+    /** How a terminal tab's name is written in a mention. */
+    fun terminalToken(tabName: String) = tabName.trim().replace(Regex("\\s+"), "-")
+
+    /** The end of a terminal's output (the most recent part matters), as a context block. */
+    fun terminal(name: String, output: String): String {
+        val tail = if (output.length > TERMINAL_MAX) "[earlier output cut]\n" + output.takeLast(TERMINAL_MAX) else output
+        return "<terminal_output name=\"$name\">\nOutput of the IDE terminal tab \"$name\":\n${tail.trimEnd()}\n</terminal_output>"
+    }
+
+    /** `message.content` for a user turn: context blocks and images first, then the prompt. */
+    fun content(
+        prompt: String,
+        openFile: String?,
+        selection: Selection?,
+        terminals: List<Pair<String, String>> = emptyList(),
+        images: List<Image> = emptyList(),
+    ): JsonArray = JsonArray().apply {
         openFile?.let { add(block(openedFile(it))) }
         selection?.let { add(block(selection(it))) }
+        terminals.forEach { (name, out) -> add(block(terminal(name, out))) }
+        images.forEach { img ->
+            add(JsonObject().apply {
+                addProperty("type", "image")
+                add("source", JsonObject().apply {
+                    addProperty("type", "base64")
+                    addProperty("media_type", img.mediaType)
+                    addProperty("data", img.base64)
+                })
+            })
+        }
         add(block(prompt))
     }
 

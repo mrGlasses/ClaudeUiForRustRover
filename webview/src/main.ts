@@ -32,7 +32,7 @@ headerLeft.append(status, modes.node);
 header.append(headerLeft, headerButtons);
 
 const transcript = el("div", "transcript");
-const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, / opens commands, @ mentions a file, Ctrl+O shows thinking, Ctrl+Alt+F toggles Focus view.");
+const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, / opens commands, @ mentions a file or terminal, paste images or drop files here, Ctrl+O shows thinking, Ctrl+Alt+F toggles Focus view.");
 transcript.append(empty);
 
 // To-do list (TodoWrite): one list, replaced on every update, shown above the composer.
@@ -85,7 +85,12 @@ type Thinking = { box: HTMLDetailsElement; label: HTMLElement; body: HTMLPreElem
 const thinking = new Map<string, Thinking>();
 let showThinking = false; // Ctrl+O
 let turnTexts: string[] = []; // keys of this turn's text blocks, for Copy
-const queue: string[] = [];
+// A message as it will be sent: chips and attachments are taken when you press Enter, also for queued messages.
+type Img = { mediaType: string; data: string; name: string };
+type Outgoing = { text: string; files: string[]; images: Img[]; includeFile: boolean; includeSelection: boolean };
+const queue: Outgoing[] = [];
+let attachedFiles: string[] = []; // dropped files (Phase 9b), sent as @mentions
+let attachedImages: Img[] = []; // pasted images (Phase 9b)
 const turnHistory: string[] = []; // each finished turn's text, for /copy
 let lastDay = "";
 let cliCommands: string[] = [];
@@ -202,7 +207,7 @@ function showTasks(): void {
 // ---------- queue ----------
 function renderQueue(): void {
   queueBox.replaceChildren(
-    ...queue.map((text, i) => {
+    ...queue.map((o, i) => {
       const row = el("div", "queued");
       const remove = el("button", "link-button", "×");
       remove.title = "Remove from queue";
@@ -210,7 +215,7 @@ function renderQueue(): void {
         queue.splice(i, 1);
         renderQueue();
       });
-      row.append(el("span", "queued-label", "Queued"), el("span", "queued-text", text), remove);
+      row.append(el("span", "queued-label", "Queued"), el("span", "queued-text", o.text), remove);
       return row;
     }),
   );
@@ -226,18 +231,47 @@ function dayLine(): void {
   append(el("div", "day-line", d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long", year: "numeric" })));
 }
 
-function userMessage(text: string): void {
+function userMessage(o: Outgoing): void {
   dayLine();
   const m = el("div", "msg user");
-  m.append(el("div", "user-text", text), el("div", "time", clock()));
+  m.append(el("div", "user-text", o.text));
+  if (o.images.length || o.files.length) {
+    const att = el("div", "user-attachments");
+    o.images.forEach((img) => {
+      const i = el("img", "thumb");
+      i.src = `data:${img.mediaType};base64,${img.data}`; // CSP allows data: images only
+      i.alt = img.name;
+      att.append(i);
+    });
+    o.files.forEach((f) => att.append(el("span", "chip-ctx", `📎 ${f}`)));
+    m.append(att);
+  }
+  m.append(el("div", "time", clock()));
   append(m, true);
 }
 
-function dispatch(text: string): void {
-  userMessage(text);
+/** Takes the attachments and chips as they are now, and clears the attachments. */
+function outgoing(text: string): Outgoing {
+  const o = { text, files: attachedFiles, images: attachedImages, includeFile: fileChipOn(), includeSelection: selectionChipOn() };
+  attachedFiles = [];
+  attachedImages = [];
+  renderChips();
+  return o;
+}
+
+function dispatch(o: Outgoing): void {
+  userMessage(o);
   turnTexts = [];
   setBusy(true);
-  post({ type: "send", text, includeFile: fileChipOn(), includeSelection: selectionChipOn() });
+  // Dropped files travel as @mentions after the prompt, like typed ones.
+  const text = o.files.length ? `${o.text}\n\n${o.files.map((f) => `@${f}`).join(" ")}` : o.text;
+  post({
+    type: "send",
+    text,
+    includeFile: o.includeFile,
+    includeSelection: o.includeSelection,
+    images: o.images.map((i) => ({ mediaType: i.mediaType, data: i.data })),
+  });
 }
 
 // ---------- context chips ----------
@@ -273,9 +307,49 @@ function renderChips(): void {
       renderChips();
     }));
   }
+  attachedFiles.forEach((f, i) =>
+    items.push(chip(`📎 ${f}`, `Attached: ${f}`, () => { attachedFiles.splice(i, 1); renderChips(); })),
+  );
+  attachedImages.forEach((img, i) => {
+    const c = chip(`🖼 ${img.name}`, "Pasted image", () => { attachedImages.splice(i, 1); renderChips(); });
+    const t = el("img", "chip-thumb");
+    t.src = `data:${img.mediaType};base64,${img.data}`;
+    c.prepend(t);
+    items.push(c);
+  });
   chips.replaceChildren(...items);
   chips.hidden = items.length === 0;
 }
+
+// ---------- pasted images (Phase 9b) ----------
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+input.addEventListener("paste", (ev) => {
+  const files = [...(ev.clipboardData?.items ?? [])].filter((i) => i.kind === "file" && IMAGE_TYPES.includes(i.type));
+  if (files.length === 0) return; // plain text paste
+  ev.preventDefault();
+  for (const item of files) {
+    const f = item.getAsFile();
+    if (!f) continue;
+    if (attachedImages.length >= 5) {
+      append(el("div", "notice", "Up to 5 images per message."));
+      break;
+    }
+    if (f.size > IMAGE_MAX_BYTES) {
+      append(el("div", "notice", "That image is over 5 MB."));
+      continue;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result);
+      const comma = url.indexOf(",");
+      attachedImages.push({ mediaType: f.type, data: url.slice(comma + 1), name: `image ${attachedImages.length + 1}` });
+      renderChips();
+    };
+    reader.readAsDataURL(f);
+  }
+});
 
 function insertAtCaret(text: string): void {
   const s = input.selectionStart ?? input.value.length;
@@ -315,12 +389,13 @@ function submit(): void {
   input.value = "";
   closeMenu();
   if (panelCommand(text)) return;
+  const o = outgoing(text);
   if (busy) {
-    queue.push(text);
+    queue.push(o);
     renderQueue();
     setBusy(true);
   } else {
-    dispatch(text);
+    dispatch(o);
   }
 }
 
@@ -577,10 +652,15 @@ function handle(msg: FromKotlin): void {
     case "insertText":
       insertAtCaret(msg.text);
       break;
+    case "attachFiles":
+      for (const p of msg.paths) if (!attachedFiles.includes(p)) attachedFiles.push(p);
+      renderChips();
+      input.focus();
+      break;
     case "mentionResults": {
       if (msg.seq !== mentionSeq || !mentionToken()) break; // an older query, or the @ is gone
       menuMode = "mention";
-      menuItems = msg.items.map((p) => ({ name: p, hint: p.endsWith("/") ? "folder" : "" }));
+      menuItems = msg.items.map((p) => ({ name: p, hint: p.endsWith("/") ? "folder" : p.startsWith("terminal:") ? "terminal output" : "" }));
       if (menuItems.length === 0) {
         closeMenu();
         break;

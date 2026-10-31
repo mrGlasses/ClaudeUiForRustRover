@@ -3,7 +3,7 @@
 
 export type ToKotlin =
   | { type: "ready" }
-  | { type: "send"; text: string; includeFile?: boolean; includeSelection?: boolean }
+  | { type: "send"; text: string; includeFile?: boolean; includeSelection?: boolean; images?: { mediaType: string; data: string }[] }
   | { type: "interrupt" }
   | { type: "newSession" }
   | { type: "openLink"; url: string }
@@ -47,6 +47,7 @@ export type FromKotlin =
   | { type: "toggleFocus" }
   | { type: "context"; file?: string; showFile?: boolean; startLine?: number; endLine?: number; textShared?: boolean }
   | { type: "insertText"; text: string }
+  | { type: "attachFiles"; paths: string[] }
   | { type: "mentionResults"; seq: number; items: string[] }
   | { type: "signIn" }
   | { type: "toolUse"; id: string; name: string; summary: string }
