@@ -21,7 +21,7 @@ Everything below is **not started** unless marked otherwise.
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
-| 9 Context and mentions | ☑ 9a done (v0.20.0 tested 2026-10-31). **9b written (v0.21.0): `@terminal`, pasted images, dropped files; waiting for your test**. `@browser` moved to Phase 15 |
+| 9 Context and mentions | ☑ 9a done (v0.20.0 tested 2026-10-31). 9b: images, dropped files ok (v0.21.0). **v0.21.1: `@terminal` fix; waiting for your test**. `@browser` moved to Phase 15 |
 | 10–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -357,6 +357,11 @@ panel (from the project view or Explorer; Shift not needed) become chips and are
 the drop is caught by the IDE's DnD support on the Swing component, since the page can't receive IDE drags. Chips and
 attachments are taken when you press Enter, so a queued message keeps its own. Precheck caught two compile errors before
 hand-over (`DnDEvent.transferable`, `TerminalWidget.text`). 76 tests; verifier Compatible (+1 experimental: getText).
+9b test (2026-10-31): images, dropped files and a queued message with an image work. `@terminal` sent no output: the tab was
+found but nothing was read, and the panel dropped the mention silently. v0.21.1 reads the reworked terminal (2026.2's default)
+through its output editor (the tab's data context gives `CommonDataKeys.EDITOR`; public API), keeps `getText()` as the
+fallback for classic tabs, logs which way worked and how many characters (never the text), and shows a notice when a tab
+can't be read.
 
 ### Phase 10 — Sessions (PARITY §F)
 History (search, by time), resume, titles, rename, archive and auto-archive, groups, filters, several conversations in tabs and windows,

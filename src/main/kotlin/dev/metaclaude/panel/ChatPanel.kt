@@ -186,7 +186,15 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                         var terminals = emptyList<Pair<String, String>>()
                         ApplicationManager.getApplication().invokeAndWait {
                             if (withFile || withSelection) snap = contextTracker.snapshot()
-                            terminals = PanelContext.terminalMentions(text).mapNotNull { t -> TerminalBuffers.text(project, t)?.let { t to it } }
+                            val mentioned = PanelContext.terminalMentions(text)
+                            terminals = mentioned.mapNotNull { t -> TerminalBuffers.text(project, t)?.let { t to it } }
+                            // Say so instead of sending the mention without its output (v0.21.0 dropped it silently).
+                            mentioned.filter { t -> terminals.none { it.first == t } }.forEach { t ->
+                                send(JsonObject().apply {
+                                    addProperty("type", "notice")
+                                    addProperty("text", "Couldn't read the terminal tab \"$t\": Claude gets the mention without its output.")
+                                })
+                            }
                         }
                         val content = PanelContext.content(
                             text,
