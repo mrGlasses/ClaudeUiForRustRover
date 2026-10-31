@@ -13,6 +13,7 @@ import com.intellij.openapi.ui.Messages
 import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
+import dev.metaclaude.protocol.SessionFiles
 import dev.metaclaude.protocol.CliPaths as CliPathsForDrop
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ide.CopyPasteManager
@@ -164,6 +165,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 addProperty("ideBuild", ApplicationInfo.getInstance().build.asString())
             }, settingsMessage(), modeMessage()).also {
                 ApplicationManager.getApplication().invokeLater { contextTracker.push(force = true) }
+                AppExecutorUtil.getAppExecutorService().execute { continueAfterReload() }
             }
             // Sign-in card: signing in is interactive, so it happens in a Claude terminal tab (`/login` there).
             "signIn" -> project.service<MetaClaudeService>().startSession()
@@ -211,6 +213,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             "newSession" -> {
                 session?.let { Disposer.dispose(it) }
                 session = null
+                pendingResume = null
+                currentSessionId = null
                 mode = initialMode()
                 send(modeMessage())
                 send(JsonObject().apply { addProperty("type", "sessionReset") })
@@ -241,6 +245,17 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 }
             }
             "permissionAnswer" -> permissionAnswer(msg)
+            "historyList" -> {
+                val q = msg.get("query")?.takeIf { it.isJsonPrimitive }?.asString?.take(200) ?: ""
+                AppExecutorUtil.getAppExecutorService().execute { sendHistory(q) }
+            }
+            "resume" -> msg.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString?.let { id ->
+                AppExecutorUtil.getAppExecutorService().execute { resume(id, automatic = false) }
+            }
+            "export" -> {
+                val toFile = msg.get("mode")?.takeIf { it.isJsonPrimitive }?.asString == "file"
+                AppExecutorUtil.getAppExecutorService().execute { export(toFile) }
+            }
             "mentionQuery" -> {
                 val q = msg.get("query")?.takeIf { it.isJsonPrimitive }?.asString?.take(200) ?: return
                 val seq = msg.get("seq")?.takeIf { it.isJsonPrimitive }?.asInt ?: 0
@@ -282,7 +297,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         return try {
             ChatSession(project, exe, root.toRealPath(), this, todoTools = ClaudeUiSettings.instance.state.todoTools,
                 thinkingSummaries = ClaudeUiSettings.instance.state.thinkingSummaries,
-                permissionMode = mode, allowBypass = bypassAllowed(), onPanelMessage = { onSessionMessage(it) }, onExit = { code ->
+                permissionMode = mode, allowBypass = bypassAllowed(), resumeId = pendingResume.also { pendingResume = null },
+                onPanelMessage = { onSessionMessage(it) }, onExit = { code ->
                 session = null
                 send(JsonObject().apply {
                     addProperty("type", "error")
@@ -293,6 +309,96 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             BridgeLog.log("panel: session start failed: ${e::class.java.name}: ${e.message}", project.name)
             send(JsonObject().apply { addProperty("type", "error"); addProperty("message", "Could not start Claude: ${e.message}") })
             null
+        }
+    }
+
+    // ---------- sessions (Phase 10) ----------
+
+    @Volatile private var currentSessionId: String? = null
+    /** A session chosen from the history: shown at once, its process starts (with --resume) on the next message. */
+    @Volatile private var pendingResume: String? = null
+    private val history: SessionHistory? by lazy { project.basePath?.let { SessionHistory(Path.of(it), "${project.name}/panel") } }
+    private val props get() = com.intellij.ide.util.PropertiesComponent.getInstance(project)
+
+    private fun rememberSession(id: String) {
+        currentSessionId = id
+        props.setValue(LAST_SESSION_KEY, id)
+        props.setValue(LAST_ACTIVE_KEY, System.currentTimeMillis().toString())
+    }
+
+    /** Background thread. */
+    private fun sendHistory(query: String) {
+        val items = runCatching { history?.search(query) ?: emptyList() }.getOrDefault(emptyList())
+        val current = currentSessionId ?: pendingResume
+        send(JsonObject().apply {
+            addProperty("type", "historyItems")
+            add("items", com.google.gson.JsonArray().apply {
+                items.take(200).forEach { s ->
+                    add(JsonObject().apply {
+                        addProperty("id", s.id)
+                        addProperty("title", s.title)
+                        addProperty("modified", s.modified)
+                        addProperty("prompts", s.prompts)
+                        addProperty("current", s.id == current)
+                    })
+                }
+            })
+        })
+    }
+
+    /** Background thread. Rule 4: only an id that is one of this project's session files. */
+    private fun resume(id: String, automatic: Boolean) {
+        val h = history ?: return
+        if (!h.exists(id)) return BridgeLog.log("panel: refused resume (no such session here)", project.name)
+        if (id == currentSessionId && session != null) return
+        val transcript = h.read(id) { SessionFiles.transcript(it) } ?: return
+        val title = h.read(id) { SessionFiles.summarize(id, it, 0L)?.title } ?: id
+        session?.let { s -> ApplicationManager.getApplication().invokeAndWait { Disposer.dispose(s) } }
+        session = null
+        pendingResume = id
+        currentSessionId = id
+        props.setValue(LAST_SESSION_KEY, id)
+        BridgeLog.log("panel: resumed session ${if (automatic) "after reload" else "from history"} (${transcript.size} items)", project.name)
+        send(JsonObject().apply { addProperty("type", "sessionReset") })
+        send(JsonObject().apply { addProperty("type", "historyLoaded"); addProperty("title", title); addProperty("automatic", automatic) })
+        transcript.forEach { send(it) }
+        send(JsonObject().apply { addProperty("type", "historyEnd") })
+    }
+
+    /** Background thread: VS Code reopens the sidebar conversation if it was active in the last 10 minutes. */
+    private fun continueAfterReload() {
+        if (!ClaudeUiSettings.instance.state.continueAfterReload || session != null || currentSessionId != null) return
+        val id = props.getValue(LAST_SESSION_KEY) ?: return
+        val active = props.getValue(LAST_ACTIVE_KEY)?.toLongOrNull() ?: return
+        if (System.currentTimeMillis() - active > 10 * 60_000L) return
+        resume(id, automatic = true)
+    }
+
+    /** Background thread. `/export` saves the conversation as Markdown (or `/export copy` copies it). */
+    private fun export(toFile: Boolean) {
+        val id = currentSessionId ?: pendingResume
+        val h = history
+        val lines = if (id != null && h != null) h.read(id) { it.toList() } else null
+        val md = lines?.let {
+            val title = SessionFiles.summarize(id!!, it.asSequence(), 0L)?.title ?: "Claude conversation"
+            title to SessionFiles.markdown(title, it.asSequence())
+        }
+        if (md == null) return send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Nothing to export yet.") })
+        val (title, text) = md
+        ApplicationManager.getApplication().invokeLater {
+            if (!toFile) {
+                CopyPasteManager.getInstance().setContents(StringSelection(text))
+                send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Conversation copied as Markdown.") })
+                return@invokeLater
+            }
+            val name = title.replace(Regex("[^A-Za-z0-9 _-]"), "").trim().take(60).ifEmpty { "conversation" } + ".md"
+            val dialog = com.intellij.openapi.fileChooser.FileChooserFactory.getInstance().createSaveFileDialog(
+                com.intellij.openapi.fileChooser.FileSaverDescriptor("Export Conversation", "Save the conversation as Markdown", "md"), project,
+            )
+            val target = dialog.save(project.basePath?.let { com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(it) }, name) ?: return@invokeLater
+            runCatching { java.nio.file.Files.writeString(target.file.toPath(), text) }
+                .onSuccess { send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Saved to ${target.file.name}.") }) }
+                .onFailure { send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Couldn't save: ${it.message}") }) }
         }
     }
 
@@ -310,6 +416,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             m.get(if (type == "permissionMode") "mode" else "permissionMode")?.takeIf { it.isJsonPrimitive }?.asString
                 ?.takeIf { it.isNotEmpty() }?.let { mode = it }
         }
+        if (type == "sessionInfo") m.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString?.let { rememberSession(it) }
+        if (type == "turnEnd") currentSessionId?.let { rememberSession(it) }
         if (type == "permissionResolved") {
             val id = m.get("requestId").asString
             ApplicationManager.getApplication().invokeLater { diffs.close(id); plans.close(id) }
@@ -491,6 +599,8 @@ ${themeCss()}</style></head><body><div id="app"></div>
     companion object {
         private const val MAX_PROMPT = 100_000
         private const val MAX_COPY = 2_000_000
+        private const val LAST_SESSION_KEY = "clawed.ui.lastSession"
+        private const val LAST_ACTIVE_KEY = "clawed.ui.lastActive"
         private val openPanels: MutableSet<ChatPanel> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
         /**

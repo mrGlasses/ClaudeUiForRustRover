@@ -21,8 +21,9 @@ Everything below is **not started** unless marked otherwise.
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
-| 9 Context and mentions | ☑ 9a done (v0.20.0 tested 2026-10-31). 9b: images, dropped files ok (v0.21.0). **v0.21.2: `@terminal`, second try; waiting for your test**. `@browser` moved to Phase 15 |
-| 10–16 | Not started |
+| 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
+| 10 Sessions | **10a written (v0.22.0): history, search, resume, continue after reload, `/export`; waiting for your test**. 10b: several conversations, status dots, reopen closed, rename / archive / groups / filters |
+| 11–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -374,6 +375,17 @@ status dots, reopen closed (Ctrl+Shift+T inside the panel), continue after reloa
 `/export`, Web tab (cloud and Remote Control sessions).
 
 **Done when:** sessions survive an IDE restart, and history, groups and filters behave like VS Code's.
+
+9b closed (2026-10-31): v0.21.2 reads the reworked terminal through its editor (log: "read 961 chars (reworked terminal)").
+
+10a (v0.22.0): the panel reads Claude Code's own session files (`~/.claude/projects/<project dir>/<id>.jsonl`, read-only;
+`protocol/SessionFiles.kt`, unit-tested). History (header button or `/resume`): this project's conversations, newest first,
+with title (your rename, else Claude's, else the first prompt), age and message count; the search box matches titles and
+the whole conversation text. Opening one replays it in the panel (your prompts, Claude's text, tool cards) and the next
+message starts `claude --resume <id>`. Continue after reload (setting, VS Code `continueAfterReload`): when the panel opens
+and the last conversation here was active in the last 10 minutes, it comes back the same way. `/export` saves the
+conversation as Markdown (native save dialog); `/export copy` copies it. Session ids are checked against the project's
+files before use (rule 4). Precheck caught a `/*` inside a KDoc comment (unclosed comment) before hand-over.
 
 ### Phase 11 — Checkpoints, agents, background work (PARITY §G, §H)
 Fork from here, rewind code, fork + rewind; agent map (tree, status, time, tokens, transcript, stop), background tasks with live output,

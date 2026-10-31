@@ -41,6 +41,7 @@ object StreamEvents {
         "init" -> listOf(msg("sessionInfo") {
             addProperty("model", e.str("model") ?: "")
             addProperty("permissionMode", e.str("permissionMode") ?: "")
+            e.str("session_id")?.let { addProperty("sessionId", it) } // Phase 10: resume, continue after reload
             // For the panel's `/` menu: names only, bounded.
             val commands = JsonArray()
             (e.get("slash_commands") as? JsonArray)?.asSequence()

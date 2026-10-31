@@ -40,6 +40,7 @@ class ChatSession(
     thinkingSummaries: Boolean = false,
     permissionMode: String = "default",
     allowBypass: Boolean = false,
+    resumeId: String? = null,
 ) : Disposable {
     private val tag = "${project.name}/panel"
     private val mcp = HttpMcpServer(
@@ -67,6 +68,7 @@ class ChatSession(
             "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--include-partial-messages",
             "--permission-mode", permissionMode,
+        ) + (resumeId?.let { listOf("--resume", it) } ?: emptyList()) + listOf(
             "--permission-prompt-tool", "stdio",
             "--mcp-config", mcpConfig.toString(),
         ) + (settingsFile?.let { listOf("--settings", it.toString()) } ?: emptyList()) +

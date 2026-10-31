@@ -25,7 +25,9 @@ const focusButton = el("button", "link-button", "Focus");
 focusButton.title = "Hide tool calls and thinking (Ctrl+Alt+F)";
 const newButton = el("button", "link-button", "New session");
 const headerButtons = el("span", "header-buttons");
-headerButtons.append(focusButton, newButton);
+const historyButton = el("button", "link-button", "History");
+historyButton.title = "Past conversations in this project";
+headerButtons.append(historyButton, focusButton, newButton);
 const modes = modeControl();
 const headerLeft = el("span", "header-left");
 headerLeft.append(status, modes.node);
@@ -98,6 +100,8 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "copy", hint: "copy the last response (/copy 2: the one before)" },
   { name: "clear", hint: "start a new session" },
   { name: "focus", hint: "toggle Focus view" },
+  { name: "export", hint: "save this conversation as Markdown (/export copy: copy it)" },
+  { name: "resume", hint: "open the conversation history" },
 ];
 
 function setBusy(b: boolean): void {
@@ -376,6 +380,15 @@ function panelCommand(text: string): boolean {
     post({ type: "newSession" });
     return true;
   }
+  const exp = /^\/export(?:\s+(copy))?$/.exec(text);
+  if (exp) {
+    post({ type: "export", mode: exp[1] ? "copy" : "file" });
+    return true;
+  }
+  if (text === "/resume") {
+    openHistory();
+    return true;
+  }
   if (text === "/focus") {
     toggleFocus();
     return true;
@@ -423,6 +436,75 @@ document.addEventListener("keydown", (ev) => {
 });
 newButton.addEventListener("click", () => post({ type: "newSession" }));
 focusButton.addEventListener("click", () => toggleFocus());
+
+// ---------- history (Phase 10) ----------
+const historyView = el("div", "history");
+historyView.hidden = true;
+const historySearch = el("input", "history-search");
+historySearch.type = "search";
+historySearch.placeholder = "Search conversations…";
+const historyClose = el("button", "link-button", "Close");
+const historyBar = el("div", "history-bar");
+historyBar.append(historySearch, historyClose);
+const historyList = el("div", "history-list");
+historyView.append(historyBar, historyList);
+transcript.before(historyView);
+
+let historyTimer = 0;
+function openHistory(): void {
+  historyView.hidden = false;
+  transcript.hidden = true;
+  historyList.replaceChildren(el("div", "notice", "Loading…"));
+  post({ type: "historyList", query: historySearch.value });
+  historySearch.focus();
+}
+function closeHistory(): void {
+  historyView.hidden = true;
+  transcript.hidden = false;
+  input.focus();
+}
+historyButton.addEventListener("click", () => (historyView.hidden ? openHistory() : closeHistory()));
+historyClose.addEventListener("click", closeHistory);
+historySearch.addEventListener("input", () => {
+  clearTimeout(historyTimer);
+  historyTimer = window.setTimeout(() => post({ type: "historyList", query: historySearch.value }), 250);
+});
+historySearch.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") {
+    ev.stopPropagation();
+    closeHistory();
+  }
+});
+
+function ago(ms: number): string {
+  const s = (Date.now() - ms) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  const d = new Date(ms);
+  return s < 7 * 86400 ? `${Math.floor(s / 86400)} d ago` : d.toLocaleDateString();
+}
+
+function renderHistory(items: { id: string; title: string; modified: number; prompts: number; current: boolean }[]): void {
+  if (items.length === 0) {
+    historyList.replaceChildren(el("div", "notice", historySearch.value ? "No conversation matches." : "No past conversations in this project yet."));
+    return;
+  }
+  historyList.replaceChildren(
+    ...items.map((it) => {
+      const row = el("button", `history-item${it.current ? " current" : ""}`);
+      row.append(
+        el("span", "history-title", it.title),
+        el("span", "history-meta", `${ago(it.modified)} · ${it.prompts} message${it.prompts === 1 ? "" : "s"}${it.current ? " · open" : ""}`),
+      );
+      row.addEventListener("click", () => {
+        closeHistory();
+        post({ type: "resume", sessionId: it.id });
+      });
+      return row;
+    }),
+  );
+}
 
 // ---------- Focus view ----------
 function toggleFocus(): void {
@@ -669,6 +751,24 @@ function handle(msg: FromKotlin): void {
       renderMenu();
       break;
     }
+    case "historyItems":
+      renderHistory(msg.items);
+      break;
+    case "historyLoaded":
+      append(el("div", "notice", msg.automatic ? `Continuing "${msg.title}" (Settings > Tools > Clawed UI to turn this off).` : `Resumed "${msg.title}".`));
+      break;
+    case "historyUser": {
+      const m = el("div", "msg user");
+      m.append(el("div", "user-text", msg.text));
+      if (msg.timestamp) m.append(el("div", "time", new Date(msg.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" })));
+      append(m, true);
+      turnTexts = [];
+      break;
+    }
+    case "historyEnd":
+      transcript.scrollTop = transcript.scrollHeight;
+      append(el("div", "notice", "Your next message continues this conversation."));
+      break;
     case "toggleFocus":
       toggleFocus();
       break;

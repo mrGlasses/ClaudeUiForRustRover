@@ -90,6 +90,10 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                 checkBox("Save files before Claude reads or writes them").bindSelected(settings.state::autosave)
                     .comment("Saves unsaved editors before each message and before showing an edit, so Claude sees what you see.")
             }
+            row {
+                checkBox("Continue the last conversation after a restart").bindSelected(settings.state::continueAfterReload)
+                    .comment("When the chat panel opens and your last conversation here was active in the last 10 minutes.")
+            }
         }
     }
 

@@ -44,6 +44,8 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var allowDangerouslySkipPermissions by property(false)
         /** VS Code `autosave`: save open files before Claude reads or writes them (before each message and each edit). */
         var autosave by property(true)
+        /** VS Code `continueAfterReload`: reopen the last conversation when the panel opens, if it was active < 10 min ago. */
+        var continueAfterReload by property(true)
     }
 
     var integrationMode: IntegrationMode

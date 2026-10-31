@@ -99,8 +99,8 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Session history: search by keyword, browse by time | CLI session files | ☐ |
-| Resume a conversation (switch to its tab if already open) | Stream (`--resume`) | ☐ |
+| Session history: search by keyword, browse by time | CLI session files | ◐ v0.22.0 |
+| Resume a conversation (switch to its tab if already open) | Stream (`--resume`) | ◐ v0.22.0 (one conversation at a time until 10b) |
 | AI-generated session titles | CLI | ☐ |
 | Rename, archive, unarchive (one or all) | UI/CLI | ☐ |
 | Auto-archive after N days, `archiveInactiveSessions` (1/2/7/14/0) | UI | ☐ |
@@ -109,11 +109,11 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Multiple conversations: Open in New Tab / New Window | UI | ☐ |
 | Status dot on tabs (blue = permission pending, orange = finished while hidden) | UI | ☐ |
 | Reopen Closed Session (Ctrl+Shift+T) | UI | ☐ |
-| Continue after reload (editor tabs always; sidebar if active < 10 min), `continueAfterReload` | UI + Stream | ☐ |
+| Continue after reload (editor tabs always; sidebar if active < 10 min), `continueAfterReload` | UI + Stream | ◐ v0.22.0 (panel, < 10 min) |
 | "Not reopened" guard after two failed opens | UI | ☐ |
 | "Still open somewhere else" guard with "Open here anyway" | UI | ☐ |
 | Mark Session as Unread, Add Session Tab to Group, Rename Session Tab | UI | ☐ |
-| `/export` (copy or save to file) | CLI | ☐ |
+| `/export` (copy or save to file) | CLI | ☑ v0.22.0 |
 | Web tab: resume cloud sessions and Remote Control sessions from claude.ai | CLI | ☐ |
 
 ## G. Checkpoints — Phase 11

@@ -23,7 +23,10 @@ export type ToKotlin =
   | { type: "setMode"; mode: string }
   | { type: "openDiff"; requestId: string }
   | { type: "openPlan"; requestId: string }
-  | { type: "mentionQuery"; query: string; seq: number };
+  | { type: "mentionQuery"; query: string; seq: number }
+  | { type: "historyList"; query: string }
+  | { type: "resume"; sessionId: string }
+  | { type: "export"; mode: "file" | "copy" };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
@@ -48,6 +51,10 @@ export type FromKotlin =
   | { type: "context"; file?: string; showFile?: boolean; startLine?: number; endLine?: number; textShared?: boolean }
   | { type: "insertText"; text: string }
   | { type: "attachFiles"; paths: string[] }
+  | { type: "historyItems"; items: { id: string; title: string; modified: number; prompts: number; current: boolean }[] }
+  | { type: "historyLoaded"; title: string; automatic: boolean }
+  | { type: "historyUser"; text: string; timestamp?: string }
+  | { type: "historyEnd" }
   | { type: "mentionResults"; seq: number; items: string[] }
   | { type: "signIn" }
   | { type: "toolUse"; id: string; name: string; summary: string }
