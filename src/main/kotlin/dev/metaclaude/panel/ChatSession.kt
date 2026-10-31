@@ -227,6 +227,13 @@ class ChatSession(
         add("parent_tool_use_id", null)
     })
 
+    /** A user turn with context blocks (open file, selection) before the prompt (Phase 9). */
+    fun sendContent(content: com.google.gson.JsonArray) = write(JsonObject().apply {
+        addProperty("type", "user")
+        add("message", JsonObject().apply { addProperty("role", "user"); add("content", content) })
+        add("parent_tool_use_id", null)
+    })
+
     fun interrupt() = write(control("interrupt", JsonObject()))
 
     @Synchronized

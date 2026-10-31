@@ -49,15 +49,15 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Automatic selected text (footer shows line count, X to drop one selection) | Bridge (terminal) / UI (panel) | ☑ terminal mode (v0.7.0, tested); panel: Phase 9 |
-| Automatic open file (name shown in prompt box) | Bridge / UI | ☑ terminal mode (v0.7.0) |
+| Automatic selected text (footer shows line count, X to drop one selection) | Bridge (terminal) / UI (panel) | ☑ terminal mode (v0.7.0, tested); ◐ panel v0.20.0 |
+| Automatic open file (name shown in prompt box) | Bridge / UI | ☑ terminal mode (v0.7.0); ◐ panel v0.20.0 (chip) |
 | `attachSelection`, `attachOpenFile` settings | UI | ☑ terminal mode (v0.9.0, tested) |
-| Alt+K: insert `@file#5-10` mention | UI + Bridge (`at_mentioned`) | ☑ v0.7.0 (tested) |
-| `@` fuzzy file and folder mentions (`@auth`, `@src/components/`) | UI (project index) | ☐ |
+| Alt+K: insert `@file#5-10` mention | UI + Bridge (`at_mentioned`) | ☑ v0.7.0 (tested); ◐ panel v0.20.0 |
+| `@` fuzzy file and folder mentions (`@auth`, `@src/components/`) | UI (project index) | ◐ v0.20.0 |
 | `@terminal:name`: terminal output as context | UI (read JetBrains terminal buffer) | ☐ |
 | Paste images from the clipboard | Stream (image content) | ☐ |
 | Shift+drag files into the prompt box, X to remove attachment | UI | ☐ |
-| Withhold selections from excluded or git-ignored files (`respectGitIgnore`) | UI | ☑ terminal mode (v0.9.0); panel: Phase 9 |
+| Withhold selections from excluded or git-ignored files (`respectGitIgnore`) | UI | ☑ terminal mode (v0.9.0); ◐ panel v0.20.0 |
 | `@browser` (Claude in Chrome) | CLI | ☐ |
 | PDF page ranges | CLI (nothing to do) | ☑ |
 

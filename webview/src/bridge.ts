@@ -3,7 +3,7 @@
 
 export type ToKotlin =
   | { type: "ready" }
-  | { type: "send"; text: string }
+  | { type: "send"; text: string; includeFile?: boolean; includeSelection?: boolean }
   | { type: "interrupt" }
   | { type: "newSession" }
   | { type: "openLink"; url: string }
@@ -22,7 +22,8 @@ export type ToKotlin =
     }
   | { type: "setMode"; mode: string }
   | { type: "openDiff"; requestId: string }
-  | { type: "openPlan"; requestId: string };
+  | { type: "openPlan"; requestId: string }
+  | { type: "mentionQuery"; query: string; seq: number };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
@@ -44,6 +45,9 @@ export type FromKotlin =
   | { type: "taskUpdate"; taskId: string; status?: string; activeForm?: string; subject?: string }
   | { type: "toggleThinking" }
   | { type: "toggleFocus" }
+  | { type: "context"; file?: string; showFile?: boolean; startLine?: number; endLine?: number; textShared?: boolean }
+  | { type: "insertText"; text: string }
+  | { type: "mentionResults"; seq: number; items: string[] }
   | { type: "signIn" }
   | { type: "toolUse"; id: string; name: string; summary: string }
   | { type: "toolResult"; toolUseId: string; isError: boolean; preview: string }

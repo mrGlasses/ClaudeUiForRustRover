@@ -21,7 +21,8 @@ Everything below is **not started** unless marked otherwise.
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
-| 9–16 | Not started |
+| 9 Context and mentions | **9a written (v0.20.0): context chips, `@` file search, Alt+K into the panel; waiting for your test**. 9b: `@terminal`, pasted images, dragged files |
+| 10–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -337,6 +338,15 @@ Selection and open-file chips with X, `@` fuzzy file and folder search, Alt+K, `
 pasted images, Shift+drag files, attachments removable, ignore rules, `@browser`.
 
 **Done when:** each kind of context reaches Claude, which you check by asking about it.
+
+9a (v0.20.0): chips above the prompt box show what goes with the next message: the open file (with `attachOpenFile`, or
+always together with a selection) and the selection (`name:5-10 (6 lines)`, or "text not shared" when `attachSelection` is
+off or the file is excluded / git-ignored with `respectGitIgnore`). X drops a chip until the editor shows something else.
+Kotlin reads the context again at send time and sends it as text blocks before the prompt, worded like Claude Code's IDE
+integration (`<ide_opened_file>`, `<ide_selection>`; `protocol/PanelContext.kt`, unit-tested). `@` in the prompt opens a
+fuzzy search over project files and folders (`FuzzyPaths`, unit-tested; list cached 30 s, excluded and git-ignored files left
+out); picking a folder keeps browsing inside it. Alt+K with the chat panel showing inserts `@path#5-10` into its prompt box;
+otherwise it goes to a terminal session as before. Precheck: 74 tests, verifier Compatible (no new deprecated APIs).
 
 ### Phase 10 — Sessions (PARITY §F)
 History (search, by time), resume, titles, rename, archive and auto-archive, groups, filters, several conversations in tabs and windows,

@@ -130,3 +130,9 @@ math { font-size: 1.1em; }
 .other-text { background: var(--code-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; font: inherit; padding: 2px 6px; flex: 1; }
 button:disabled { opacity: .5; cursor: default; }
 .permission > .link-button { align-self: flex-start; }
+
+/* Phase 9: context chips */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px 0; }
+.chip-ctx { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; border: 1px solid var(--border); border-radius: 10px; padding: 1px 4px 1px 8px; color: var(--muted); max-width: 100%; overflow: hidden; }
+.chip-x { background: none; border: none; color: var(--muted); font: inherit; cursor: pointer; padding: 0 2px; }
+.chip-x:hover { color: var(--fg); }

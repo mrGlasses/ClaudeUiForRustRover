@@ -12,6 +12,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.Messages
 import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.EditProposal
+import dev.metaclaude.protocol.PanelContext
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.components.service
@@ -60,6 +61,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
     private val toKotlin: JBCefJSQuery = JBCefJSQuery.create(browser as JBCefBrowserBase) // the JBCefBrowser overload is scheduled for removal
     private val diffs = PanelDiffs(project, this)
     private val plans = PlanDocuments(project, this)
+    private val contextTracker = PanelContextTracker(project, this) { send(it) }
+    private val paths = ProjectPaths(project)
     @Volatile private var pageLoaded = false
     @Volatile private var session: ChatSession? = null
     /** Current permission mode: the next session starts in it; the CLI reports changes (status / init). */
@@ -116,7 +119,9 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 addProperty("type", "hello")
                 addProperty("version", PluginInfo.version)
                 addProperty("ideBuild", ApplicationInfo.getInstance().build.asString())
-            }, settingsMessage(), modeMessage())
+            }, settingsMessage(), modeMessage()).also {
+                ApplicationManager.getApplication().invokeLater { contextTracker.push(force = true) }
+            }
             // Sign-in card: signing in is interactive, so it happens in a Claude terminal tab (`/login` there).
             "signIn" -> project.service<MetaClaudeService>().startSession()
             "send" -> {
@@ -124,9 +129,19 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 if (text.isNullOrEmpty() || text.length > MAX_PROMPT) {
                     BridgeLog.log("panel: refused send (empty or over $MAX_PROMPT chars)", project.name)
                 } else {
+                    // The page says which chips are still on (the user can drop them with X); Kotlin reads the context itself.
+                    val withFile = msg.get("includeFile")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
+                    val withSelection = msg.get("includeSelection")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
                     AppExecutorUtil.getAppExecutorService().execute {
                         saveAllIfAutosave() // Claude should read what the user sees
-                        sessionOrStart()?.send(text)
+                        var snap: PanelContextTracker.Snapshot? = null
+                        if (withFile || withSelection) ApplicationManager.getApplication().invokeAndWait { snap = contextTracker.snapshot() }
+                        val content = PanelContext.content(
+                            text,
+                            snap?.openFile?.takeIf { withFile },
+                            snap?.selection?.takeIf { withSelection },
+                        )
+                        sessionOrStart()?.sendContent(content)
                     }
                 }
             }
@@ -164,6 +179,18 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 }
             }
             "permissionAnswer" -> permissionAnswer(msg)
+            "mentionQuery" -> {
+                val q = msg.get("query")?.takeIf { it.isJsonPrimitive }?.asString?.take(200) ?: return
+                val seq = msg.get("seq")?.takeIf { it.isJsonPrimitive }?.asInt ?: 0
+                AppExecutorUtil.getAppExecutorService().execute {
+                    val found = runCatching { paths.search(q) }.getOrDefault(emptyList())
+                    send(JsonObject().apply {
+                        addProperty("type", "mentionResults")
+                        addProperty("seq", seq)
+                        add("items", com.google.gson.JsonArray().apply { found.forEach { add(it) } })
+                    })
+                }
+            }
             "openDiff" -> msg.get("requestId")?.takeIf { it.isJsonPrimitive }?.asString?.let { id ->
                 ApplicationManager.getApplication().invokeLater { openDiff(id, focus = true) }
             }
@@ -401,6 +428,19 @@ ${themeCss()}</style></head><body><div id="app"></div>
         private const val MAX_PROMPT = 100_000
         private const val MAX_COPY = 2_000_000
         private val openPanels: MutableSet<ChatPanel> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+        /**
+         * Alt+K with the chat panel showing: put "@file#5-10 " in its prompt box (like VS Code) instead of a terminal session.
+         * Returns false when this project has no visible chat panel. EDT.
+         */
+        fun insertMention(project: Project, text: String): Boolean {
+            val window = com.intellij.openapi.wm.ToolWindowManager.getInstance(project).getToolWindow("Claude Chat")
+            if (window?.isVisible != true) return false
+            val panel = openPanels.firstOrNull { it.project == project } ?: return false
+            panel.send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", text) })
+            window.activate(null)
+            return true
+        }
 
         /** Called after Settings > Tools > Clawed UI is applied. */
         fun applySettingsToOpenPanels() = openPanels.forEach { it.send(it.settingsMessage()) }

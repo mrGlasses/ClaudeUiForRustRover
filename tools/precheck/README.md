@@ -16,7 +16,7 @@ Claude's sandbox can't reach Maven Central, Gradle or JetBrains' repositories, s
    plugin.xml, Java-WebSocket in `lib/`).
 4. **Plugin verifier**: `verifier-cli-1.411-all.jar` (GitHub release) runs on your computer's Claude sandbox against the
    full RustRover folder: `check-plugin <zip> "<RustRover folder>" -offline`. Always compare the zip's md5 on both sides
-   before trusting the result (a stale copy was verified once).
+   before trusting the result, and give every zip copy a new file name: reusing a name delivered a stale copy twice.
 
 ```
 tools/precheck/precheck.sh <kotlinc dir> <dir with the IDE jars> [work dir]

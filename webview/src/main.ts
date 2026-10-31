@@ -32,7 +32,7 @@ headerLeft.append(status, modes.node);
 header.append(headerLeft, headerButtons);
 
 const transcript = el("div", "transcript");
-const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, / opens commands, Ctrl+O shows thinking, Ctrl+Alt+F toggles Focus view.");
+const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, / opens commands, @ mentions a file, Ctrl+O shows thinking, Ctrl+Alt+F toggles Focus view.");
 transcript.append(empty);
 
 // To-do list (TodoWrite): one list, replaced on every update, shown above the composer.
@@ -67,7 +67,10 @@ input.rows = 3;
 input.placeholder = "Message Claude…";
 const sendButton = el("button", "send", "Send");
 composer.append(input, sendButton);
-root.append(header, transcript, todoBox, queueBox, slashMenu, composer);
+// Phase 9: chips for what goes with the next message (open file, selection); X drops one until the editor changes.
+const chips = el("div", "chips");
+chips.hidden = true;
+root.append(header, transcript, todoBox, queueBox, slashMenu, chips, composer);
 
 // ---------- state ----------
 let busy = false;
@@ -234,7 +237,55 @@ function dispatch(text: string): void {
   userMessage(text);
   turnTexts = [];
   setBusy(true);
-  post({ type: "send", text });
+  post({ type: "send", text, includeFile: fileChipOn(), includeSelection: selectionChipOn() });
+}
+
+// ---------- context chips ----------
+type Ctx = { file?: string; showFile?: boolean; startLine?: number; endLine?: number; textShared?: boolean };
+let ctx: Ctx = {};
+let droppedFile = ""; // the chip key the user closed with X; a different file or selection brings chips back
+let droppedSelection = "";
+const fileKey = () => ctx.file ?? "";
+const selectionKey = () => (ctx.startLine ? `${ctx.file}#${ctx.startLine}-${ctx.endLine}` : "");
+const fileChipOn = () => !!ctx.showFile && fileKey() !== droppedFile;
+const selectionChipOn = () => !!ctx.startLine && selectionKey() !== droppedSelection;
+
+function chip(label: string, title: string, onClose: () => void): HTMLElement {
+  const c = el("span", "chip-ctx");
+  c.title = title;
+  const x = el("button", "chip-x", "×");
+  x.title = "Don't send this with the next message";
+  x.addEventListener("click", onClose);
+  c.append(el("span", undefined, label), x);
+  return c;
+}
+
+function renderChips(): void {
+  const items: HTMLElement[] = [];
+  const name = (ctx.file ?? "").split("/").pop() ?? "";
+  if (fileChipOn()) items.push(chip(`📄 ${name}`, `Open file: ${ctx.file}`, () => { droppedFile = fileKey(); renderChips(); }));
+  if (selectionChipOn()) {
+    const n = (ctx.endLine ?? 0) - (ctx.startLine ?? 0) + 1;
+    const lines = ctx.startLine === ctx.endLine ? `${ctx.startLine}` : `${ctx.startLine}-${ctx.endLine}`;
+    const label = `✂ ${name}:${lines} (${n} line${n === 1 ? "" : "s"}${ctx.textShared ? "" : ", text not shared"})`;
+    items.push(chip(label, ctx.textShared ? "Selected text goes with the next message" : "Only the line numbers go (settings or ignore rules)", () => {
+      droppedSelection = selectionKey();
+      renderChips();
+    }));
+  }
+  chips.replaceChildren(...items);
+  chips.hidden = items.length === 0;
+}
+
+function insertAtCaret(text: string): void {
+  const s = input.selectionStart ?? input.value.length;
+  const e = input.selectionEnd ?? s;
+  const before = input.value.slice(0, s);
+  const pad = before && !/\s$/.test(before) ? " " : "";
+  input.value = before + pad + text + input.value.slice(e);
+  const caret = (before + pad + text).length;
+  input.setSelectionRange(caret, caret);
+  input.focus();
 }
 
 /** Panel commands run here and never reach Claude. Returns true when [text] was one. */
@@ -304,11 +355,26 @@ function toggleFocus(): void {
   focusButton.textContent = on ? "Focus on" : "Focus";
 }
 
-// ---------- `/` menu ----------
+// ---------- `/` and `@` menu ----------
 let menuItems: { name: string; hint: string }[] = [];
 let menuIndex = 0;
+let menuMode: "slash" | "mention" = "slash";
+let mentionSeq = 0;
+
+/** The `@word` right before the caret, if any. */
+function mentionToken(): { start: number; query: string } | null {
+  const caret = input.selectionStart ?? input.value.length;
+  const m = /(^|\s)@([^\s@]*)$/.exec(input.value.slice(0, caret));
+  return m ? { start: caret - m[2].length - 1, query: m[2] } : null;
+}
 
 function updateMenu(): void {
+  const mention = mentionToken();
+  if (mention) {
+    post({ type: "mentionQuery", query: mention.query, seq: ++mentionSeq });
+    return; // results arrive as mentionResults
+  }
+  menuMode = "slash";
   const m = /^\/(\S*)$/.exec(input.value);
   if (!m) return closeMenu();
   const q = m[1].toLowerCase();
@@ -323,7 +389,7 @@ function renderMenu(): void {
   slashMenu.replaceChildren(
     ...menuItems.map((c, i) => {
       const row = el("button", `slash-item${i === menuIndex ? " active" : ""}`);
-      row.append(el("span", "slash-name", `/${c.name}`), el("span", "slash-hint", c.hint));
+      row.append(el("span", "slash-name", `${menuMode === "slash" ? "/" : "@"}${c.name}`), el("span", "slash-hint", c.hint));
       row.addEventListener("mousedown", (ev) => {
         ev.preventDefault(); // keep the focus in the input
         pickMenu(i);
@@ -336,6 +402,21 @@ function renderMenu(): void {
 }
 
 function pickMenu(i: number): void {
+  if (menuMode === "mention") {
+    const t = mentionToken();
+    const caret = input.selectionStart ?? input.value.length;
+    if (t) {
+      const path = menuItems[i].name;
+      const insert = `@${path}${path.endsWith("/") ? "" : " "}`;
+      input.value = input.value.slice(0, t.start) + insert + input.value.slice(caret);
+      const pos = t.start + insert.length;
+      input.setSelectionRange(pos, pos);
+    }
+    closeMenu();
+    input.focus();
+    if (menuItems[i]?.name.endsWith("/")) updateMenu(); // keep browsing inside the folder
+    return;
+  }
   input.value = `/${menuItems[i].name} `;
   closeMenu();
   input.focus();
@@ -489,6 +570,25 @@ function handle(msg: FromKotlin): void {
     case "toggleThinking":
       setShowThinking(!showThinking);
       break;
+    case "context":
+      ctx = msg;
+      renderChips();
+      break;
+    case "insertText":
+      insertAtCaret(msg.text);
+      break;
+    case "mentionResults": {
+      if (msg.seq !== mentionSeq || !mentionToken()) break; // an older query, or the @ is gone
+      menuMode = "mention";
+      menuItems = msg.items.map((p) => ({ name: p, hint: p.endsWith("/") ? "folder" : "" }));
+      if (menuItems.length === 0) {
+        closeMenu();
+        break;
+      }
+      menuIndex = Math.min(menuIndex, menuItems.length - 1);
+      renderMenu();
+      break;
+    }
     case "toggleFocus":
       toggleFocus();
       break;

@@ -15,6 +15,15 @@ import dev.metaclaude.protocol.CliPaths
  * session's prompt (at_mentioned). Without a selection, sends the cursor's line.
  */
 class SendAtMentionAction : DumbAwareAction() {
+    /** The panel class exists only with JCEF (claude-ui-jcef.xml); without it this always answers false. */
+    private fun insertIntoPanel(project: com.intellij.openapi.project.Project, file: com.intellij.openapi.vfs.VirtualFile, startLine: Int, endLine: Int): Boolean {
+        if (runCatching { Class.forName("dev.metaclaude.panel.ChatPanel") }.isFailure) return false
+        val root = com.intellij.openapi.roots.ProjectFileIndex.getInstance(project).getContentRootForFile(file)
+        val rel = root?.let { com.intellij.openapi.vfs.VfsUtilCore.getRelativePath(file, it) } ?: file.path
+        val lines = if (startLine == endLine) "${startLine + 1}" else "${startLine + 1}-${endLine + 1}"
+        return dev.metaclaude.panel.ChatPanel.insertMention(project, "@$rel#$lines ")
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
@@ -34,6 +43,8 @@ class SendAtMentionAction : DumbAwareAction() {
         // A selection that ends at column 0 doesn't include that last line.
         if (end > start && endLine > startLine && end == doc.getLineStartOffset(endLine)) endLine--
 
+        // The chat panel, when it's showing, gets "@path#5-10" in its prompt box (Phase 9); otherwise a terminal session.
+        if (insertIntoPanel(project, file, startLine, endLine)) return
         val sent = project.service<MetaClaudeService>().sendAtMention(CliPaths.forCli(file.path), startLine, endLine)
         if (!sent) {
             NotificationGroupManager.getInstance().getNotificationGroup("Clawed UI")
