@@ -19,7 +19,8 @@ Everything below is **not started** unless marked otherwise.
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
 | 7 Chat core | ☑ Done (7a, 7b, 7c; v0.17.1 tested 2026-10-31). `focusView` setting left for Phase 14 |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
-| 8 Permissions and review | ☑ 8a done (v0.18.1 tested 2026-10-31). **8b written (v0.19.1; v0.19.0 did not compile): edit diffs from the panel, plan as a document with comments, autosave; waiting for your test** |
+| 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
+| Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -319,6 +320,17 @@ diff decides nothing. Answering on the card (or a CLI cancel) closes the diff. T
 Plans: "Open as document to comment" opens the plan as an editable Markdown file with a banner (Send my comments / Approve
 plan); comments go back as a deny with the annotated plan (up to 120k chars). Setting "Save files before Claude reads or writes
 them" (VS Code `autosave`, on): saves all editors before each message and the target file before showing an edit.
+8b test (2026-10-31, v0.19.1; v0.19.0 didn't compile): diff Accept, Accept with your edits, Reject, answering on the card
+closes the diff, plan comments from the document, autosave: all ok. Phase 8 done.
+
+### Precheck (v0.19.2, 2026-10-31)
+After the v0.19.0 compile error, every change is checked before it reaches you: `tools/precheck/precheck.sh` compiles with
+kotlinc 2.4.21 against your RustRover 2026.2.4 jars, runs all unit tests and builds the plugin zip; the plugin verifier
+1.411 then checks the zip against your full RustRover install (see `tools/precheck/README.md`). Its first run found two
+"scheduled for removal" API calls, fixed in v0.19.2: `JBCefJSQuery.create(JBCefBrowser)` (now the `JBCefBrowserBase`
+overload) and `SimpleListCellRenderer.create` in the settings page (now a `ColoredListCellRenderer`). Verifier result:
+Compatible, 0 scheduled-for-removal, 8 deprecated (terminal API: `createShellWidget`, `LocalTerminalCustomizer`; and
+`ToolWindowFactory` defaults), 6 experimental (`ToolWindowFactory` defaults).
 
 ### Phase 9 — Context and mentions (PARITY §C)
 Selection and open-file chips with X, `@` fuzzy file and folder search, Alt+K, `@terminal:name` (JetBrains terminal buffers),

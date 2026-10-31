@@ -42,8 +42,11 @@ Read first: `PLAN.md` (phases, current status), `PARITY.md` (feature checklist),
 - One phase (or sub-phase) per commit and per push. The user installs each build and tests it before the next phase.
 - Bump `version` in `build.gradle.kts` on every change that will be pushed. The bridge logs it as its first line.
 - Update `PLAN.md` status and the matching `PARITY.md` rows in the same commit as the feature.
-- There is **no local JDK**: builds and tests run in GitHub Actions only (`.github/workflows/build.yml`). Code can't be compiled
-  before pushing, so prefer well-known platform APIs, keep each change small, and add a unit test for protocol logic.
+- There is **no local JDK** on the user's side: builds and tests run in GitHub Actions (`.github/workflows/build.yml`).
+  **Before handing over any commit, run the precheck** (`tools/precheck/README.md`): web panel build, kotlinc against the
+  user's RustRover jars, all unit tests, and the plugin verifier on the user's computer. Hand over only when all pass and
+  the verifier says Compatible with no new scheduled-for-removal or internal API usages. Still prefer well-known platform
+  APIs, keep each change small, and add a unit test for protocol logic.
 - Debug data lives in `%USERPROFILE%\.claude-meta\bridge.log`. Ask for it when something fails.
 
 ## Layout

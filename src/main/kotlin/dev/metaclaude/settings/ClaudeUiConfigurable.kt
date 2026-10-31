@@ -78,7 +78,7 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                     .comment("Applies right away to open chat panels.")
             }
             row("Initial permission mode:") {
-                comboBox(Permissions.MODES.keys.toList(), com.intellij.ui.SimpleListCellRenderer.create<String>("") { Permissions.MODES[it] ?: it })
+                comboBox(Permissions.MODES.keys.toList(), ModeRenderer())
                     .bindItem({ settings.state.initialPermissionMode ?: "default" }, { settings.state.initialPermissionMode = it ?: "default" })
                     .comment("Mode of each new chat conversation. You can switch it any time from the panel header.")
             }
@@ -121,5 +121,12 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                 ModalityState.any(),
             )
         }
+    }
+}
+
+/** "Ask before edits" instead of "default". (SimpleListCellRenderer.create is scheduled for removal.) */
+private class ModeRenderer : com.intellij.ui.ColoredListCellRenderer<String>() {
+    override fun customizeCellRenderer(list: javax.swing.JList<out String>, value: String?, index: Int, selected: Boolean, hasFocus: Boolean) {
+        append(value?.let { Permissions.MODES[it] ?: it } ?: "")
     }
 }

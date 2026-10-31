@@ -20,6 +20,7 @@ import dev.metaclaude.MetaClaudeService
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.JBColor
 import com.intellij.ui.jcef.JBCefBrowser
+import com.intellij.ui.jcef.JBCefBrowserBase
 import com.intellij.ui.jcef.JBCefJSQuery
 import com.intellij.util.ui.JBUI
 import dev.metaclaude.PluginInfo
@@ -56,7 +57,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
     private val browser: JBCefBrowser = JBCefBrowser.createBuilder()
         .setEnableOpenDevToolsMenuItem(false)
         .build()
-    private val toKotlin: JBCefJSQuery = JBCefJSQuery.create(browser)
+    private val toKotlin: JBCefJSQuery = JBCefJSQuery.create(browser as JBCefBrowserBase) // the JBCefBrowser overload is scheduled for removal
     private val diffs = PanelDiffs(project, this)
     private val plans = PlanDocuments(project, this)
     @Volatile private var pageLoaded = false
