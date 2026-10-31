@@ -148,7 +148,9 @@ function questionBlock(q: Question, qi: number, requestId: string): { node: HTML
   const otherText = el("input", "other-text");
   otherText.type = "text";
   otherText.placeholder = "Other…";
-  otherText.addEventListener("input", () => (otherBox.checked = otherText.value.trim() !== ""));
+  // Clicking or typing in "Other…" selects it (v0.18.0 test: the radio stayed empty); clearing the text unselects it.
+  otherText.addEventListener("focus", () => (otherBox.checked = true));
+  otherText.addEventListener("input", () => (otherBox.checked = otherText.value.trim() !== "" || document.activeElement === otherText));
   otherLabel.append(otherBox, otherText);
   node.append(otherLabel);
 

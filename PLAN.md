@@ -19,7 +19,7 @@ Everything below is **not started** unless marked otherwise.
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
 | 7 Chat core | ☑ Done (7a, 7b, 7c; v0.17.1 tested 2026-10-31). `focusView` setting left for Phase 14 |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
-| 8 Permissions and review | **8a written (v0.18.0): permission cards, questions, plan approval, mode menu; waiting for your test**. 8b: diffs from the panel, plan as a document with comments, autosave |
+| 8 Permissions and review | ☑ 8a done (v0.18.0 tested 2026-10-31; v0.18.1: "Other…" selects its radio). 8b: diffs from the panel, plan as a document with comments, autosave |
 | 9–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -306,6 +306,9 @@ settings file and switching to Bypass need a native IDE dialog (rule 5). Mode me
 automatically, Plan mode, Auto mode, and Bypass only with "Allow Bypass permissions" on); it follows the CLI's mode
 (`system/status`), and a mode chosen before the first message is used to start the session. New settings: Initial
 permission mode, Allow Bypass permissions. `control_cancel_request` closes a card; a failed mode switch shows a notice.
+8a test (2026-10-31): command card, deny with instructions, saved rule with native confirmation, questions, plan feedback and
+Edit automatically all work. Read-only commands (`git status`) are approved by the CLI itself, so no card appears for them.
+v0.18.1: clicking "Other…" now selects its radio/checkbox.
 
 ### Phase 9 — Context and mentions (PARITY §C)
 Selection and open-file chips with X, `@` fuzzy file and folder search, Alt+K, `@terminal:name` (JetBrains terminal buffers),
