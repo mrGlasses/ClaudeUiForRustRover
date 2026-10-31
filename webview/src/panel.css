@@ -99,3 +99,33 @@ math { font-size: 1.1em; }
 
 .sign-in { border: 1px solid var(--link); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .sign-in-title { font-weight: 600; }
+
+/* Phase 8: permissions */
+.header-left { display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+.mode { position: relative; }
+.mode-button.danger { color: var(--error); }
+.mode-menu { position: absolute; top: 1.6em; left: 0; z-index: 10; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 0; min-width: 180px; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+.mode-item { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--fg); font: inherit; padding: 4px 12px; cursor: pointer; }
+.mode-item:hover, .mode-item.active { background: var(--code-bg); }
+
+.permission { border: 1px solid var(--link); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.permission.resolved { border-color: var(--border); opacity: .75; }
+.permission-title { font-weight: 600; }
+.permission-target, .permission-reason { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.permission-preview { font-family: var(--mono); font-size: 12px; background: var(--code-bg); padding: 6px 8px; border-radius: 4px; margin: 0; white-space: pre-wrap; max-height: 240px; overflow: auto; }
+.permission-plan { border-left: 2px solid var(--border); padding-left: 10px; max-height: 50vh; overflow: auto; }
+.permission-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.permission-actions .send { align-self: auto; }
+.send.deny { border-color: var(--error); color: var(--error); }
+.suggestion { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.destination { background: var(--code-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; font: inherit; font-size: 12px; }
+.muted { color: var(--muted); font-size: 12px; }
+.permission-other { display: flex; gap: 6px; }
+.permission-outcome { color: var(--muted); font-style: italic; font-size: 12px; }
+.question { border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.question legend { margin-bottom: 4px; }
+.chip { font-size: 11px; border: 1px solid var(--border); border-radius: 8px; padding: 0 6px; color: var(--muted); }
+.option { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
+.option-desc { color: var(--muted); font-size: 12px; }
+.other-text { background: var(--code-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; font: inherit; padding: 2px 6px; flex: 1; }
+button:disabled { opacity: .5; cursor: default; }

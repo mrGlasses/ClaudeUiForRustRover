@@ -8,6 +8,9 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.application.ApplicationInfo
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.ui.Messages
+import dev.metaclaude.protocol.Permissions
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.components.service
@@ -55,6 +58,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
     private val toKotlin: JBCefJSQuery = JBCefJSQuery.create(browser)
     @Volatile private var pageLoaded = false
     @Volatile private var session: ChatSession? = null
+    /** Current permission mode: the next session starts in it; the CLI reports changes (status / init). */
+    @Volatile private var mode: String = initialMode()
 
     val component: JComponent get() = browser.component
 
@@ -107,7 +112,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 addProperty("type", "hello")
                 addProperty("version", PluginInfo.version)
                 addProperty("ideBuild", ApplicationInfo.getInstance().build.asString())
-            }, settingsMessage())
+            }, settingsMessage(), modeMessage())
             // Sign-in card: signing in is interactive, so it happens in a Claude terminal tab (`/login` there).
             "signIn" -> project.service<MetaClaudeService>().startSession()
             "send" -> {
@@ -122,6 +127,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             "newSession" -> {
                 session?.let { Disposer.dispose(it) }
                 session = null
+                mode = initialMode()
+                send(modeMessage())
                 send(JsonObject().apply { addProperty("type", "sessionReset") })
             }
             "openLink" -> {
@@ -149,6 +156,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                     browser.cefBrowser.uiComponent?.cursor = cursor
                 }
             }
+            "permissionAnswer" -> permissionAnswer(msg)
+            "setMode" -> setMode(msg.get("mode")?.takeIf { it.isJsonPrimitive }?.asString)
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
     }
@@ -168,7 +177,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         }
         return try {
             ChatSession(project, exe, root.toRealPath(), this, todoTools = ClaudeUiSettings.instance.state.todoTools,
-                thinkingSummaries = ClaudeUiSettings.instance.state.thinkingSummaries, onPanelMessage = { send(it) }, onExit = { code ->
+                thinkingSummaries = ClaudeUiSettings.instance.state.thinkingSummaries,
+                permissionMode = mode, allowBypass = bypassAllowed(), onPanelMessage = { onSessionMessage(it) }, onExit = { code ->
                 session = null
                 send(JsonObject().apply {
                     addProperty("type", "error")
@@ -179,6 +189,79 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
             BridgeLog.log("panel: session start failed: ${e::class.java.name}: ${e.message}", project.name)
             send(JsonObject().apply { addProperty("type", "error"); addProperty("message", "Could not start Claude: ${e.message}") })
             null
+        }
+    }
+
+    // ---------- permissions (Phase 8) ----------
+
+    private fun initialMode() = ClaudeUiSettings.instance.state.initialPermissionMode?.takeIf { it in Permissions.MODES } ?: "default"
+    private fun bypassAllowed() = ClaudeUiSettings.instance.state.allowDangerouslySkipPermissions
+
+    private fun modeMessage() = JsonObject().apply { addProperty("type", "permissionMode"); addProperty("mode", mode) }
+
+    /** Keeps [mode] in step with the CLI before passing session messages on to the page. */
+    private fun onSessionMessage(m: JsonObject) {
+        val type = m.get("type")?.asString
+        if (type == "permissionMode" || type == "sessionInfo") {
+            m.get(if (type == "permissionMode") "mode" else "permissionMode")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.takeIf { it.isNotEmpty() }?.let { mode = it }
+        }
+        send(m)
+    }
+
+    /** Rule 4: an answer only for a request that is pending, with a suggestion index and destination that exist. */
+    private fun permissionAnswer(msg: JsonObject) {
+        val s = session ?: return
+        val id = msg.get("requestId")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        if (!s.hasPending(id)) return BridgeLog.log("panel: refused permission answer (no such pending request)", project.name)
+        val allow = msg.get("decision")?.takeIf { it.isJsonPrimitive }?.asString == "allow"
+        val index = msg.get("suggestion")?.takeIf { it.isJsonPrimitive }?.asInt
+        val destination = msg.get("destination")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it in Permissions.DESTINATIONS }
+        val message = msg.get("message")?.takeIf { it.isJsonPrimitive }?.asString
+        val answers = msg.get("answers") as? JsonObject
+        val response = msg.get("response")?.takeIf { it.isJsonPrimitive }?.asString
+        val suggestion = if (allow && index != null) s.suggestionOf(id, index) ?: return else null
+        val effective = suggestion?.let { Permissions.withDestination(it, destination) }
+        if (effective != null && Permissions.isPersistent(effective)) {
+            // Rule 5: saving a permanent rule needs a native confirmation, never just a click in the web page.
+            ApplicationManager.getApplication().invokeLater {
+                val ok = Messages.showYesNoDialog(
+                    project,
+                    "${Permissions.suggestionLabel(effective)}\n\nThis is saved to ${Permissions.destinationLabel(effective.get("destination")?.asString)} " +
+                        "and applies to future conversations too.",
+                    "Save Permission Rule",
+                    "Save and Allow", "Cancel", Messages.getWarningIcon(),
+                ) == Messages.YES
+                if (ok) s.answer(id, true, index, destination, null, null, null)
+            }
+            return
+        }
+        s.answer(id, allow, index, destination, message, answers, response)
+    }
+
+    /** Mode menu. Bypass only when allowed in settings, and only after a native confirmation (rule 5). */
+    private fun setMode(requested: String?) {
+        val target = requested?.takeIf { it in Permissions.MODES || (it == Permissions.BYPASS && bypassAllowed()) } ?: return
+        val switch = {
+            mode = target
+            session?.setMode(target) // the CLI confirms with a status event; with no session the next one starts in it
+            send(modeMessage())
+        }
+        if (target != Permissions.BYPASS) return switch()
+        ApplicationManager.getApplication().invokeLater {
+            val ok = Messages.showYesNoDialog(
+                project,
+                "In Bypass permissions mode Claude edits files and runs commands without asking you.\nOnly use it in a sandbox or a project you can restore.",
+                "Bypass Permissions",
+                "Switch to Bypass", "Cancel", Messages.getWarningIcon(),
+            ) == Messages.YES
+            if (ok) {
+                if (session != null && session?.bypassAllowedAtStart != true) {
+                    send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Bypass applies from the next conversation: click New session.") })
+                    mode = target
+                    send(modeMessage())
+                } else switch()
+            }
         }
     }
 
@@ -233,6 +316,10 @@ ${themeCss()}</style></head><body><div id="app"></div>
     private fun settingsMessage() = JsonObject().apply {
         addProperty("type", "settings")
         addProperty("showTimestamps", ClaudeUiSettings.instance.state.showMessageTimestamps)
+        add("modes", com.google.gson.JsonArray().apply {
+            val all = Permissions.MODES.toList() + if (bypassAllowed()) listOf(Permissions.BYPASS to Permissions.BYPASS_LABEL) else emptyList()
+            all.forEach { (id, label) -> add(JsonObject().apply { addProperty("id", id); addProperty("label", label) }) }
+        })
     }
 
     companion object {

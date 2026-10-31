@@ -17,6 +17,7 @@ import dev.metaclaude.cli.ClaudeCli
 import dev.metaclaude.compat.IntegrationMode
 import dev.metaclaude.compat.OfficialPluginDetector
 import dev.metaclaude.compat.OfficialState
+import dev.metaclaude.protocol.Permissions
 import javax.swing.JLabel
 
 /** Settings > Tools > Clawed UI. */
@@ -75,6 +76,15 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
             row {
                 checkBox("Show message times and date lines").bindSelected(settings.state::showMessageTimestamps)
                     .comment("Applies right away to open chat panels.")
+            }
+            row("Initial permission mode:") {
+                comboBox(Permissions.MODES.keys.toList(), com.intellij.ui.SimpleListCellRenderer.create<String>("") { Permissions.MODES[it] ?: it })
+                    .bindItem({ settings.state.initialPermissionMode ?: "default" }, { settings.state.initialPermissionMode = it ?: "default" })
+                    .comment("Mode of each new chat conversation. You can switch it any time from the panel header.")
+            }
+            row {
+                checkBox("Allow \"Bypass permissions\" mode").bindSelected(settings.state::allowDangerouslySkipPermissions)
+                    .comment("Dangerous: Claude runs every tool without asking. The panel still asks you to confirm before switching to it. Applies to new conversations.")
             }
         }
     }

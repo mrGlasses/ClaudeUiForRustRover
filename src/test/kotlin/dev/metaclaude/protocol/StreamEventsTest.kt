@@ -132,4 +132,11 @@ class StreamEventsTest {
         val ok = map("""{"type":"result","subtype":"success","is_error":false,"result":"see /login docs","duration_ms":10}""")
         assertEquals(listOf("turnEnd"), ok.map { it.get("type").asString })
     }
+
+    @Test
+    fun `status reports a mode change`() {
+        val out = map("""{"type":"system","subtype":"status","status":null,"permissionMode":"acceptEdits"}""")
+        assertEquals("permissionMode", out.single().get("type").asString)
+        assertEquals("acceptEdits", out.single().get("mode").asString)
+    }
 }

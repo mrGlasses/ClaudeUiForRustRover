@@ -9,12 +9,26 @@ export type ToKotlin =
   | { type: "openLink"; url: string }
   | { type: "cursor"; shape: "pointer" | "default" }
   | { type: "copy"; text: string }
-  | { type: "signIn" };
+  | { type: "signIn" }
+  | {
+      type: "permissionAnswer";
+      requestId: string;
+      decision: "allow" | "deny";
+      suggestion?: number;
+      destination?: string;
+      message?: string;
+      answers?: Record<string, string | string[]>;
+      response?: string;
+    }
+  | { type: "setMode"; mode: string };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
   | { type: "hello"; version: string; ideBuild: string }
-  | { type: "settings"; showTimestamps: boolean }
+  | { type: "settings"; showTimestamps: boolean; modes: { id: string; label: string }[] }
+  | import("./permissions").PermissionCard
+  | { type: "permissionResolved"; requestId: string; outcome: string }
+  | { type: "permissionMode"; mode: string }
   | { type: "sessionInfo"; model: string; permissionMode: string; slashCommands?: string[] }
   | { type: "busy" }
   | { type: "textDelta"; messageId: string; key: string; text: string }

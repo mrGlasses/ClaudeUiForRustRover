@@ -17,9 +17,10 @@ Everything below is **not started** unless marked otherwise.
 | 4 Settings, modes, launcher | ☑ Done (v0.9.0): Test finds claude, mode switch stops/starts all windows, attachSelection off hides text, settings survive restart (tested 2026-10-28) |
 | 5 Terminal mode | ☑ Done (v0.10.1): Claude tab, several sessions, Alt+Shift+K, no error on first open (tested 2026-10-29). **Part 1 complete** |
 | 6 Spikes | ☑ Done (v0.13.0): all spikes pass; web panel builds in CI and loads securely in RustRover (tested 2026-10-29) |
-| 7 Chat core | ☑ 7a done (v0.14.2). 7b tested (v0.16.0): times, copy ok. ☑ 7a, 7b done (v0.16.2 tested 2026-10-30). 7c tested (v0.17.0). **v0.17.1: time/date setting applies live; waiting for your test** |
+| 7 Chat core | ☑ Done (7a, 7b, 7c; v0.17.1 tested 2026-10-31). `focusView` setting left for Phase 14 |
 | Rename | ☑ Done (v0.15.0 tested 2026-10-30: Clawed UI in log, settings and `/ide`) |
-| 8–16 | Not started |
+| 8 Permissions and review | **8a written (v0.18.0): permission cards, questions, plan approval, mode menu; waiting for your test**. 8b: diffs from the panel, plan as a document with comments, autosave |
+| 9–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -292,6 +293,19 @@ plan review as a Markdown document with inline comments, `/plan` variants, Claud
 Bypass only when `allowDangerouslySkipPermissions`, `autosave`.
 
 **Done when:** in each mode (Auto, Manual, Plan, Edit automatically), approving, rejecting and plan feedback work from the panel.
+
+8a (v0.18.0): `protocol/Permissions.kt` (pure, unit-tested) turns each `can_use_tool` request into a card and builds the answer.
+Tool cards: what will run (Bash/PowerShell command, Edit old/new lines, Write content, capped at 4000 chars), the CLI's
+reason, **Yes**, one button per `permission_suggestions` entry ("Yes, and switch to Edit automatically", "Yes, and don't ask
+again for Bash(npm test)" with a "save to" menu: this session / this project just you / this project shared / all projects),
+**No**, and "No, and tell Claude what to do instead". Questions (AskUserQuestion): radio or checkboxes per question, "Other"
+with your own text, Answer / Don't answer / reply in your own words (`answers` keyed by question text, checked against the
+real questions in Kotlin). Plan (ExitPlanMode): the plan as sanitized Markdown, Approve / suggestions / No / Keep planning with
+feedback. Every answer is checked in Kotlin against a pending request (rule 4) and answered exactly once; saving a rule to a
+settings file and switching to Bypass need a native IDE dialog (rule 5). Mode menu in the header (Ask before edits, Edit
+automatically, Plan mode, Auto mode, and Bypass only with "Allow Bypass permissions" on); it follows the CLI's mode
+(`system/status`), and a mode chosen before the first message is used to start the session. New settings: Initial
+permission mode, Allow Bypass permissions. `control_cancel_request` closes a card; a failed mode switch shows a notice.
 
 ### Phase 9 — Context and mentions (PARITY §C)
 Selection and open-file chips with X, `@` fuzzy file and folder search, Alt+K, `@terminal:name` (JetBrains terminal buffers),

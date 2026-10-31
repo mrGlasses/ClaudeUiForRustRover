@@ -37,7 +37,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Queued messages while Claude works ("Message queued") | Stream | 7 | ◐ v0.16.0: queued in the panel, sent after each turn, removable |
 | Paste text stays visible; invisible-character notices | UI/CLI | 7 | ☐ |
 | `/` command menu with inline suggestions | Stream/CLI | 7 | ◐ v0.17.0: panel commands + the CLI's `slash_commands` (after the first message) |
-| Permission mode indicator (Auto / Manual / Plan / Edit automatically / Bypass) | Stream | 8 | ☐ |
+| Permission mode indicator (Auto / Manual / Plan / Edit automatically / Bypass) | Stream | 8 | ◐ v0.18.0: header menu, follows the CLI |
 | Model name button and picker, Effort row, Ultracode switch, `/model` | Stream | 12 | ☐ |
 | Extended thinking toggle | Stream | 12 | ☐ |
 | Context indicator and `/compact` | Stream | 12 | ☐ |
@@ -65,16 +65,16 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Permission prompt cards (allow / deny / tell Claude what to do instead) | Stream (control requests) | ☐ |
-| "Save to" destination on rule-saving options (this session / project / all projects), arrow keys to change | Stream | ☐ |
+| Permission prompt cards (allow / deny / tell Claude what to do instead) | Stream (control requests) | ◐ v0.18.0 |
+| "Save to" destination on rule-saving options (this session / project / all projects), arrow keys to change | Stream | ◐ v0.18.0 (menu; permanent ones confirmed in a native dialog) |
 | Side-by-side diff for edits in Manual mode | Bridge `openDiff` (terminal) / Stream (panel) | ☑ terminal mode (v0.6.2, tested); panel: Phase 8 |
 | Editing the proposed side: Claude is told you changed it | Bridge / Stream | ☑ terminal mode (v0.6.2, tested: the CLI writes your edited text); panel: Phase 8 |
 | Per-change Accept/Reject buttons in the diff (not shown above 100 changes) | UI | ◐ per-change reject via the diff viewer's own arrows (v0.6.0); dedicated buttons later |
 | Accept / Reject Change at Cursor (context menu + commands) | UI | ☐ |
-| Plan mode: plan opens as a Markdown document with inline comments for feedback | Stream + UI | ☐ |
+| Plan mode: plan opens as a Markdown document with inline comments for feedback | Stream + UI | ◐ v0.18.0: plan card with approve / feedback; document with inline comments in 8b |
 | `/plan`, `/plan <task>`, `/plan open` | Stream/CLI | ☐ |
-| Questions from Claude (multiple choice + "Other" free text) | Stream | ☐ |
-| `initialPermissionMode` (user-level only), `allowDangerouslySkipPermissions` | UI + Stream | ☐ |
+| Questions from Claude (multiple choice + "Other" free text) | Stream | ◐ v0.18.0 |
+| `initialPermissionMode` (user-level only), `allowDangerouslySkipPermissions` | UI + Stream | ◐ v0.18.0 |
 | `autosave`: save files before Claude reads or writes them | UI | ☐ |
 
 ## E. Conversation rendering — Phase 7

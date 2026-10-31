@@ -38,6 +38,10 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var thinkingSummaries by property(true)
         /** VS Code `showMessageTimestamps`: times on messages and date lines in the chat panel. */
         var showMessageTimestamps by property(true)
+        /** VS Code `initialPermissionMode`: mode of each new chat-panel conversation (default, acceptEdits, plan, auto). */
+        var initialPermissionMode by string("default")
+        /** VS Code `allowDangerouslySkipPermissions`: offer "Bypass permissions" in the panel's mode menu. */
+        var allowDangerouslySkipPermissions by property(false)
     }
 
     var integrationMode: IntegrationMode

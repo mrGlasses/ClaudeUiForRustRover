@@ -10,6 +10,7 @@ import dev.metaclaude.protocol.AuthToken
 import dev.metaclaude.protocol.BridgeLog
 import dev.metaclaude.protocol.HttpMcpServer
 import dev.metaclaude.protocol.McpDispatcher
+import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.StreamEvents
 import dev.metaclaude.protocol.ToolRegistry
 import dev.metaclaude.tools.GetDiagnostics
@@ -25,8 +26,7 @@ import kotlin.concurrent.thread
  * One chat-panel conversation = one `claude -p` process in stream-json mode (STREAM-PROTOCOL.md).
  * IDE tools come from our own HTTP MCP server (spike v3), not from the IDE bridge.
  *
- * Phase 7a: there are no permission cards yet, so every permission request is DENIED with a clear message.
- * Reads inside the project and our IDE tools work; edits and commands are refused until Phase 8.
+ * Phase 8: permission requests become cards in the panel; each is answered exactly once (allow, deny, or cancelled by the CLI).
  * All callbacks run on background threads.
  */
 class ChatSession(
@@ -38,6 +38,8 @@ class ChatSession(
     private val onExit: (exitCode: Int) -> Unit,
     todoTools: Boolean = false,
     thinkingSummaries: Boolean = false,
+    permissionMode: String = "default",
+    allowBypass: Boolean = false,
 ) : Disposable {
     private val tag = "${project.name}/panel"
     private val mcp = HttpMcpServer(
@@ -56,6 +58,7 @@ class ChatSession(
     private val stdin: BufferedWriter
     private var counter = 0
     @Volatile private var closed = false
+    val bypassAllowedAtStart = allowBypass
 
     init {
         Disposer.register(parent, this)
@@ -63,15 +66,16 @@ class ChatSession(
             exe, "-p",
             "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--include-partial-messages",
-            "--permission-mode", "default",
+            "--permission-mode", permissionMode,
             "--permission-prompt-tool", "stdio",
             "--mcp-config", mcpConfig.toString(),
-        ) + (settingsFile?.let { listOf("--settings", it.toString()) } ?: emptyList())
+        ) + (settingsFile?.let { listOf("--settings", it.toString()) } ?: emptyList()) +
+            (if (allowBypass) listOf("--allow-dangerously-skip-permissions") else emptyList())
         process = ProcessBuilder(cmd).directory(root.toFile()).apply {
             if (todoTools) environment()["CLAUDE_CODE_ENABLE_TODO_TOOLS"] = "1"
         }.start()
         stdin = process.outputStream.bufferedWriter(StandardCharsets.UTF_8)
-        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"})", tag)
+        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"}, mode $permissionMode${if (allowBypass) ", bypass allowed" else ""})", tag)
 
         thread(name = "claude-ui-chat-out", isDaemon = true) {
             runCatching {
@@ -90,7 +94,11 @@ class ChatSession(
 
     private fun onLine(line: String) {
         val event = runCatching { JsonParser.parseString(line).asJsonObject }.getOrNull() ?: return
-        if (event.get("type")?.asString == "control_request") return answerControlRequest(event)
+        when (event.get("type")?.asString) {
+            "control_request" -> return answerControlRequest(event)
+            "control_cancel_request" -> return cancelRequest(event)
+            "control_response" -> return onControlResponse(event)
+        }
         StreamEvents.toPanel(event).forEach { m ->
             // Tool names only (never inputs): shows which tools the CLI version really uses (to-do, diagnostics...).
             if (m.get("type")?.asString == "toolUse") BridgeLog.log("tool use: ${m.get("name")?.asString}", tag)
@@ -99,24 +107,99 @@ class ChatSession(
         }
     }
 
-    /** Phase 7a: deny every permission request (no cards yet), and tell the user why. */
+    /** A `can_use_tool` request waiting for the user's answer in the panel. */
+    private class Pending(val tool: String, val input: JsonObject, val suggestions: List<JsonObject>)
+
+    private val pending = java.util.concurrent.ConcurrentHashMap<String, Pending>()
+    private val modeRequests = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** Permission requests become panel cards (Phase 8). Anything else is answered at once so the CLI never waits. */
     private fun answerControlRequest(event: JsonObject) {
         val id = event.get("request_id")?.asString ?: return
         val request = event.getAsJsonObject("request")
         if (request?.get("subtype")?.asString != "can_use_tool") {
-            write(controlResponse(id, JsonObject())) // nothing else is expected; answer so the CLI never waits
+            write(controlResponse(id, JsonObject()))
             return
         }
-        val tool = request.get("display_name")?.asString ?: request.get("tool_name")?.asString ?: "a tool"
-        BridgeLog.log("permission request for '$tool' (tool_name=${request.get("tool_name")?.asString}) denied (cards come in Phase 8)", tag)
-        write(controlResponse(id, JsonObject().apply {
-            addProperty("behavior", "deny")
-            addProperty("message", "The Clawed UI chat panel cannot approve tool use yet. Ask the user to use a Claude terminal session for edits and commands.")
-        }))
-        onPanelMessage(JsonObject().apply {
-            addProperty("type", "notice")
-            addProperty("text", "Claude asked to use $tool. Permission cards arrive in the next phase, so it was denied. Use Tools > New Claude Session for edits and commands.")
-        })
+        val tool = request.get("tool_name")?.asString ?: "tool"
+        val input = request.get("input") as? JsonObject ?: JsonObject()
+        val suggestions = (request.get("permission_suggestions") as? com.google.gson.JsonArray)?.mapNotNull { it as? JsonObject } ?: emptyList()
+        pending[id] = Pending(tool, input, suggestions)
+        BridgeLog.log("permission request for '$tool' shown (${suggestions.size} suggestion(s))", tag)
+        onPanelMessage(Permissions.card(id, request))
+    }
+
+    /** The CLI withdrew a request (e.g. after an interrupt): close its card. */
+    private fun cancelRequest(event: JsonObject) {
+        val id = event.get("request_id")?.asString ?: return
+        if (pending.remove(id) != null) resolved(id, "Cancelled")
+    }
+
+    /** Our own control requests: only mode switches can fail in a way the user should see. */
+    private fun onControlResponse(event: JsonObject) {
+        val r = event.getAsJsonObject("response") ?: return
+        val id = r.get("request_id")?.asString ?: return
+        if (!modeRequests.remove(id)) return
+        if (r.get("subtype")?.asString == "error") {
+            val err = r.get("error")?.takeIf { it.isJsonPrimitive }?.asString?.take(300) ?: "unknown error"
+            BridgeLog.log("set_permission_mode failed: $err", tag)
+            onPanelMessage(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Couldn't switch mode: $err") })
+        }
+    }
+
+    fun hasPending(id: String) = pending.containsKey(id)
+
+    /** The tool name and suggestion of a pending request (to word the native confirmation). */
+    fun suggestionOf(id: String, index: Int): JsonObject? = pending[id]?.suggestions?.getOrNull(index)
+
+    /**
+     * The user's answer from the panel, already validated by ChatPanel (request pending, suggestion index in range,
+     * native confirmation done for permanent rules). Each request is answered exactly once.
+     */
+    fun answer(id: String, allow: Boolean, suggestionIndex: Int?, destination: String?, message: String?, answers: JsonObject?, response: String?) {
+        val p = pending.remove(id) ?: return
+        val payload: JsonObject
+        val outcome: String
+        if (!allow) {
+            val text = message?.trim()?.take(Permissions.MESSAGE_MAX)?.takeIf { it.isNotEmpty() }
+            payload = Permissions.deny(
+                when {
+                    p.tool == "ExitPlanMode" && text != null -> "The user wants changes to the plan before you start: $text"
+                    text != null -> "The user denied this and said: $text"
+                    p.tool == "AskUserQuestion" -> "The user declined to answer."
+                    else -> "The user denied this action."
+                },
+            )
+            outcome = if (text != null) "Denied, with your instructions" else "Denied"
+        } else if (p.tool == "AskUserQuestion") {
+            val input = Permissions.answeredInput(p.input, answers, response)
+            if (input == null) { pending[id] = p; return } // nothing valid: keep the card open
+            payload = Permissions.allow(input)
+            outcome = "Answered"
+        } else {
+            val suggestion = suggestionIndex?.let { p.suggestions.getOrNull(it) }?.let { Permissions.withDestination(it, destination) }
+            payload = Permissions.allow(p.input, suggestion)
+            outcome = when {
+                p.tool == "ExitPlanMode" -> "Plan approved"
+                suggestion != null -> "Allowed (${Permissions.suggestionLabel(suggestion).removePrefix("Yes, and ")}, ${Permissions.destinationLabel(suggestion.get("destination")?.asString)})"
+                else -> "Allowed once"
+            }
+        }
+        BridgeLog.log("permission for '${p.tool}': $outcome", tag)
+        write(controlResponse(id, payload))
+        resolved(id, outcome)
+    }
+
+    private fun resolved(id: String, outcome: String) = onPanelMessage(JsonObject().apply {
+        addProperty("type", "permissionResolved")
+        addProperty("requestId", id)
+        addProperty("outcome", outcome)
+    })
+
+    fun setMode(mode: String) {
+        val req = control("set_permission_mode", JsonObject().apply { addProperty("mode", mode) })
+        modeRequests.add(req.get("request_id").asString)
+        write(req)
     }
 
     fun send(text: String) = write(JsonObject().apply {

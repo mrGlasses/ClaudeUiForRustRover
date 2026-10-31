@@ -4,6 +4,7 @@
 // Text from Claude goes through renderMarkdown (sanitized); everything else uses textContent.
 import { onMessage, post, type FromKotlin } from "./bridge";
 import { renderMarkdown } from "./markdown";
+import { clearCards, modeControl, pendingCount, permissionCard, resolveCard } from "./permissions";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -25,7 +26,10 @@ focusButton.title = "Hide tool calls and thinking (Ctrl+Alt+F)";
 const newButton = el("button", "link-button", "New session");
 const headerButtons = el("span", "header-buttons");
 headerButtons.append(focusButton, newButton);
-header.append(status, headerButtons);
+const modes = modeControl();
+const headerLeft = el("span", "header-left");
+headerLeft.append(status, modes.node);
+header.append(headerLeft, headerButtons);
 
 const transcript = el("div", "transcript");
 const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, / opens commands, Ctrl+O shows thinking, Ctrl+Alt+F toggles Focus view.");
@@ -93,7 +97,9 @@ function setBusy(b: boolean): void {
   const typing = input.value.trim() !== "";
   sendButton.textContent = b ? (typing ? "Queue" : "Stop") : "Send";
   sendButton.classList.toggle("stop", b && !typing);
-  status.textContent = b ? `Working${model ? ` · ${model}` : ""}…` : model ? `Ready · ${model}` : "Ready";
+  status.textContent = b
+    ? pendingCount() > 0 ? "Waiting for you…" : `Working${model ? ` · ${model}` : ""}…`
+    : model ? `Ready · ${model}` : "Ready";
 }
 
 function nearBottom(): boolean {
@@ -368,7 +374,7 @@ document.addEventListener("click", (ev) => {
 // The embedded browser doesn't change the IDE's mouse cursor, so ask Kotlin for the hand over clickable things.
 let cursorShape: "pointer" | "default" = "default";
 document.addEventListener("mouseover", (ev) => {
-  const shape = (ev.target as Element | null)?.closest("a, button, summary") ? "pointer" : "default";
+  const shape = (ev.target as Element | null)?.closest("a, button, summary, label, select") ? "pointer" : "default";
   if (shape === cursorShape) return;
   cursorShape = shape;
   post({ type: "cursor", shape });
@@ -400,9 +406,22 @@ function handle(msg: FromKotlin): void {
       break;
     case "settings":
       root.classList.toggle("no-times", !msg.showTimestamps);
+      modes.setModes(msg.modes);
+      break;
+    case "permissionMode":
+      modes.setMode(msg.mode);
+      break;
+    case "permission":
+      append(permissionCard(msg), true);
+      setBusy(true);
+      break;
+    case "permissionResolved":
+      resolveCard(msg.requestId, msg.outcome);
+      if (busy) setBusy(true);
       break;
     case "sessionInfo":
       model = msg.model;
+      if (msg.permissionMode) modes.setMode(msg.permissionMode);
       cliCommands = msg.slashCommands ?? [];
       setBusy(busy);
       break;
@@ -530,6 +549,7 @@ function handle(msg: FromKotlin): void {
       thinking.clear();
       turnTexts = [];
       turnHistory.length = 0;
+      clearCards();
       lastDay = "";
       queue.length = 0;
       renderQueue();

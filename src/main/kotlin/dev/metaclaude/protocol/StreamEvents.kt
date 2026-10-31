@@ -50,7 +50,10 @@ object StreamEvents {
                 ?.forEach { commands.add(it) }
             add("slashCommands", commands)
         })
-        "status" -> if (e.str("status") == "requesting") listOf(msg("busy") {}) else emptyList()
+        "status" -> listOfNotNull(
+            if (e.str("status") == "requesting") msg("busy") {} else null,
+            e.str("permissionMode")?.let { m -> msg("permissionMode") { addProperty("mode", m) } },
+        )
         else -> emptyList()
     }
 
