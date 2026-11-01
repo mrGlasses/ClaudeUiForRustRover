@@ -8,6 +8,7 @@ import { clearCards, modeControl, pendingCount, permissionCard, resolveCard } fr
 import { createHistory, type HistoryItem } from "./history";
 import { createAgentMap } from "./agents";
 import { createModelBar } from "./modelbar";
+import { installTooltips } from "./tooltip";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -889,6 +890,7 @@ function handle(msg: FromKotlin): void {
   }
 }
 
+installTooltips();
 onMessage(handle);
 post({ type: "ready" });
 input.focus();

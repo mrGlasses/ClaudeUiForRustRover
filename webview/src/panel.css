@@ -220,3 +220,6 @@ button:disabled { opacity: .5; cursor: default; }
 .model-toggle { display: flex; gap: 6px; align-items: center; padding: 4px 12px; cursor: pointer; }
 .context-meter.high { color: var(--error); }
 .cache-clock.expired { color: var(--error); }
+
+/* v0.27.1: the page's own tooltips (JCEF shows no native `title` tooltip) */
+.tooltip { position: fixed; z-index: 100; max-width: 320px; padding: 4px 8px; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.3); font-size: 11px; white-space: pre-wrap; pointer-events: none; }

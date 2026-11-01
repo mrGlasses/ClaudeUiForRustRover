@@ -24,7 +24,7 @@ Everything below is **not started** unless marked otherwise.
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
-| 12 Model, usage, status | **12a (model picker, effort, Ultracode, thinking, context, cache clock) v0.27.0: waiting for your test**. 12b (`/usage`, `/status`, sign out, report a problem) next |
+| 12 Model, usage, status | 12a (model picker, effort, Ultracode, thinking, context, cache clock) ok in v0.27.0 except tooltips; **v0.27.1: the page's own tooltips, waiting for your test**. 12b (`/usage`, `/status`, sign out, report a problem) next |
 | 13–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -475,6 +475,9 @@ Model picker with Effort and Ultracode, extended thinking toggle, context indica
 - "Context 23%" after every turn (`get_context_usage`, summary), red from 80%; click sends `/compact`.
 - Prompt cache clock: "Cache 4 min" counting down from each turn's end, 60 min when the turn wrote to the 1-hour cache, 5 when
   only to the 5-minute one (`result.usage.cache_creation`); red "Cache expired" after.
+v0.27.0 test (2026-11-01): all ok except that no tooltip appeared (the context meter's). JCEF in the IDE never shows the
+native `title` tooltip, so no tooltip in the panel ever worked. v0.27.1 draws its own (`tooltip.ts`, text only) for every
+element with a `title`.
 
 ### Phase 13 — Customize dialogs (PARITY §I)
 Slash commands browser and `/skills` visibility, output styles (+ build custom), hooks editor, permissions editor, memory, instructions (CLAUDE.md),
