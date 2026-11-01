@@ -1,8 +1,8 @@
 <!-- Loaded only when com.intellij.modules.jcef is present (optional dependency in plugin.xml). -->
 <idea-plugin>
   <extensions defaultExtensionNs="com.intellij">
-    <!-- canCloseContents: conversation tabs get a close button (v0.23.0 test: there was no way to close one). -->
-    <toolWindow id="Claude Chat" anchor="right" secondary="false" icon="AllIcons.Toolwindows.ToolWindowMessages" canCloseContents="true"
+    <!-- Conversation tabs are an editor-style tab bar inside one content (ChatTabs), with their own close buttons. -->
+    <toolWindow id="Claude Chat" anchor="right" secondary="false" icon="AllIcons.Toolwindows.ToolWindowMessages"
                 factoryClass="dev.metaclaude.panel.ChatToolWindowFactory"/>
     <!-- Banner (Send my comments / Approve plan) on a plan opened from the chat panel. -->
     <editorNotificationProvider implementation="dev.metaclaude.panel.PlanNotificationProvider"/>

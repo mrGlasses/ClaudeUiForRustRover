@@ -8,10 +8,14 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.JBColor
-import com.intellij.ui.content.Content
+import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.util.Disposer
 import com.intellij.ui.content.ContentFactory
-import com.intellij.ui.content.ContentManagerEvent
-import com.intellij.ui.content.ContentManagerListener
+import com.intellij.ui.tabs.JBTabs
+import com.intellij.ui.tabs.JBTabsFactory
+import com.intellij.ui.tabs.TabInfo
+import com.intellij.ui.tabs.TabsListener
 import com.intellij.util.ui.JBUI
 import dev.metaclaude.protocol.BridgeLog
 import java.awt.Component
@@ -21,7 +25,7 @@ import java.awt.RenderingHints
 import javax.swing.Icon
 
 /**
- * Phase 10b: several conversations in the "Claude Chat" tool window, one tab (Content) per ChatPanel, each with its own
+ * Phase 10b: several conversations in the "Claude Chat" tool window, one tab per ChatPanel, each with its own
  * `claude` process. Tab dots like VS Code: blue = waiting for your permission, orange = finished while you weren't looking.
  * Closed tabs remember their session, so Ctrl+Shift+T (inside the panel) reopens the last one. EDT only.
  */
@@ -30,45 +34,41 @@ class ChatTabs(private val project: Project) {
     enum class Status { NONE, NEEDS_INPUT, DONE_UNSEEN }
 
     private val closed = ArrayDeque<String>() // session ids of closed tabs, newest last
-    private var installed = false
+    private var tabs: JBTabs? = null
 
     fun toolWindow(): ToolWindow? = ToolWindowManager.getInstance(project).getToolWindow(TOOL_WINDOW_ID)
 
-    /** Called once by the tool window factory: "+" action, listeners, the first tab (which may continue the last chat). */
+    /**
+     * Called once by the tool window factory. v0.23.2 used the tool window's own content tabs, which can't scroll: with a few
+     * long names some tabs were out of reach. Now one content holds an editor-style tab bar (JBTabs, like the editor's own
+     * tabs): a single row that scrolls with the mouse wheel, a close button on each tab, and a list of the tabs that don't fit.
+     */
     fun install(toolWindow: ToolWindow) {
-        if (installed) return
-        installed = true
+        if (tabs != null) return
+        val bar = JBTabsFactory.createEditorTabs(project, toolWindow.disposable)
+        bar.presentation.setSingleRow(true)
+        bar.addListener(object : TabsListener {
+            override fun selectionChanged(oldSelection: TabInfo?, newSelection: TabInfo?) {
+                val p = panelOf(newSelection) ?: return
+                if (p.status == Status.DONE_UNSEEN) setStatus(p, Status.NONE)
+            }
+        }, toolWindow.disposable)
+        tabs = bar
+        val content = ContentFactory.getInstance().createContent(bar.component, "", false)
+        content.isCloseable = false
+        toolWindow.contentManager.addContent(content)
         toolWindow.setTitleActions(listOf(
             object : DumbAwareAction("New Conversation", "Open a new Claude conversation in a tab", AllIcons.General.Add) {
                 override fun actionPerformed(e: AnActionEvent) {
                     newTab(null)
                 }
             },
-            // With several long tab names the tool window can't show every tab (v0.23.1 test: the first one was unreachable).
             object : DumbAwareAction("Open Conversations", "Switch to any open conversation tab", AllIcons.Actions.ListFiles) {
                 override fun actionPerformed(e: AnActionEvent) {
                     showSwitcher(e)
                 }
             },
         ))
-        toolWindow.contentManager.addContentManagerListener(object : ContentManagerListener {
-            override fun selectionChanged(event: ContentManagerEvent) {
-                val p = panelOf(event.content) ?: return
-                if (event.operation == ContentManagerEvent.ContentOperation.add && p.status == Status.DONE_UNSEEN) setStatus(p, Status.NONE)
-            }
-
-            override fun contentRemoved(event: ContentManagerEvent) {
-                panelOf(event.content)?.sessionForReopen()?.let { id ->
-                    closed.remove(id)
-                    closed.addLast(id)
-                    while (closed.size > 20) closed.removeFirst()
-                }
-                // Never an empty window: after the last tab closes, open a fresh one (later, and not while the project closes).
-                com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater({
-                    runCatching { if (toolWindow.contentManager.contentCount == 0) newTab(null) }
-                }, project.disposed)
-            }
-        })
         if (newTab(null, continueLast = true) == null) {
             val label = com.intellij.ui.components.JBLabel("The chat panel failed to open (see bridge.log).", javax.swing.SwingConstants.CENTER)
             toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(label, "", false))
@@ -78,6 +78,7 @@ class ChatTabs(private val project: Project) {
     /** Opens a conversation tab; [resumeId] shows that session (the next message continues it). Returns the panel. */
     fun newTab(resumeId: String?, continueLast: Boolean = false): ChatPanel? {
         val tw = toolWindow() ?: return null
+        val bar = tabs ?: return null
         open(resumeId)?.let { select(it); return it } // already open: switch to it (VS Code)
         val panel = try {
             ChatPanel(project, tw.disposable, continueLast = continueLast, initialResume = resumeId)
@@ -85,39 +86,55 @@ class ChatTabs(private val project: Project) {
             BridgeLog.log("panel failed to open: ${e::class.java.name}: ${e.message}", project.name)
             return null
         }
-        val content = ContentFactory.getInstance().createContent(panel.component, NEW_TITLE, false)
-        content.isCloseable = true
-        // Tool window tabs hide content icons unless asked (v0.23.0 test: the dots never showed).
-        content.putUserData(ToolWindow.SHOW_CONTENT_ICON, true)
-        content.setDisposer(panel)
-        content.putUserData(PANEL, panel)
-        panel.content = content
-        tw.contentManager.addContent(content)
-        tw.contentManager.setSelectedContent(content, true)
+        val info = TabInfo(panel.component).setText(NEW_TITLE).setObject(panel)
+        info.setTabLabelActions(DefaultActionGroup(object : DumbAwareAction("Close Conversation", "Close this conversation tab", AllIcons.Actions.Close) {
+            override fun actionPerformed(e: AnActionEvent) {
+                close(panel)
+            }
+        }), ActionPlaces.EDITOR_TAB)
+        panel.tab = info
+        bar.addTab(info)
+        bar.select(info, true)
         return panel
+    }
+
+    /** Closes a tab: its process stops, its session can come back with Ctrl+Shift+T. Never leaves the window empty. */
+    fun close(panel: ChatPanel) {
+        val bar = tabs ?: return
+        val info = panel.tab ?: return
+        panel.sessionForReopen()?.let { id ->
+            closed.remove(id)
+            closed.addLast(id)
+            while (closed.size > 20) closed.removeFirst()
+        }
+        bar.removeTab(info)
+        Disposer.dispose(panel)
+        if (bar.tabCount == 0 && !project.isDisposed) newTab(null)
     }
 
     /** The open tab showing [sessionId], if any. */
     fun open(sessionId: String?): ChatPanel? =
         if (sessionId == null) null else panels().firstOrNull { it.sessionForReopen() == sessionId }
 
-    /** A list of every open conversation tab (full titles, dots shown as text), to pick one. */
+    /** The tab you're looking at. */
+    fun selected(): ChatPanel? = panelOf(tabs?.selectedInfo)
+
+    /** A list of every open conversation tab (full titles, state as text), to pick one. */
     private fun showSwitcher(e: AnActionEvent) {
-        val tw = toolWindow() ?: return
-        val contents = tw.contentManager.contents.filter { panelOf(it) != null }
-        if (contents.isEmpty()) return
-        val label = { c: Content ->
-            val mark = when (panelOf(c)?.status) { Status.NEEDS_INPUT -> "● waiting · "; Status.DONE_UNSEEN -> "● done · "; else -> "" }
-            mark + (c.description?.takeIf { it.isNotBlank() } ?: c.displayName ?: NEW_TITLE)
+        val all = panels()
+        if (all.isEmpty()) return
+        val label = { p: ChatPanel ->
+            val mark = when (p.status) { Status.NEEDS_INPUT -> "● waiting · "; Status.DONE_UNSEEN -> "● done · "; else -> "" }
+            mark + (p.fullTitle.ifBlank { NEW_TITLE })
         }
-        val popup = com.intellij.openapi.ui.popup.JBPopupFactory.getInstance().createPopupChooserBuilder(contents)
+        val popup = com.intellij.openapi.ui.popup.JBPopupFactory.getInstance().createPopupChooserBuilder(all)
             .setTitle("Open Conversations")
-            .setRenderer(object : com.intellij.ui.ColoredListCellRenderer<Content>() { // SimpleListCellRenderer.create is scheduled for removal
-                override fun customizeCellRenderer(list: javax.swing.JList<out Content>, value: Content?, index: Int, selected: Boolean, hasFocus: Boolean) {
+            .setRenderer(object : com.intellij.ui.ColoredListCellRenderer<ChatPanel>() { // SimpleListCellRenderer.create is scheduled for removal
+                override fun customizeCellRenderer(list: javax.swing.JList<out ChatPanel>, value: ChatPanel?, index: Int, selected: Boolean, hasFocus: Boolean) {
                     append(value?.let(label) ?: "")
                 }
             })
-            .setItemChosenCallback { c -> tw.contentManager.setSelectedContent(c, true) }
+            .setItemChosenCallback { p -> select(p) }
             .createPopup()
         val component = e.inputEvent?.component
         if (component != null) popup.showUnderneathOf(component) else popup.showInFocusCenter()
@@ -130,33 +147,33 @@ class ChatTabs(private val project: Project) {
     }
 
     fun select(panel: ChatPanel) {
-        val tw = toolWindow() ?: return
-        panel.content?.let { tw.contentManager.setSelectedContent(it, true) }
-        tw.activate(null)
+        panel.tab?.let { tabs?.select(it, true) }
+        toolWindow()?.activate(null)
     }
 
     fun isShowing(panel: ChatPanel): Boolean {
         val tw = toolWindow() ?: return false
-        return tw.isVisible && tw.contentManager.selectedContent == panel.content
+        return tw.isVisible && tabs?.selectedInfo == panel.tab
     }
 
     fun setStatus(panel: ChatPanel, status: Status) {
         panel.status = status
-        panel.content?.icon = when (status) {
+        panel.tab?.setIcon(when (status) {
             Status.NONE -> null
             Status.NEEDS_INPUT -> Dot(JBColor(0x3574F0, 0x548AF7))
             Status.DONE_UNSEEN -> Dot(JBColor(0xE08855, 0xE08855))
-        }
+        })
     }
 
     fun setTitle(panel: ChatPanel, title: String) {
         val t = title.lineSequence().first().trim()
-        panel.content?.displayName = if (t.length > 18) t.take(17) + "…" else t.ifEmpty { NEW_TITLE }
-        panel.content?.description = t
+        panel.fullTitle = t
+        panel.tab?.setText(if (t.length > 24) t.take(23) + "…" else t.ifEmpty { NEW_TITLE })
+        panel.tab?.setTooltipText(com.intellij.openapi.util.text.HtmlChunk.text(t))
     }
 
-    private fun panels(): List<ChatPanel> = toolWindow()?.contentManager?.contents?.mapNotNull { panelOf(it) } ?: emptyList()
-    private fun panelOf(c: Content?): ChatPanel? = c?.getUserData(PANEL)
+    private fun panels(): List<ChatPanel> = tabs?.tabs?.mapNotNull { panelOf(it) } ?: emptyList()
+    private fun panelOf(info: TabInfo?): ChatPanel? = info?.`object` as? ChatPanel
 
     /** A small filled circle for the tab icon. */
     private class Dot(private val color: JBColor) : Icon {
@@ -174,6 +191,5 @@ class ChatTabs(private val project: Project) {
     companion object {
         const val TOOL_WINDOW_ID = "Claude Chat"
         const val NEW_TITLE = "New chat"
-        private val PANEL = com.intellij.openapi.util.Key.create<ChatPanel>("clawed.ui.chatPanel")
     }
 }

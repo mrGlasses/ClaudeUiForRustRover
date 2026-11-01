@@ -64,8 +64,9 @@ class ChatPanel(
     /** A session to show right away (reopened tab, history opened in a new tab). */
     private val initialResume: String? = null,
 ) : Disposable {
-    /** Set by ChatTabs: this panel's tab, and its dot. */
-    @Volatile var content: com.intellij.ui.content.Content? = null
+    /** Set by ChatTabs: this panel's tab, its full title and its dot. */
+    @Volatile var tab: com.intellij.ui.tabs.TabInfo? = null
+    @Volatile var fullTitle: String = ""
     @Volatile var status: ChatTabs.Status = ChatTabs.Status.NONE
     private var titled = false
     private val pendingRequests = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -662,9 +663,7 @@ ${themeCss()}</style></head><body><div id="app"></div>
         fun insertMention(project: Project, text: String): Boolean {
             val window = com.intellij.openapi.wm.ToolWindowManager.getInstance(project).getToolWindow("Claude Chat")
             if (window?.isVisible != true) return false
-            val selected = window.contentManager.selectedContent
-            val panel = openPanels.firstOrNull { it.project == project && it.content == selected }
-                ?: openPanels.firstOrNull { it.project == project } ?: return false
+            val panel = project.service<ChatTabs>().selected() ?: openPanels.firstOrNull { it.project == project } ?: return false
             panel.send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", text) })
             window.activate(null)
             return true
