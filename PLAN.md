@@ -22,7 +22,7 @@ Everything below is **not started** unless marked otherwise.
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
-| 10 Sessions | ☑ 10a, 10b done (v0.23.3 tested 2026-11-01). **10c written (v0.24.0): rename, archive, auto-archive, groups, filters; waiting for your test**. Web tab (cloud / Remote Control sessions) moved to Phase 15 |
+| 10 Sessions | ☑ 10a, 10b done (v0.23.3 tested 2026-11-01). 10c: auto-archive ok (v0.24.0). **v0.24.1: visible close buttons, tab menu, clearer History menu; waiting for your test**. Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -419,6 +419,10 @@ deleting keeps the conversations). "Archive all shown" / "Unarchive all". Settin
 too. All of this is the plugin's own notes (`SessionNotes`, project workspace file; `SessionOrganizer`, unit-tested): Claude
 Code's session files are never written. Verifier caught `BaseState.intIncrementModificationCount()` (internal API) before
 hand-over; changes now assign new collections instead.
+v0.24.0 test: auto-archive works. The tab close buttons looked gone (JBTabs shows tab actions only on hover by default) and
+the History "⋯" wasn't found. v0.24.1: close buttons always shown (`setTabLabelActionsAutoHide(false)`); right-click on a
+conversation tab gives Rename (native input), Archive, Close; the History menu button is a bordered "•••", and right-clicking
+a History row opens the same menu.
 
 ### Phase 11 — Checkpoints, agents, background work (PARITY §G, §H)
 Fork from here, rewind code, fork + rewind; agent map (tree, status, time, tokens, transcript, stop), background tasks with live output,

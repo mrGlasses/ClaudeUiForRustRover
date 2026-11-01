@@ -47,6 +47,24 @@ class ChatTabs(private val project: Project) {
         if (tabs != null) return
         val bar = JBTabsFactory.createEditorTabs(project, toolWindow.disposable)
         bar.presentation.setSingleRow(true)
+        // Close buttons always visible (v0.24.0 test: they only showed on hover, so they looked gone).
+        bar.presentation.setTabLabelActionsAutoHide(false)
+        // Right-click on a tab: Rename, Archive, Close (VS Code: Rename Session Tab and friends).
+        bar.setPopupGroup(DefaultActionGroup(
+            object : DumbAwareAction("Rename Conversation…") {
+                override fun actionPerformed(e: AnActionEvent) { panelOf(bar.targetInfo)?.let { renameFromTab(it) } }
+            },
+            object : DumbAwareAction("Archive Conversation") {
+                override fun actionPerformed(e: AnActionEvent) {
+                    val p = panelOf(bar.targetInfo) ?: return
+                    p.sessionForReopen()?.let { project.getService(SessionNotes::class.java).setArchived(it, true) }
+                    close(p)
+                }
+            },
+            object : DumbAwareAction("Close Conversation") {
+                override fun actionPerformed(e: AnActionEvent) { panelOf(bar.targetInfo)?.let { close(it) } }
+            },
+        ), "ClawedUiChatTabPopup", false)
         bar.addListener(object : TabsListener {
             override fun selectionChanged(oldSelection: TabInfo?, newSelection: TabInfo?) {
                 val p = panelOf(newSelection) ?: return
@@ -110,6 +128,15 @@ class ChatTabs(private val project: Project) {
         bar.removeTab(info)
         Disposer.dispose(panel)
         if (bar.tabCount == 0 && !project.isDisposed) newTab(null)
+    }
+
+    /** Native input for a new name; saved with the session (History shows it too) or, for a new chat, on the tab only. */
+    private fun renameFromTab(panel: ChatPanel) {
+        val name = com.intellij.openapi.ui.Messages.showInputDialog(project, "Name for this conversation:", "Rename Conversation", null,
+            panel.fullTitle, null) ?: return
+        val clean = dev.metaclaude.protocol.SessionOrganizer.cleanName(name) ?: return
+        panel.sessionForReopen()?.let { project.getService(SessionNotes::class.java).rename(it, clean) }
+        setTitle(panel, clean)
     }
 
     /** The open tab showing [sessionId], if any. */

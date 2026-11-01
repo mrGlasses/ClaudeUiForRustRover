@@ -167,10 +167,15 @@ export function createHistory(onClose: () => void): {
       onClose();
       post({ type: "resume", sessionId: it.id });
     });
-    const more = el("button", "more", "⋯");
+    const more = el("button", "more", "•••");
     more.title = "Rename, archive, group";
     more.addEventListener("click", (ev) => {
       ev.stopPropagation();
+      itemMenu(more, it);
+    });
+    // Right-click anywhere on the row opens the same menu.
+    r.addEventListener("contextmenu", (ev) => {
+      ev.preventDefault();
       itemMenu(more, it);
     });
     r.append(main, more);
@@ -188,7 +193,7 @@ export function createHistory(onClose: () => void): {
     for (const name of groups) {
       const inGroup = items.filter((i) => i.group === name);
       const head = el("div", "group-head");
-      const more = el("button", "more", "⋯");
+      const more = el("button", "more", "•••");
       more.title = "Rename or delete the group";
       more.addEventListener("click", (ev) => {
         ev.stopPropagation();
