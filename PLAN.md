@@ -23,8 +23,9 @@ Everything below is **not started** unless marked otherwise.
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
-| 11 Checkpoints, agents | 11a (checkpoints) done (v0.25.0 tested 2026-11-01). **11b (agent map, background tasks) v0.26.0: waiting for your test** |
-| 12–16 | Not started |
+| 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
+| 12 Model, usage, status | **12a (model picker, effort, Ultracode, thinking, context, cache clock) v0.27.0: waiting for your test**. 12b (`/usage`, `/status`, sign out, report a problem) next |
+| 13–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -457,12 +458,23 @@ v0.25.0 test (2026-11-01): rewind, nothing-to-rewind, fork, fork + rewind, mid-t
   every 2 s while running (`get_task_output`, escape sequences removed). "Stop" on anything running (`stop_task`).
 - "Run in background" on a running Bash/Agent tool card (`background_tasks` with its `tool_use_id`, Ctrl+B for one call).
 - `/tasks` shows the map again after "Hide". Kotlin accepts actions only for tasks and tool calls this session reported.
+v0.26.0 test (2026-11-01): map, transcript, Stop, background output, Run in background (Bash with `ping`, and a subagent),
+`/tasks`, New session: all ok. (`sleep 60` can't test the button: the CLI itself refuses long foreground sleeps.) 11 done.
 
 ### Phase 12 — Model, usage, status (PARITY §B, §I)
 Model picker with Effort and Ultracode, extended thinking toggle, context indicator, prompt-cache clock, `/usage` dialog (bars, recommendations + Fix, attribution),
 `/status`, sign out, Report a problem.
 
 **Done when:** model and effort change mid-session, and the usage dialog matches the CLI's numbers.
+
+12a (v0.27.0), a bar under the prompt box (`ModelControls`, control requests from the CLI's schema):
+- Model button ("Opus 5.5 · High ▾", also `/model`): models from `list_models` (disabled ones greyed), Effort levels the model
+  supports, Extended thinking, and Ultracode when the CLI says it's available (`get_settings` → `applied`). Changes go to the
+  running session: `set_model`, `apply_flag_settings {effortLevel | ultracode}` (session only, like `/effort`),
+  `set_max_thinking_tokens` (0 = off). Opening the menu starts the process if none is running. Refused mid-turn.
+- "Context 23%" after every turn (`get_context_usage`, summary), red from 80%; click sends `/compact`.
+- Prompt cache clock: "Cache 4 min" counting down from each turn's end, 60 min when the turn wrote to the 1-hour cache, 5 when
+  only to the 5-minute one (`result.usage.cache_creation`); red "Cache expired" after.
 
 ### Phase 13 — Customize dialogs (PARITY §I)
 Slash commands browser and `/skills` visibility, output styles (+ build custom), hooks editor, permissions editor, memory, instructions (CLAUDE.md),

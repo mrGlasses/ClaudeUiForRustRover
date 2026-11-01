@@ -38,11 +38,11 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Paste text stays visible; invisible-character notices | UI/CLI | 7 | ☐ |
 | `/` command menu with inline suggestions | Stream/CLI | 7 | ◐ v0.17.0: panel commands + the CLI's `slash_commands` (after the first message) |
 | Permission mode indicator (Auto / Manual / Plan / Edit automatically / Bypass) | Stream | 8 | ◐ v0.18.0: header menu, follows the CLI |
-| Model name button and picker, Effort row, Ultracode switch, `/model` | Stream | 12 | ☐ |
-| Extended thinking toggle | Stream | 12 | ☐ |
-| Context indicator and `/compact` | Stream | 12 | ☐ |
-| Prompt cache clock (minutes left, red when expired) | Stream | 12 | ☐ |
-| Agent count and agent map | Stream | 11 | ☐ |
+| Model name button and picker, Effort row, Ultracode switch, `/model` | Stream | 12 | ◐ v0.27.0, waiting for test |
+| Extended thinking toggle | Stream | 12 | ◐ v0.27.0, waiting for test |
+| Context indicator and `/compact` | Stream | 12 | ◐ v0.27.0, waiting for test |
+| Prompt cache clock (minutes left, red when expired) | Stream | 12 | ◐ v0.27.0, waiting for test |
+| Agent count and agent map | Stream | 11 | ☑ v0.26.0 |
 | Side questions `/btw` in a panel beside the chat (newest 20 exchanges kept) | Stream | 14 | ☐ |
 
 ## C. Context and mentions — Phase 9
@@ -128,10 +128,10 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Agent map (tree, status, elapsed time, tokens, prompt, tool calls, transcript, stop) | Stream | ◐ v0.26.0, waiting for test |
-| Background tasks in the map (shells, monitors, latest output) | Stream | ◐ v0.26.0, waiting for test |
-| "Run in background" under a long command or subagent | Stream | ◐ v0.26.0, waiting for test |
-| `/tasks` | Stream/CLI | ◐ v0.26.0 (panel command: shows the map), waiting for test |
+| Agent map (tree, status, elapsed time, tokens, prompt, tool calls, transcript, stop) | Stream | ☑ v0.26.0 |
+| Background tasks in the map (shells, monitors, latest output) | Stream | ☑ v0.26.0 |
+| "Run in background" under a long command or subagent | Stream | ☑ v0.26.0 |
+| `/tasks` | Stream/CLI | ☑ v0.26.0 (panel command: shows the map) |
 
 ## I. Customize dialogs — Phase 13
 

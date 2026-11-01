@@ -7,6 +7,7 @@ import { renderMarkdown } from "./markdown";
 import { clearCards, modeControl, pendingCount, permissionCard, resolveCard } from "./permissions";
 import { createHistory, type HistoryItem } from "./history";
 import { createAgentMap } from "./agents";
+import { createModelBar } from "./modelbar";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -75,7 +76,12 @@ composer.append(input, sendButton);
 const chips = el("div", "chips");
 chips.hidden = true;
 const agentMap = createAgentMap();
-root.append(header, transcript, agentMap.node, todoBox, queueBox, slashMenu, chips, composer);
+// Phase 12a: model / effort / thinking, context meter (click: /compact), prompt-cache clock.
+const modelBar = createModelBar({
+  compact: () => dispatch({ text: "/compact", files: [], images: [], includeFile: false, includeSelection: false }),
+  isBusy: () => busy,
+});
+root.append(header, transcript, agentMap.node, todoBox, queueBox, slashMenu, chips, composer, modelBar.node);
 
 // ---------- state ----------
 let busy = false;
@@ -155,6 +161,7 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "export", hint: "save this conversation as Markdown (/export copy: copy it)" },
   { name: "resume", hint: "open the conversation history" },
   { name: "tasks", hint: "show agents and background tasks" },
+  { name: "model", hint: "pick the model, effort and extended thinking" },
 ];
 
 function setBusy(b: boolean): void {
@@ -449,6 +456,10 @@ function panelCommand(text: string): boolean {
     toggleFocus();
     return true;
   }
+  if (text === "/model") {
+    modelBar.open();
+    return true;
+  }
   if (text === "/tasks") {
     if (!agentMap.show()) append(el("div", "notice", "No agents or background tasks in this conversation yet."));
     return true;
@@ -646,6 +657,7 @@ function turnFooter(parts: string[]): HTMLElement {
 // ---------- receiving ----------
 function handle(msg: FromKotlin): void {
   if (msg.type.startsWith("agent") && agentMap.handle(msg as { type: string } & Record<string, unknown>)) return;
+  if (modelBar.handle(msg as { type: string } & Record<string, unknown>)) return;
   switch (msg.type) {
     case "hello":
       status.textContent = "Ready";
@@ -667,6 +679,7 @@ function handle(msg: FromKotlin): void {
       break;
     case "sessionInfo":
       model = msg.model;
+      modelBar.sessionModel(msg.model);
       if (msg.permissionMode) modes.setMode(msg.permissionMode);
       cliCommands = msg.slashCommands ?? [];
       setBusy(busy);
@@ -839,6 +852,7 @@ function handle(msg: FromKotlin): void {
       if (msg.costUsd) parts.push(`$${msg.costUsd.toFixed(4)}`);
       if (msg.isError) parts.push("ended with an error");
       append(turnFooter(parts));
+      modelBar.turnEnded(msg.cacheTtlMin);
       setBusy(false);
       const next = queue.shift();
       if (next !== undefined) {
@@ -862,6 +876,7 @@ function handle(msg: FromKotlin): void {
       pendingTasks.clear();
       showTodos([]);
       agentMap.clear();
+      modelBar.reset();
       transcript.replaceChildren(empty);
       model = "";
       setBusy(false);

@@ -261,6 +261,15 @@ class ChatSession(
     fun taskOutput(taskId: String, done: (JsonObject?, String?) -> Unit) =
         request("get_task_output", JsonObject().apply { addProperty("task_id", taskId) }, done)
 
+    /** Phase 12a: model, effort, Ultracode, thinking and context, each a control request answered once to [done]. */
+    fun listModels(done: (JsonObject?, String?) -> Unit) = request("list_models", JsonObject(), done)
+    fun getSettings(done: (JsonObject?, String?) -> Unit) = request("get_settings", JsonObject(), done)
+    fun contextUsage(done: (JsonObject?, String?) -> Unit) =
+        request("get_context_usage", JsonObject().apply { addProperty("detail", "summary") }, done)
+    fun setModel(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("set_model", body, done)
+    fun applyFlagSettings(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("apply_flag_settings", body, done)
+    fun setThinking(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("set_max_thinking_tokens", body, done)
+
     /** A control request whose answer (payload, or error text) goes to [done], exactly once. */
     private fun request(subtype: String, body: JsonObject, done: (JsonObject?, String?) -> Unit) {
         val req = control(subtype, body)

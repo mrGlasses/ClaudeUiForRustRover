@@ -30,7 +30,9 @@ export type ToKotlin =
   | { type: "resume"; sessionId: string }
   | { type: "export"; mode: "file" | "copy" }
   | { type: "checkpoint"; action: "fork" | "rewind" | "forkRewind"; uuid: string }
-  | { type: "taskAction"; action: "stop" | "output" | "background"; id: string };
+  | { type: "taskAction"; action: "stop" | "output" | "background"; id: string }
+  | { type: "modelMenu" }
+  | { type: "modelSet"; what: "model" | "effort" | "ultracode" | "thinking"; value: string | boolean };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
@@ -64,7 +66,8 @@ export type FromKotlin =
   | { type: "toolUse"; id: string; name: string; summary: string; canBackground?: boolean }
   | { type: "toolResult"; toolUseId: string; isError: boolean; preview: string }
   | { type: "notice"; text: string }
-  | { type: "turnEnd"; stopReason: string; costUsd?: number; durationMs?: number; isError: boolean }
+  | { type: "turnEnd"; stopReason: string; costUsd?: number; durationMs?: number; isError: boolean; cacheTtlMin?: number }
+  | ({ type: "modelState" | "contextUsage" } & Record<string, unknown>)
   | { type: "sessionReset" }
   | ({ type: "agentTaskStarted" | "agentTaskProgress" | "agentTaskUpdated" | "agentTaskEnded" | "agentTasksLive" | "agentTasksGone" | "agentActivity" | "agentTaskOutput" } & Record<string, unknown>)
   | { type: "error"; message: string };

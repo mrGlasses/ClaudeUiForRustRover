@@ -32,6 +32,7 @@ object StreamEvents {
                 event.get("total_cost_usd")?.takeIf { it.isJsonPrimitive }?.let { addProperty("costUsd", it.asDouble) }
                 event.get("duration_ms")?.takeIf { it.isJsonPrimitive }?.let { addProperty("durationMs", it.asLong) }
                 addProperty("isError", event.get("is_error")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false)
+                ModelControls.cacheTtlMinutes(event.obj("usage"))?.let { addProperty("cacheTtlMin", it) } // Phase 12a: cache clock
             })
             else -> emptyList()
         }

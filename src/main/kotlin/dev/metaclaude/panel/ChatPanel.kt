@@ -12,6 +12,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.Messages
 import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.Checkpoints
+import dev.metaclaude.protocol.ModelControls
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
 import dev.metaclaude.protocol.SessionFiles
@@ -326,6 +327,8 @@ class ChatPanel(
             "setMode" -> setMode(msg.get("mode")?.takeIf { it.isJsonPrimitive }?.asString)
             "checkpoint" -> checkpoint(msg)
             "taskAction" -> taskAction(msg)
+            "modelMenu" -> AppExecutorUtil.getAppExecutorService().execute { sessionOrStart()?.let { refreshModelState(it) } }
+            "modelSet" -> modelSet(msg)
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
     }
@@ -518,6 +521,66 @@ class ChatPanel(
         }
     }
 
+    // ---------- model, effort, thinking, context (Phase 12a) ----------
+
+    /** Model values from the last `list_models`: the only ones the page may pick (rule 4). */
+    @Volatile private var knownModels: List<String> = emptyList()
+    @Volatile private var thinkingDefault = true
+    /** Null until the user toggles it: then the session follows the default. */
+    @Volatile private var thinkingOn: Boolean? = null
+
+    /** Background thread: the picker's models and what is in effect now. */
+    private fun refreshModelState(s: ChatSession) {
+        s.listModels { modelsPayload, err ->
+            if (err != null) BridgeLog.log("panel: list_models failed: ${err.take(200)}", project.name)
+            val models = ModelControls.models(modelsPayload)
+            knownModels = models.mapNotNull { (it as? JsonObject)?.get("value")?.asString }
+            s.getSettings { settingsPayload, err2 ->
+                if (err2 != null) BridgeLog.log("panel: get_settings failed: ${err2.take(200)}", project.name)
+                val current = ModelControls.current(settingsPayload)
+                thinkingDefault = current.get("thinkingDefault").asBoolean
+                current.addProperty("thinking", thinkingOn ?: thinkingDefault)
+                send(JsonObject().apply {
+                    addProperty("type", "modelState")
+                    add("models", models)
+                    add("current", current)
+                })
+            }
+        }
+    }
+
+    private fun requestContext(s: ChatSession) = s.contextUsage { payload, _ ->
+        ModelControls.context(payload)?.let { c -> send(c.apply { addProperty("type", "contextUsage") }) }
+    }
+
+    /** Change the model, effort, Ultracode or thinking for this session. Each value is checked before it reaches the CLI. */
+    private fun modelSet(msg: JsonObject) {
+        val what = msg.get("what")?.takeIf { it.isJsonPrimitive }?.asString
+        val value = msg.get("value")?.takeIf { it.isJsonPrimitive }
+        AppExecutorUtil.getAppExecutorService().execute {
+            if (turnRunning) return@execute notice("Wait until Claude finishes (or stop it) before you change the model or effort.")
+            val s = sessionOrStart() ?: return@execute
+            val done: (JsonObject?, String?) -> Unit = { _, err ->
+                if (err != null) notice("Couldn't change ${what ?: "it"}: ${err.take(200)}")
+                refreshModelState(s)
+            }
+            when (what) {
+                "model" -> ModelControls.setModel(value?.asString, knownModels)?.let { body ->
+                    BridgeLog.log("panel: model change requested", project.name)
+                    s.setModel(body, done)
+                } ?: BridgeLog.log("panel: refused model (not in the list)", project.name)
+                "effort" -> ModelControls.setEffort(value?.asString)?.let { s.applyFlagSettings(it, done) }
+                    ?: BridgeLog.log("panel: refused effort level", project.name)
+                "ultracode" -> s.applyFlagSettings(ModelControls.setUltracode(value?.asBoolean == true), done)
+                "thinking" -> {
+                    val on = value?.asBoolean == true
+                    s.setThinking(ModelControls.setThinking(on, thinkingDefault)) { p, err -> if (err == null) thinkingOn = on; done(p, err) }
+                }
+                else -> BridgeLog.log("panel: refused modelSet '${what?.take(20)}'", project.name)
+            }
+        }
+    }
+
     // ---------- agent map (Phase 11b) ----------
 
     /** Tasks this session reported (id → kind) and the ones still running: the page may act only on these (rule 4). */
@@ -528,6 +591,7 @@ class ChatPanel(
 
     private fun clearTasks() {
         taskKinds.clear(); runningTasks.clear(); backgroundable.clear()
+        thinkingOn = null // a new process starts with the default
     }
 
     private fun trackTasks(type: String?, m: JsonObject) {
@@ -700,6 +764,7 @@ class ChatPanel(
         if (type == "sessionInfo") m.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString?.let { rememberSession(it) }
         if (type == "turnEnd") { turnRunning = false; currentSessionId?.let { rememberSession(it) } }
         trackTasks(type, m)
+        if (type == "turnEnd") session?.let { requestContext(it) }
         // Tab dot: blue while a permission waits; orange when a turn ends and you aren't looking at this tab.
         when (type) {
             "permission" -> { m.get("requestId")?.asString?.let { pendingRequests.add(it) }; onEdt { tabs.setStatus(this, ChatTabs.Status.NEEDS_INPUT) } }
