@@ -105,13 +105,10 @@ class ChatTabs(private val project: Project) {
             return null
         }
         val info = TabInfo(panel.component).setText(NEW_TITLE).setObject(panel)
-        info.setTabLabelActions(DefaultActionGroup(object : DumbAwareAction("Close Conversation", "Close this conversation tab", AllIcons.Actions.Close) {
-            override fun actionPerformed(e: AnActionEvent) {
-                close(panel)
-            }
-        }), ActionPlaces.EDITOR_TAB)
         panel.tab = info
         bar.addTab(info)
+        // Set after addTab so the tab's label builds its action buttons (v0.24.1: set before, the "×" never showed).
+        info.setTabLabelActions(DefaultActionGroup(CloseTabAction(panel)), ActionPlaces.EDITOR_TAB)
         bar.select(info, true)
         return panel
     }
@@ -128,6 +125,19 @@ class ChatTabs(private val project: Project) {
         bar.removeTab(info)
         Disposer.dispose(panel)
         if (bar.tabCount == 0 && !project.isDisposed) newTab(null)
+    }
+
+    /** The "×" on a tab. Always enabled and visible (explicit update, so nothing hides it). */
+    private inner class CloseTabAction(private val panel: ChatPanel) :
+        DumbAwareAction("Close Conversation", "Close this conversation tab (Ctrl+F4)", AllIcons.Actions.Close) {
+        init {
+            templatePresentation.hoveredIcon = AllIcons.Actions.CloseHovered
+        }
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabledAndVisible = true
+        }
+        override fun getActionUpdateThread() = com.intellij.openapi.actionSystem.ActionUpdateThread.EDT
+        override fun actionPerformed(e: AnActionEvent) = close(panel)
     }
 
     /** Native input for a new name; saved with the session (History shows it too) or, for a new chat, on the tab only. */

@@ -146,6 +146,8 @@ class ChatPanel(
         panelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK or InputEvent.ALT_DOWN_MASK), "toggleFocus")
         // Ctrl+Shift+T: reopen the last closed conversation tab (VS Code: Reopen Closed Session).
         panelShortcutAction(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK or InputEvent.SHIFT_DOWN_MASK)) { tabs.reopenClosed() }
+        // Ctrl+F4 (JetBrains' "close tab") closes this conversation tab.
+        panelShortcutAction(KeyStroke.getKeyStroke(KeyEvent.VK_F4, InputEvent.CTRL_DOWN_MASK)) { tabs.close(this) }
 
         toKotlin.addHandler { json -> handle(json); null }
         openPanels.add(this)

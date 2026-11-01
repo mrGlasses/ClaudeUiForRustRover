@@ -22,7 +22,7 @@ Everything below is **not started** unless marked otherwise.
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
-| 10 Sessions | ☑ 10a, 10b done (v0.23.3 tested 2026-11-01). 10c: auto-archive ok (v0.24.0). **v0.24.1: visible close buttons, tab menu, clearer History menu; waiting for your test**. Web tab (cloud / Remote Control sessions) moved to Phase 15 |
+| 10 Sessions | ☑ 10a, 10b done (v0.23.3 tested 2026-11-01). 10c: History organizer and tab rename ok (v0.24.1). **v0.24.2: tab "×", third try, plus Ctrl+F4; waiting for your test**. Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -423,6 +423,9 @@ v0.24.0 test: auto-archive works. The tab close buttons looked gone (JBTabs show
 the History "⋯" wasn't found. v0.24.1: close buttons always shown (`setTabLabelActionsAutoHide(false)`); right-click on a
 conversation tab gives Rename (native input), Archive, Close; the History menu button is a bordered "•••", and right-clicking
 a History row opens the same menu.
+v0.24.1 test: History menu, groups, archive, filters and tab rename all work; the tab "×" still didn't show. v0.24.2 sets the
+tab's actions after `addTab` (so the label builds its buttons), gives the close action an explicit always-visible update and
+the IDE's close/hover icons, and adds Ctrl+F4 inside the panel to close the current conversation tab.
 
 ### Phase 11 — Checkpoints, agents, background work (PARITY §G, §H)
 Fork from here, rewind code, fork + rewind; agent map (tree, status, time, tokens, transcript, stop), background tasks with live output,
