@@ -451,6 +451,7 @@ historyView.append(historyBar, historyList);
 transcript.before(historyView);
 
 let historyTimer = 0;
+let resumedNote = "";
 function openHistory(): void {
   historyView.hidden = false;
   transcript.hidden = true;
@@ -755,7 +756,8 @@ function handle(msg: FromKotlin): void {
       renderHistory(msg.items);
       break;
     case "historyLoaded":
-      append(el("div", "notice", msg.automatic ? `Continuing "${msg.title}" (Settings > Tools > Clawed UI to turn this off).` : `Resumed "${msg.title}".`));
+      // Said at the end (historyEnd), where you look after the replay; at the top it scrolled out of sight (v0.22.0 test).
+      resumedNote = msg.automatic ? `Continuing "${msg.title}" (Settings > Tools > Clawed UI to turn this off).` : `Resumed "${msg.title}".`;
       break;
     case "historyUser": {
       const m = el("div", "msg user");
@@ -767,7 +769,8 @@ function handle(msg: FromKotlin): void {
     }
     case "historyEnd":
       transcript.scrollTop = transcript.scrollHeight;
-      append(el("div", "notice", "Your next message continues this conversation."));
+      append(el("div", "notice", `${resumedNote} Your next message continues this conversation.`.trim()), true);
+      resumedNote = "";
       break;
     case "toggleFocus":
       toggleFocus();

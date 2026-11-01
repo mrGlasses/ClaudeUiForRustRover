@@ -22,7 +22,7 @@ Everything below is **not started** unless marked otherwise.
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
-| 10 Sessions | **10a written (v0.22.0): history, search, resume, continue after reload, `/export`; waiting for your test**. 10b: several conversations, status dots, reopen closed, rename / archive / groups / filters |
+| 10 Sessions | 10a tested (v0.22.0). **v0.22.1: resume notes; waiting for your test**. 10b: several conversations, status dots, reopen closed, rename / archive / groups / filters |
 | 11–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -386,6 +386,11 @@ message starts `claude --resume <id>`. Continue after reload (setting, VS Code `
 and the last conversation here was active in the last 10 minutes, it comes back the same way. `/export` saves the
 conversation as Markdown (native save dialog); `/export copy` copies it. Session ids are checked against the project's
 files before use (rule 4). Precheck caught a `/*` inside a KDoc comment (unclosed comment) before hand-over.
+10a test (2026-10-31): history, search, resume and `/export` work; continue after reload works (log: "resumed session after
+reload"). Two fixes in v0.22.1: the "Resumed …" note was at the top of a long replay, out of sight, so it now comes at the end
+together with "Your next message continues this conversation"; and a reply cut off by closing the IDE isn't in the session
+file (the CLI saves finished blocks only), so the replay now ends with "Claude's reply to the last message didn't finish …"
+when the conversation stops after your prompt or mid-tool.
 
 ### Phase 11 — Checkpoints, agents, background work (PARITY §G, §H)
 Fork from here, rewind code, fork + rewind; agent map (tree, status, time, tokens, transcript, stop), background tasks with live output,

@@ -39,7 +39,10 @@ class SessionFilesTest {
     @Test
     fun `transcript replays prompts, text and tool cards with unique keys`() {
         val t = SessionFiles.transcript(lines.asSequence())
-        assertEquals(listOf("historyUser", "textFinal", "toolUse", "toolResult", "textFinal", "historyUser"), t.map { it.get("type").asString })
+        // The last prompt ("thanks") has no answer: the replay ends with the "didn't finish" notice.
+        assertEquals(listOf("historyUser", "textFinal", "toolUse", "toolResult", "textFinal", "historyUser", "notice"), t.map { it.get("type").asString })
+        val finished = SessionFiles.transcript(lines.take(6).asSequence())
+        assertEquals("textFinal", finished.last().get("type").asString)
         assertEquals("fix the failing test", t[0].get("text").asString)
         assertTrue(t[1].get("key").asString != t[4].get("key").asString)
     }

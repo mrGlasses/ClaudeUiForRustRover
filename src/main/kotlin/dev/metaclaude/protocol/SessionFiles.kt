@@ -75,6 +75,8 @@ object SessionFiles {
     /**
      * The conversation as panel messages (webview/src/bridge.ts), to show a resumed session: your prompts (`historyUser`),
      * Claude's text and tool cards via [StreamEvents]. Final-text keys are made unique, since a replay has no stream deltas.
+     * If the conversation stops after your prompt (or mid-tool) with no answer, e.g. the IDE was closed while Claude was
+     * replying, a notice says so: the CLI only saves finished blocks, so the partial reply is gone (v0.22.0 test).
      */
     fun transcript(lines: Sequence<String>): List<JsonObject> {
         val out = ArrayList<JsonObject>()
@@ -99,6 +101,11 @@ object SessionFiles {
                 }
             }
         }
+        val last = out.lastOrNull()?.str("type")
+        if (last == "historyUser" || last == "toolUse" || last == "toolResult") out.add(JsonObject().apply {
+            addProperty("type", "notice")
+            addProperty("text", "Claude's reply to the last message didn't finish (the conversation was interrupted). Ask again, or say \"continue\".")
+        })
         return out
     }
 
