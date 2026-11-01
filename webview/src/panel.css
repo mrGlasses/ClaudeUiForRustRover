@@ -167,3 +167,10 @@ button:disabled { opacity: .5; cursor: default; }
 .menu-item { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--fg); font: inherit; padding: 4px 12px; cursor: pointer; }
 .menu-item:hover { background: var(--code-bg); }
 .name-row { display: flex; gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--border); }
+
+/* Phase 11a: fork / rewind from a prompt (the ↶ button shows on hover) */
+.msg.user { position: relative; }
+.checkpoint { position: absolute; top: 2px; left: -26px; white-space: normal; }
+.checkpoint-button { visibility: hidden; font-size: 14px; padding: 0 4px; color: var(--muted); }
+.msg.user:hover .checkpoint-button, .checkpoint:focus-within .checkpoint-button { visibility: visible; }
+.checkpoint-menu { position: absolute; top: 1.6em; left: 0; z-index: 10; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 0; min-width: 240px; box-shadow: 0 4px 12px rgba(0,0,0,.3); }

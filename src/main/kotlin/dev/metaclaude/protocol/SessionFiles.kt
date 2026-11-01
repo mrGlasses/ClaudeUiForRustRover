@@ -77,13 +77,17 @@ object SessionFiles {
      * Claude's text and tool cards via [StreamEvents]. Final-text keys are made unique, since a replay has no stream deltas.
      * If the conversation stops after your prompt (or mid-tool) with no answer, e.g. the IDE was closed while Claude was
      * replying, a notice says so: the CLI only saves finished blocks, so the partial reply is gone (v0.22.0 test).
+     *
+     * Phase 11a: each prompt carries its `uuid` (the restore point for rewind and fork) unless [withUuids] is false.
+     * With [until], the transcript stops before that prompt (a fork shows only what it keeps) and has no "didn't finish" notice.
      */
-    fun transcript(lines: Sequence<String>): List<JsonObject> {
+    fun transcript(lines: Sequence<String>, until: String? = null, withUuids: Boolean = true): List<JsonObject> {
         val out = ArrayList<JsonObject>()
         var n = 0
         for (line in lines) {
             val o = parse(line) ?: continue
             if (o.isTrue("isSidechain") || o.isTrue("isMeta")) continue
+            if (until != null && o.str("uuid") == until) return out
             when (o.str("type")) {
                 "user" -> {
                     val prompt = promptText(o.obj("message")?.get("content"))
@@ -92,6 +96,7 @@ object SessionFiles {
                             addProperty("type", "historyUser")
                             addProperty("text", prompt)
                             o.str("timestamp")?.let { addProperty("timestamp", it) }
+                            if (withUuids) o.str("uuid")?.takeIf { Checkpoints.isUuid(it) }?.let { addProperty("uuid", it) }
                         })
                     } else out.addAll(StreamEvents.toPanel(o))
                 }

@@ -22,8 +22,9 @@ Everything below is **not started** unless marked otherwise.
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
-| 10 Sessions | ☑ 10a, 10b done (v0.23.3 tested 2026-11-01). 10c: History organizer and tab rename ok (v0.24.1). **v0.24.2: tab "×", third try, plus Ctrl+F4; waiting for your test**. Web tab (cloud / Remote Control sessions) moved to Phase 15 |
-| 11–16 | Not started |
+| 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
+| 11 Checkpoints, agents | **11a (checkpoints) v0.25.0: waiting for your test**. 11b (agent map, background tasks) next |
+| 12–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -426,12 +427,25 @@ a History row opens the same menu.
 v0.24.1 test: History menu, groups, archive, filters and tab rename all work; the tab "×" still didn't show. v0.24.2 sets the
 tab's actions after `addTab` (so the label builds its buttons), gives the close action an explicit always-visible update and
 the IDE's close/hover icons, and adds Ctrl+F4 inside the panel to close the current conversation tab.
+v0.24.2 test (2026-11-01): tab "×", Ctrl+F4 and everything else ok. 10c done.
 
 ### Phase 11 — Checkpoints, agents, background work (PARITY §G, §H)
 Fork from here, rewind code, fork + rewind; agent map (tree, status, time, tokens, transcript, stop), background tasks with live output,
 Run in background, `/tasks`.
 
 **Done when:** rewinding restores files, and a background subagent can be watched and stopped from the map.
+
+11a (v0.25.0), checkpoints. Protocol read from the CLI's own schema (claude 2.1.316):
+- The panel gives every prompt its own UUID (`"uuid"` on the stream-json user message; the CLI keeps it as the session
+  entry's uuid) and the CLI runs with `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true`, so every prompt is a restore point.
+- Hovering a prompt shows ↶ with: Fork conversation from here, Rewind code to here, Fork conversation and rewind code.
+  Prompts of resumed conversations get it too (their uuid comes from the session file).
+- Rewind: control request `rewind_files` with `dry_run` first; a native dialog lists the files (+/− lines) and says that
+  Bash and subagent changes aren't undone; then the real rewind, and the IDE refreshes those folders. The conversation stays.
+- Fork: a new tab shows the conversation up to that prompt and puts the prompt in the input box to edit; its process starts
+  on send with `--resume <id> --fork-session --resume-session-at <entry before the prompt>`. The original stays as it was.
+  Forking at the first prompt is a new conversation with that prompt in the box.
+- Refused (with a notice) while Claude is still answering, and for messages not in this tab's own session file.
 
 ### Phase 12 — Model, usage, status (PARITY §B, §I)
 Model picker with Effort and Ultracode, extended thinking toggle, context indicator, prompt-cache clock, `/usage` dialog (bars, recommendations + Fix, attribution),

@@ -8,6 +8,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.util.concurrency.AppExecutorUtil
 import dev.metaclaude.protocol.AuthToken
 import dev.metaclaude.protocol.BridgeLog
+import dev.metaclaude.protocol.Checkpoints
 import dev.metaclaude.protocol.HttpMcpServer
 import dev.metaclaude.protocol.McpDispatcher
 import dev.metaclaude.protocol.Permissions
@@ -41,6 +42,8 @@ class ChatSession(
     permissionMode: String = "default",
     allowBypass: Boolean = false,
     resumeId: String? = null,
+    /** Phase 11a: fork [resumeId] at this chain entry (`--fork-session --resume-session-at`), keeping what came before. */
+    forkAt: String? = null,
 ) : Disposable {
     private val tag = "${project.name}/panel"
     private val mcp = HttpMcpServer(
@@ -68,16 +71,18 @@ class ChatSession(
             "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--include-partial-messages",
             "--permission-mode", permissionMode,
-        ) + (resumeId?.let { listOf("--resume", it) } ?: emptyList()) + listOf(
+        ) + (if (resumeId != null && forkAt != null) Checkpoints.forkArgs(resumeId, forkAt)
+            else resumeId?.let { listOf("--resume", it) } ?: emptyList()) + listOf(
             "--permission-prompt-tool", "stdio",
             "--mcp-config", mcpConfig.toString(),
         ) + (settingsFile?.let { listOf("--settings", it.toString()) } ?: emptyList()) +
             (if (allowBypass) listOf("--allow-dangerously-skip-permissions") else emptyList())
         process = ProcessBuilder(cmd).directory(root.toFile()).apply {
             if (todoTools) environment()["CLAUDE_CODE_ENABLE_TODO_TOOLS"] = "1"
+            environment()[Checkpoints.ENV] = "true" // every prompt becomes a restore point (Phase 11a)
         }.start()
         stdin = process.outputStream.bufferedWriter(StandardCharsets.UTF_8)
-        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"}, mode $permissionMode${if (allowBypass) ", bypass allowed" else ""})", tag)
+        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"}, mode $permissionMode${if (allowBypass) ", bypass allowed" else ""}${if (forkAt != null) ", forked" else ""})", tag)
 
         thread(name = "claude-ui-chat-out", isDaemon = true) {
             runCatching {
@@ -137,10 +142,14 @@ class ChatSession(
         if (pending.remove(id) != null) resolved(id, "Cancelled")
     }
 
-    /** Our own control requests: only mode switches can fail in a way the user should see. */
+    /** Our own control requests: mode switches can fail in a way the user should see; rewinds wait for their answer. */
     private fun onControlResponse(event: JsonObject) {
         val r = event.getAsJsonObject("response") ?: return
         val id = r.get("request_id")?.asString ?: return
+        callbacks.remove(id)?.let { cb ->
+            val error = if (r.get("subtype")?.asString == "error") r.get("error")?.takeIf { it.isJsonPrimitive }?.asString ?: "unknown error" else null
+            return cb(if (error == null) r.get("response") as? JsonObject ?: JsonObject() else null, error)
+        }
         if (!modeRequests.remove(id)) return
         if (r.get("subtype")?.asString == "error") {
             val err = r.get("error")?.takeIf { it.isJsonPrimitive }?.asString?.take(300) ?: "unknown error"
@@ -223,18 +232,28 @@ class ChatSession(
         write(req)
     }
 
-    fun send(text: String) = write(JsonObject().apply {
+    /**
+     * A user turn with context blocks (open file, selection) before the prompt (Phase 9). [uuid] becomes the session entry's
+     * uuid: the restore point for rewind and fork (Phase 11a).
+     */
+    fun sendContent(content: com.google.gson.JsonArray, uuid: String? = null) = write(JsonObject().apply {
         addProperty("type", "user")
-        add("message", JsonObject().apply { addProperty("role", "user"); addProperty("content", text) })
-        add("parent_tool_use_id", null)
-    })
-
-    /** A user turn with context blocks (open file, selection) before the prompt (Phase 9). */
-    fun sendContent(content: com.google.gson.JsonArray) = write(JsonObject().apply {
-        addProperty("type", "user")
+        uuid?.let { addProperty("uuid", it) }
         add("message", JsonObject().apply { addProperty("role", "user"); add("content", content) })
         add("parent_tool_use_id", null)
     })
+
+    private val callbacks = java.util.concurrent.ConcurrentHashMap<String, (JsonObject?, String?) -> Unit>()
+
+    /** Phase 11a: restore (or, with [dryRun], only list) the files Claude changed since prompt [uuid]. [done] runs once. */
+    fun rewindFiles(uuid: String, dryRun: Boolean, done: (JsonObject?, String?) -> Unit) {
+        val req = control("rewind_files", Checkpoints.rewindRequest(uuid, dryRun))
+        val id = req.get("request_id").asString
+        callbacks[id] = done
+        write(req)
+        // Never wait forever: an old CLI or a dead process may not answer.
+        AppExecutorUtil.getAppScheduledExecutorService().schedule({ callbacks.remove(id)?.invoke(null, "Claude didn't answer") }, 30, TimeUnit.SECONDS)
+    }
 
     fun interrupt() = write(control("interrupt", JsonObject()))
 
@@ -265,6 +284,7 @@ class ChatSession(
 
     override fun dispose() {
         closed = true
+        callbacks.keys.toList().forEach { id -> callbacks.remove(id)?.invoke(null, "the session ended") }
         runCatching { stdin.close() } // the CLI exits when stdin closes
         val proc = process
         AppExecutorUtil.getAppExecutorService().execute {

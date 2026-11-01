@@ -94,12 +94,12 @@ class ChatTabs(private val project: Project) {
     }
 
     /** Opens a conversation tab; [resumeId] shows that session (the next message continues it). Returns the panel. */
-    fun newTab(resumeId: String?, continueLast: Boolean = false): ChatPanel? {
+    fun newTab(resumeId: String?, continueLast: Boolean = false, fork: ChatPanel.Fork? = null): ChatPanel? {
         val tw = toolWindow() ?: return null
         val bar = tabs ?: return null
-        open(resumeId)?.let { select(it); return it } // already open: switch to it (VS Code)
+        if (fork == null) open(resumeId)?.let { select(it); return it } // already open: switch to it (VS Code)
         val panel = try {
-            ChatPanel(project, tw.disposable, continueLast = continueLast, initialResume = resumeId)
+            ChatPanel(project, tw.disposable, continueLast = continueLast, initialResume = resumeId, initialFork = fork)
         } catch (e: Throwable) {
             BridgeLog.log("panel failed to open: ${e::class.java.name}: ${e.message}", project.name)
             return null
@@ -112,6 +112,9 @@ class ChatTabs(private val project: Project) {
         bar.select(info, true)
         return panel
     }
+
+    /** Phase 11a: a new tab with a fork of another conversation (never "already open": every fork is a new branch). */
+    fun newFork(fork: ChatPanel.Fork): ChatPanel? = newTab(null, fork = fork)
 
     /** Closes a tab: its process stops, its session can come back with Ctrl+Shift+T. Never leaves the window empty. */
     fun close(panel: ChatPanel) {

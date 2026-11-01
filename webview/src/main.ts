@@ -90,7 +90,56 @@ let showThinking = false; // Ctrl+O
 let turnTexts: string[] = []; // keys of this turn's text blocks, for Copy
 // A message as it will be sent: chips and attachments are taken when you press Enter, also for queued messages.
 type Img = { mediaType: string; data: string; name: string };
-type Outgoing = { text: string; files: string[]; images: Img[]; includeFile: boolean; includeSelection: boolean };
+type Outgoing = { text: string; files: string[]; images: Img[]; includeFile: boolean; includeSelection: boolean; uuid?: string };
+
+// ---------- checkpoints (Phase 11a) ----------
+/** A v4 UUID for each prompt: it becomes the prompt's restore point in the CLI (Kotlin checks the format again). */
+function newUuid(): string {
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+const CHECKPOINT_ACTIONS: [("fork" | "rewind" | "forkRewind"), string][] = [
+  ["fork", "Fork conversation from here"],
+  ["rewind", "Rewind code to here"],
+  ["forkRewind", "Fork conversation and rewind code"],
+];
+let openCheckpointMenu: HTMLElement | null = null;
+
+/** The ↶ button on a prompt (shown on hover) and its menu. Kotlin decides; rewinding asks in a native dialog. */
+function checkpointButton(uuid: string): HTMLElement {
+  const wrap = el("span", "checkpoint");
+  const button = el("button", "link-button checkpoint-button", "↶");
+  button.title = "Fork or rewind from this message";
+  const menu = el("div", "checkpoint-menu");
+  menu.hidden = true;
+  for (const [action, label] of CHECKPOINT_ACTIONS) {
+    const item = el("button", "mode-item", label);
+    item.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      menu.hidden = true;
+      openCheckpointMenu = null;
+      post({ type: "checkpoint", action, uuid });
+    });
+    menu.append(item);
+  }
+  button.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (busy) return;
+    if (openCheckpointMenu && openCheckpointMenu !== menu) openCheckpointMenu.hidden = true;
+    menu.hidden = !menu.hidden;
+    openCheckpointMenu = menu.hidden ? null : menu;
+  });
+  wrap.append(button, menu);
+  return wrap;
+}
+document.addEventListener("click", () => {
+  if (openCheckpointMenu) openCheckpointMenu.hidden = true;
+  openCheckpointMenu = null;
+});
 const queue: Outgoing[] = [];
 let attachedFiles: string[] = []; // dropped files (Phase 9b), sent as @mentions
 let attachedImages: Img[] = []; // pasted images (Phase 9b)
@@ -239,6 +288,7 @@ function dayLine(): void {
 function userMessage(o: Outgoing): void {
   dayLine();
   const m = el("div", "msg user");
+  if (o.uuid) m.append(checkpointButton(o.uuid));
   m.append(el("div", "user-text", o.text));
   if (o.images.length || o.files.length) {
     const att = el("div", "user-attachments");
@@ -265,6 +315,7 @@ function outgoing(text: string): Outgoing {
 }
 
 function dispatch(o: Outgoing): void {
+  o.uuid = newUuid();
   userMessage(o);
   turnTexts = [];
   setBusy(true);
@@ -273,6 +324,7 @@ function dispatch(o: Outgoing): void {
   post({
     type: "send",
     text,
+    uuid: o.uuid,
     includeFile: o.includeFile,
     includeSelection: o.includeSelection,
     images: o.images.map((i) => ({ mediaType: i.mediaType, data: i.data })),
@@ -440,6 +492,7 @@ focusButton.addEventListener("click", () => toggleFocus());
 
 // ---------- history (Phase 10, history.ts) ----------
 let resumedNote = "";
+let forkNote = false;
 const history = createHistory(() => closeHistory());
 transcript.before(history.view);
 function openHistory(): void {
@@ -703,10 +756,14 @@ function handle(msg: FromKotlin): void {
       break;
     case "historyLoaded":
       // Said at the end (historyEnd), where you look after the replay; at the top it scrolled out of sight (v0.22.0 test).
-      resumedNote = msg.automatic ? `Continuing "${msg.title}" (Settings > Tools > Clawed UI to turn this off).` : `Resumed "${msg.title}".`;
+      resumedNote = msg.fork
+        ? `Forked from "${msg.title}", before the message now in the box below. Edit it and send to continue on this new branch; the original conversation stays as it was.`
+        : msg.automatic ? `Continuing "${msg.title}" (Settings > Tools > Clawed UI to turn this off).` : `Resumed "${msg.title}".`;
+      forkNote = msg.fork === true;
       break;
     case "historyUser": {
       const m = el("div", "msg user");
+      if (msg.uuid) m.append(checkpointButton(msg.uuid));
       m.append(el("div", "user-text", msg.text));
       if (msg.timestamp) m.append(el("div", "time", new Date(msg.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" })));
       append(m, true);
@@ -715,8 +772,9 @@ function handle(msg: FromKotlin): void {
     }
     case "historyEnd":
       transcript.scrollTop = transcript.scrollHeight;
-      append(el("div", "notice", `${resumedNote} Your next message continues this conversation.`.trim()), true);
+      append(el("div", "notice", forkNote ? resumedNote : `${resumedNote} Your next message continues this conversation.`.trim()), true);
       resumedNote = "";
+      forkNote = false;
       break;
     case "toggleFocus":
       toggleFocus();

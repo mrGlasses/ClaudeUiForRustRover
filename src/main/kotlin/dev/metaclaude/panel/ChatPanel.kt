@@ -11,6 +11,7 @@ import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.Messages
 import dev.metaclaude.protocol.Permissions
+import dev.metaclaude.protocol.Checkpoints
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
 import dev.metaclaude.protocol.SessionFiles
@@ -64,7 +65,12 @@ class ChatPanel(
     private val continueLast: Boolean = false,
     /** A session to show right away (reopened tab, history opened in a new tab). */
     private val initialResume: String? = null,
+    /** Phase 11a: this tab is a fork of another conversation, from before one of its prompts. */
+    private val initialFork: Fork? = null,
 ) : Disposable {
+    /** Fork [sessionId] before prompt [prompt]: the new branch keeps the conversation up to [Checkpoints.Prompt.parentUuid]. */
+    data class Fork(val sessionId: String, val prompt: Checkpoints.Prompt, val title: String)
+
     /** Set by ChatTabs: this panel's tab, its full title and its dot. */
     @Volatile var tab: com.intellij.ui.tabs.TabInfo? = null
     @Volatile var fullTitle: String = ""
@@ -190,7 +196,8 @@ class ChatPanel(
             }, settingsMessage(), modeMessage()).also {
                 ApplicationManager.getApplication().invokeLater { contextTracker.push(force = true) }
                 AppExecutorUtil.getAppExecutorService().execute {
-                    if (initialResume != null) resume(initialResume, automatic = false)
+                    if (initialFork != null) showFork(initialFork)
+                    else if (initialResume != null) resume(initialResume, automatic = false)
                     else if (continueLast) continueAfterReload()
                 }
             }
@@ -203,6 +210,10 @@ class ChatPanel(
                 } else {
                     if (!titled) onEdt { titled = true; tabs.setTitle(this, text) } // a new chat is named after its first prompt
                     // The page says which chips are still on (the user can drop them with X); Kotlin reads the context itself.
+                    // Phase 11a: the page names each prompt (its restore point); anything that isn't a UUID gets a fresh one.
+                    val uuid = msg.get("uuid")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { Checkpoints.isUuid(it) }
+                        ?: java.util.UUID.randomUUID().toString()
+                    turnRunning = true
                     val withFile = msg.get("includeFile")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
                     val withSelection = msg.get("includeSelection")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
                     // Rule 4: pasted images are checked (type, base64, size, count) before they reach the CLI.
@@ -233,7 +244,7 @@ class ChatPanel(
                             terminals,
                             images,
                         )
-                        sessionOrStart()?.sendContent(content)
+                        sessionOrStart()?.sendContent(content, uuid) ?: run { turnRunning = false }
                     }
                 }
             }
@@ -242,6 +253,8 @@ class ChatPanel(
                 session?.let { Disposer.dispose(it) }
                 session = null
                 pendingResume = null
+                pendingFork = null
+                turnRunning = false
                 currentSessionId = null
                 mode = initialMode()
                 titled = false
@@ -310,6 +323,7 @@ class ChatPanel(
                 ApplicationManager.getApplication().invokeLater { openPlan(id) }
             }
             "setMode" -> setMode(msg.get("mode")?.takeIf { it.isJsonPrimitive }?.asString)
+            "checkpoint" -> checkpoint(msg)
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
     }
@@ -330,9 +344,12 @@ class ChatPanel(
         return try {
             ChatSession(project, exe, root.toRealPath(), this, todoTools = ClaudeUiSettings.instance.state.todoTools,
                 thinkingSummaries = ClaudeUiSettings.instance.state.thinkingSummaries,
-                permissionMode = mode, allowBypass = bypassAllowed(), resumeId = pendingResume.also { pendingResume = null },
+                permissionMode = mode, allowBypass = bypassAllowed(),
+                resumeId = (pendingFork?.sessionId ?: pendingResume).also { pendingResume = null },
+                forkAt = pendingFork?.prompt?.parentUuid.also { pendingFork = null },
                 onPanelMessage = { onSessionMessage(it) }, onExit = { code ->
                 session = null
+                turnRunning = false
                 send(JsonObject().apply {
                     addProperty("type", "error")
                     addProperty("message", "Claude stopped (exit code $code). Your next message starts a new session.")
@@ -496,6 +513,104 @@ class ChatPanel(
         }
     }
 
+    // ---------- checkpoints (Phase 11a) ----------
+
+    /** True from a send until its turn ends: rewinding or forking mid-turn would race with Claude's own edits. */
+    @Volatile private var turnRunning = false
+    /** A fork chosen in another tab: its process starts (with --fork-session) on the first message. */
+    @Volatile private var pendingFork: Fork? = null
+
+    private fun notice(text: String) = send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", text) })
+
+    /**
+     * Fork from here / Rewind code to here / both, from a prompt's menu. Rule 4: the action is one of three, the uuid is a
+     * UUID and must be one of your prompts in this tab's own session file. Rewinding needs a native confirmation (rule 5).
+     */
+    private fun checkpoint(msg: JsonObject) {
+        val action = msg.get("action")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it in Checkpoints.ACTIONS }
+        val uuid = msg.get("uuid")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { Checkpoints.isUuid(it) }
+        if (action == null || uuid == null) return BridgeLog.log("panel: refused checkpoint (bad action or id)", project.name)
+        AppExecutorUtil.getAppExecutorService().execute {
+            if (turnRunning) return@execute notice("Wait until Claude finishes (or stop it) before you rewind or fork.")
+            val sid = currentSessionId ?: pendingResume
+            val prompt = sid?.let { id -> history?.read(id) { Checkpoints.prompt(it, uuid) } }
+            if (sid == null || prompt == null) return@execute notice("This message isn't saved in this conversation, so there's nothing to go back to.")
+            BridgeLog.log("panel: checkpoint '$action' requested", project.name)
+            when (action) {
+                "fork" -> openFork(sid, prompt)
+                else -> rewind(prompt) { if (action == "forkRewind") openFork(sid, prompt) }
+            }
+        }
+    }
+
+    /** Background thread. Dry run first, then the native confirmation listing the files, then the real rewind. */
+    private fun rewind(prompt: Checkpoints.Prompt, then: () -> Unit) {
+        val s = sessionOrStart() ?: return
+        ApplicationManager.getApplication().invokeAndWait { com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().saveAllDocuments() }
+        s.rewindFiles(prompt.uuid, dryRun = true) { payload, error ->
+            val preview = Checkpoints.result(payload, error)
+            when {
+                !preview.canRewind -> {
+                    BridgeLog.log("panel: rewind not possible: ${preview.error ?: "no reason given"}", project.name)
+                    notice("Can't rewind code to this message: ${preview.error ?: "it has no checkpoint (sent before checkpoints were on?)"}.")
+                }
+                preview.files.isEmpty() && preview.insertions + preview.deletions == 0 -> {
+                    notice("No files to restore: Claude didn't change files with its edit tools after this message.")
+                    then()
+                }
+                else -> onEdt {
+                    val yes = Messages.showYesNoDialog(
+                        project, Checkpoints.confirmText(preview, prompt.text, fork = false), "Rewind Code",
+                        "Rewind", Messages.getCancelButton(), Messages.getWarningIcon(),
+                    ) == Messages.YES
+                    if (!yes) return@onEdt
+                    s.rewindFiles(prompt.uuid, dryRun = false) { p2, e2 ->
+                        val done = Checkpoints.result(p2, e2)
+                        if (!done.canRewind) {
+                            BridgeLog.log("panel: rewind failed: ${done.error}", project.name)
+                            return@rewindFiles notice("Rewind failed: ${done.error ?: "unknown error"}.")
+                        }
+                        val files = done.files.ifEmpty { preview.files }
+                        BridgeLog.log("panel: rewound ${files.size} file(s)", project.name)
+                        refresh(files)
+                        notice("Restored ${files.size} file${if (files.size == 1) "" else "s"} to how they were before \"${Checkpoints.short(prompt.text, 60)}\".")
+                        then()
+                    }
+                }
+            }
+        }
+    }
+
+    /** The IDE sees the restored files at once (and drops the ones the rewind deleted). */
+    private fun refresh(files: List<String>) {
+        val root = project.basePath?.let { Path.of(it) }
+        val fs = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+        // The folders that hold them, so files the rewind deleted disappear too.
+        val dirs = files.mapNotNull { f -> runCatching { Path.of(f).let { if (it.isAbsolute || root == null) it else root.resolve(it) }.parent }.getOrNull() }
+            .distinct().take(200).mapNotNull { fs.findFileByNioFile(it) }
+        if (dirs.isNotEmpty()) com.intellij.openapi.vfs.VfsUtil.markDirtyAndRefresh(true, false, true, *dirs.toTypedArray())
+    }
+
+    /** A new tab continuing [sessionId] from before [prompt], with the prompt in the input box to edit. */
+    private fun openFork(sessionId: String, prompt: Checkpoints.Prompt) {
+        val title = project.service<SessionNotes>().notes().titles[sessionId] ?: history?.read(sessionId) { SessionFiles.summarize(sessionId, it, 0L)?.title } ?: "conversation"
+        onEdt { tabs.newFork(Fork(sessionId, prompt, title)) }
+    }
+
+    /** Background thread, in the fork's own tab: what the branch keeps, then the prompt to edit. */
+    private fun showFork(fork: Fork) {
+        val kept = if (fork.prompt.parentUuid == null) emptyList()
+            else history?.read(fork.sessionId) { SessionFiles.transcript(it, until = fork.prompt.uuid, withUuids = false) } ?: return
+        pendingFork = fork.takeIf { it.prompt.parentUuid != null }
+        BridgeLog.log("panel: fork opened (${kept.size} items kept)", project.name)
+        send(JsonObject().apply { addProperty("type", "sessionReset") })
+        send(JsonObject().apply { addProperty("type", "historyLoaded"); addProperty("title", fork.title); addProperty("automatic", false); addProperty("fork", true) })
+        onEdt { titled = true; tabs.setTitle(this, "Fork: ${fork.title}") }
+        kept.forEach { send(it) }
+        send(JsonObject().apply { addProperty("type", "historyEnd") })
+        send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", fork.prompt.text) })
+    }
+
     // ---------- permissions (Phase 8) ----------
 
     private fun initialMode() = ClaudeUiSettings.instance.state.initialPermissionMode?.takeIf { it in Permissions.MODES } ?: "default"
@@ -511,7 +626,7 @@ class ChatPanel(
                 ?.takeIf { it.isNotEmpty() }?.let { mode = it }
         }
         if (type == "sessionInfo") m.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString?.let { rememberSession(it) }
-        if (type == "turnEnd") currentSessionId?.let { rememberSession(it) }
+        if (type == "turnEnd") { turnRunning = false; currentSessionId?.let { rememberSession(it) } }
         // Tab dot: blue while a permission waits; orange when a turn ends and you aren't looking at this tab.
         when (type) {
             "permission" -> { m.get("requestId")?.asString?.let { pendingRequests.add(it) }; onEdt { tabs.setStatus(this, ChatTabs.Status.NEEDS_INPUT) } }

@@ -120,9 +120,9 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Hover a message → Fork conversation from here | Stream/CLI | ☐ |
-| Rewind code to here | Stream/CLI | ☐ |
-| Fork conversation and rewind code | Stream/CLI | ☐ |
+| Hover a message → Fork conversation from here | Stream/CLI | ◐ v0.25.0, waiting for test |
+| Rewind code to here | Stream/CLI | ◐ v0.25.0, waiting for test |
+| Fork conversation and rewind code | Stream/CLI | ◐ v0.25.0, waiting for test |
 
 ## H. Agents and background work — Phase 11
 

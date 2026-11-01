@@ -3,7 +3,7 @@
 
 export type ToKotlin =
   | { type: "ready" }
-  | { type: "send"; text: string; includeFile?: boolean; includeSelection?: boolean; images?: { mediaType: string; data: string }[] }
+  | { type: "send"; text: string; uuid?: string; includeFile?: boolean; includeSelection?: boolean; images?: { mediaType: string; data: string }[] }
   | { type: "interrupt" }
   | { type: "newSession" }
   | { type: "openLink"; url: string }
@@ -28,7 +28,8 @@ export type ToKotlin =
   | { type: "sessionAction"; action: "rename" | "archive" | "unarchive" | "setGroup"; sessionId?: string; ids?: string[]; value?: string }
   | { type: "groupAction"; action: "create" | "rename" | "delete"; name: string; newName?: string }
   | { type: "resume"; sessionId: string }
-  | { type: "export"; mode: "file" | "copy" };
+  | { type: "export"; mode: "file" | "copy" }
+  | { type: "checkpoint"; action: "fork" | "rewind" | "forkRewind"; uuid: string };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
@@ -54,8 +55,8 @@ export type FromKotlin =
   | { type: "insertText"; text: string }
   | { type: "attachFiles"; paths: string[] }
   | { type: "historyItems"; items: import("./history").HistoryItem[]; groups?: string[]; filter?: string }
-  | { type: "historyLoaded"; title: string; automatic: boolean }
-  | { type: "historyUser"; text: string; timestamp?: string }
+  | { type: "historyLoaded"; title: string; automatic: boolean; fork?: boolean }
+  | { type: "historyUser"; text: string; timestamp?: string; uuid?: string }
   | { type: "historyEnd" }
   | { type: "mentionResults"; seq: number; items: string[] }
   | { type: "signIn" }
