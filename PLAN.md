@@ -22,7 +22,7 @@ Everything below is **not started** unless marked otherwise.
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
-| 10 Sessions | ☑ 10a done (v0.22.1 tested 2026-11-01). 10b: tabs and switching ok (v0.23.0). **v0.23.1: close button and dots; waiting for your test**. 10c: rename, archive, auto-archive, groups, filters |
+| 10 Sessions | ☑ 10a done (v0.22.1 tested 2026-11-01). 10b: tabs, dots, close and reopen ok (v0.23.1). **v0.23.2: switcher for tabs that don't fit; waiting for your test**. 10c: rename, archive, auto-archive, groups, filters |
 | 11–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -403,6 +403,9 @@ restart. Alt+K goes to the selected tab.
 v0.23.0 test (2026-11-01): new tab, naming and switching to an open conversation work. Tabs had no close button: the tool
 window needs `canCloseContents="true"` in its declaration. The dots never showed: tool window tabs hide content icons unless
 the content has `ToolWindow.SHOW_CONTENT_ICON`. Both fixed in v0.23.1.
+v0.23.1 test: dots, close and Ctrl+Shift+T work. Found: with 3 tabs and long names one tab (usually the first) could not be
+reached. v0.23.2: tab names are cut at 18 characters (the full title shows on hover), and a list button next to "+" opens
+"Open Conversations", every open tab with its full title and state, to switch to any of them.
 
 ### Phase 11 — Checkpoints, agents, background work (PARITY §G, §H)
 Fork from here, rewind code, fork + rewind; agent map (tree, status, time, tokens, transcript, stop), background tasks with live output,

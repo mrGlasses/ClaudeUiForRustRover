@@ -38,11 +38,19 @@ class ChatTabs(private val project: Project) {
     fun install(toolWindow: ToolWindow) {
         if (installed) return
         installed = true
-        toolWindow.setTitleActions(listOf(object : DumbAwareAction("New Conversation", "Open a new Claude conversation in a tab", AllIcons.General.Add) {
-            override fun actionPerformed(e: AnActionEvent) {
-                newTab(null)
-            }
-        }))
+        toolWindow.setTitleActions(listOf(
+            object : DumbAwareAction("New Conversation", "Open a new Claude conversation in a tab", AllIcons.General.Add) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    newTab(null)
+                }
+            },
+            // With several long tab names the tool window can't show every tab (v0.23.1 test: the first one was unreachable).
+            object : DumbAwareAction("Open Conversations", "Switch to any open conversation tab", AllIcons.Actions.ListFiles) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    showSwitcher(e)
+                }
+            },
+        ))
         toolWindow.contentManager.addContentManagerListener(object : ContentManagerListener {
             override fun selectionChanged(event: ContentManagerEvent) {
                 val p = panelOf(event.content) ?: return
@@ -93,6 +101,28 @@ class ChatTabs(private val project: Project) {
     fun open(sessionId: String?): ChatPanel? =
         if (sessionId == null) null else panels().firstOrNull { it.sessionForReopen() == sessionId }
 
+    /** A list of every open conversation tab (full titles, dots shown as text), to pick one. */
+    private fun showSwitcher(e: AnActionEvent) {
+        val tw = toolWindow() ?: return
+        val contents = tw.contentManager.contents.filter { panelOf(it) != null }
+        if (contents.isEmpty()) return
+        val label = { c: Content ->
+            val mark = when (panelOf(c)?.status) { Status.NEEDS_INPUT -> "● waiting · "; Status.DONE_UNSEEN -> "● done · "; else -> "" }
+            mark + (c.description?.takeIf { it.isNotBlank() } ?: c.displayName ?: NEW_TITLE)
+        }
+        val popup = com.intellij.openapi.ui.popup.JBPopupFactory.getInstance().createPopupChooserBuilder(contents)
+            .setTitle("Open Conversations")
+            .setRenderer(object : com.intellij.ui.ColoredListCellRenderer<Content>() { // SimpleListCellRenderer.create is scheduled for removal
+                override fun customizeCellRenderer(list: javax.swing.JList<out Content>, value: Content?, index: Int, selected: Boolean, hasFocus: Boolean) {
+                    append(value?.let(label) ?: "")
+                }
+            })
+            .setItemChosenCallback { c -> tw.contentManager.setSelectedContent(c, true) }
+            .createPopup()
+        val component = e.inputEvent?.component
+        if (component != null) popup.showUnderneathOf(component) else popup.showInFocusCenter()
+    }
+
     fun reopenClosed() {
         val id = closed.removeLastOrNull() ?: return
         newTab(id)
@@ -121,7 +151,7 @@ class ChatTabs(private val project: Project) {
 
     fun setTitle(panel: ChatPanel, title: String) {
         val t = title.lineSequence().first().trim()
-        panel.content?.displayName = if (t.length > 28) t.take(27) + "…" else t.ifEmpty { NEW_TITLE }
+        panel.content?.displayName = if (t.length > 18) t.take(17) + "…" else t.ifEmpty { NEW_TITLE }
         panel.content?.description = t
     }
 
