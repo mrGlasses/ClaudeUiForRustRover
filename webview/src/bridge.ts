@@ -24,7 +24,9 @@ export type ToKotlin =
   | { type: "openDiff"; requestId: string }
   | { type: "openPlan"; requestId: string }
   | { type: "mentionQuery"; query: string; seq: number }
-  | { type: "historyList"; query: string }
+  | { type: "historyList"; query: string; filter?: string }
+  | { type: "sessionAction"; action: "rename" | "archive" | "unarchive" | "setGroup"; sessionId?: string; ids?: string[]; value?: string }
+  | { type: "groupAction"; action: "create" | "rename" | "delete"; name: string; newName?: string }
   | { type: "resume"; sessionId: string }
   | { type: "export"; mode: "file" | "copy" };
 
@@ -51,7 +53,7 @@ export type FromKotlin =
   | { type: "context"; file?: string; showFile?: boolean; startLine?: number; endLine?: number; textShared?: boolean }
   | { type: "insertText"; text: string }
   | { type: "attachFiles"; paths: string[] }
-  | { type: "historyItems"; items: { id: string; title: string; modified: number; prompts: number; current: boolean }[] }
+  | { type: "historyItems"; items: import("./history").HistoryItem[]; groups?: string[]; filter?: string }
   | { type: "historyLoaded"; title: string; automatic: boolean }
   | { type: "historyUser"; text: string; timestamp?: string }
   | { type: "historyEnd" }

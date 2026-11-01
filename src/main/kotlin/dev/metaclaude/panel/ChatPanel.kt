@@ -14,6 +14,7 @@ import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
 import dev.metaclaude.protocol.SessionFiles
+import dev.metaclaude.protocol.SessionOrganizer
 import dev.metaclaude.protocol.CliPaths as CliPathsForDrop
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ide.CopyPasteManager
@@ -274,8 +275,11 @@ class ChatPanel(
             "permissionAnswer" -> permissionAnswer(msg)
             "historyList" -> {
                 val q = msg.get("query")?.takeIf { it.isJsonPrimitive }?.asString?.take(200) ?: ""
-                AppExecutorUtil.getAppExecutorService().execute { sendHistory(q) }
+                val filter = runCatching { SessionOrganizer.Filter.valueOf(msg.get("filter")?.asString ?: "ACTIVE") }.getOrDefault(SessionOrganizer.Filter.ACTIVE)
+                AppExecutorUtil.getAppExecutorService().execute { sendHistory(q, filter) }
             }
+            "sessionAction" -> sessionAction(msg)
+            "groupAction" -> groupAction(msg)
             "resume" -> msg.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString?.let { id ->
                 AppExecutorUtil.getAppExecutorService().execute { resume(id, automatic = false) }
             }
@@ -354,23 +358,77 @@ class ChatPanel(
     }
 
     /** Background thread. */
-    private fun sendHistory(query: String) {
-        val items = runCatching { history?.search(query) ?: emptyList() }.getOrDefault(emptyList())
+    private fun sendHistory(query: String, filter: SessionOrganizer.Filter = lastFilter) {
+        lastFilter = filter
+        lastQuery = query
+        val sessions = runCatching { history?.search(query) ?: emptyList() }.getOrDefault(emptyList())
         val current = currentSessionId ?: pendingResume
+        var openIds = emptySet<String>()
+        ApplicationManager.getApplication().invokeAndWait { openIds = tabs.openSessions() }
+        val notes = project.service<SessionNotes>().notes()
+        val items = SessionOrganizer.view(sessions, notes, openIds, filter, System.currentTimeMillis(), ClaudeUiSettings.instance.state.archiveInactiveSessions)
         send(JsonObject().apply {
             addProperty("type", "historyItems")
+            addProperty("filter", filter.name)
+            add("groups", com.google.gson.JsonArray().apply { notes.groups.forEach { add(it) } })
             add("items", com.google.gson.JsonArray().apply {
-                items.take(200).forEach { s ->
+                items.take(300).forEach { s ->
                     add(JsonObject().apply {
                         addProperty("id", s.id)
                         addProperty("title", s.title)
                         addProperty("modified", s.modified)
                         addProperty("prompts", s.prompts)
                         addProperty("current", s.id == current)
+                        addProperty("open", s.open)
+                        addProperty("archived", s.archived)
+                        addProperty("autoArchived", s.autoArchived)
+                        s.group?.let { addProperty("group", it) }
                     })
                 }
             })
         })
+    }
+
+    @Volatile private var lastFilter = SessionOrganizer.Filter.ACTIVE
+    @Volatile private var lastQuery = ""
+
+    /** Rename / archive / unarchive / move to group. Rule 4: only this project's sessions, only known groups, bounded names. */
+    private fun sessionAction(msg: JsonObject) {
+        val ids = ((msg.get("ids") as? com.google.gson.JsonArray)?.mapNotNull { it.takeIf { e -> e.isJsonPrimitive }?.asString }
+            ?: listOfNotNull(msg.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString)).take(300)
+        val action = msg.get("action")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        val value = msg.get("value")?.takeIf { it.isJsonPrimitive }?.asString
+        AppExecutorUtil.getAppExecutorService().execute {
+            val h = history ?: return@execute
+            val notes = project.service<SessionNotes>()
+            ids.filter { h.exists(it) }.forEach { id ->
+                when (action) {
+                    "rename" -> {
+                        val title = SessionOrganizer.cleanName(value)
+                        notes.rename(id, title)
+                        onEdt { tabs.open(id)?.let { p -> tabs.setTitle(p, title ?: (h.read(id) { SessionFiles.summarize(id, it, 0L)?.title } ?: ChatTabs.NEW_TITLE)) } }
+                    }
+                    "archive" -> notes.setArchived(id, true)
+                    "unarchive" -> notes.setArchived(id, false)
+                    "setGroup" -> notes.setGroup(id, SessionOrganizer.cleanName(value))
+                }
+            }
+            sendHistory(lastQuery)
+        }
+    }
+
+    private fun groupAction(msg: JsonObject) {
+        val action = msg.get("action")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        val name = SessionOrganizer.cleanName(msg.get("name")?.takeIf { it.isJsonPrimitive }?.asString) ?: return
+        val newName = SessionOrganizer.cleanName(msg.get("newName")?.takeIf { it.isJsonPrimitive }?.asString)
+        val notes = project.service<SessionNotes>()
+        when (action) {
+            "create" -> notes.createGroup(name)
+            "rename" -> newName?.let { notes.renameGroup(name, it) }
+            "delete" -> notes.deleteGroup(name)
+            else -> return
+        }
+        AppExecutorUtil.getAppExecutorService().execute { sendHistory(lastQuery) }
     }
 
     /** Background thread. Rule 4: only an id that is one of this project's session files. */
@@ -385,7 +443,7 @@ class ChatPanel(
         if (elsewhere) return
         if (id == currentSessionId && session != null) return
         val transcript = h.read(id) { SessionFiles.transcript(it) } ?: return
-        val title = h.read(id) { SessionFiles.summarize(id, it, 0L)?.title } ?: id
+        val title = project.service<SessionNotes>().notes().titles[id] ?: h.read(id) { SessionFiles.summarize(id, it, 0L)?.title } ?: id
         session?.let { s -> ApplicationManager.getApplication().invokeAndWait { Disposer.dispose(s) } }
         session = null
         pendingResume = id

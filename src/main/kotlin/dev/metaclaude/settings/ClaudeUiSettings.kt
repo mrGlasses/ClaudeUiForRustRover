@@ -46,6 +46,8 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var autosave by property(true)
         /** VS Code `continueAfterReload`: reopen the last conversation when the panel opens, if it was active < 10 min ago. */
         var continueAfterReload by property(true)
+        /** VS Code `archiveInactiveSessions`: days without activity before a conversation counts as archived (0 = never). */
+        var archiveInactiveSessions by property(0)
     }
 
     var integrationMode: IntegrationMode

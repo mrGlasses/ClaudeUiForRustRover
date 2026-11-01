@@ -116,6 +116,9 @@ class ChatTabs(private val project: Project) {
     fun open(sessionId: String?): ChatPanel? =
         if (sessionId == null) null else panels().firstOrNull { it.sessionForReopen() == sessionId }
 
+    /** Sessions shown in open tabs (for the history's Open filter). */
+    fun openSessions(): Set<String> = panels().mapNotNull { it.sessionForReopen() }.toSet()
+
     /** The tab you're looking at. */
     fun selected(): ChatPanel? = panelOf(tabs?.selectedInfo)
 

@@ -94,6 +94,11 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                 checkBox("Continue the last conversation after a restart").bindSelected(settings.state::continueAfterReload)
                     .comment("When the chat panel opens and your last conversation here was active in the last 10 minutes.")
             }
+            row("Archive conversations idle for:") {
+                comboBox(listOf(0, 1, 2, 7, 14), DaysRenderer())
+                    .bindItem({ settings.state.archiveInactiveSessions }, { settings.state.archiveInactiveSessions = it ?: 0 })
+                    .comment("They move to History > Archived. Bringing one back keeps it out of auto-archive.")
+            }
         }
     }
 
@@ -125,6 +130,13 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                 ModalityState.any(),
             )
         }
+    }
+}
+
+/** "Never", "1 day", "7 days". */
+private class DaysRenderer : com.intellij.ui.ColoredListCellRenderer<Int>() {
+    override fun customizeCellRenderer(list: javax.swing.JList<out Int>, value: Int?, index: Int, selected: Boolean, hasFocus: Boolean) {
+        append(when (value) { null, 0 -> "Never"; 1 -> "1 day"; else -> "$value days" })
     }
 }
 

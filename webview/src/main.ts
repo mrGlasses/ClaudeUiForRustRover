@@ -5,6 +5,7 @@
 import { onMessage, post, type FromKotlin } from "./bridge";
 import { renderMarkdown } from "./markdown";
 import { clearCards, modeControl, pendingCount, permissionCard, resolveCard } from "./permissions";
+import { createHistory, type HistoryItem } from "./history";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -437,75 +438,20 @@ document.addEventListener("keydown", (ev) => {
 newButton.addEventListener("click", () => post({ type: "newSession" }));
 focusButton.addEventListener("click", () => toggleFocus());
 
-// ---------- history (Phase 10) ----------
-const historyView = el("div", "history");
-historyView.hidden = true;
-const historySearch = el("input", "history-search");
-historySearch.type = "search";
-historySearch.placeholder = "Search conversations…";
-const historyClose = el("button", "link-button", "Close");
-const historyBar = el("div", "history-bar");
-historyBar.append(historySearch, historyClose);
-const historyList = el("div", "history-list");
-historyView.append(historyBar, historyList);
-transcript.before(historyView);
-
-let historyTimer = 0;
+// ---------- history (Phase 10, history.ts) ----------
 let resumedNote = "";
+const history = createHistory(() => closeHistory());
+transcript.before(history.view);
 function openHistory(): void {
-  historyView.hidden = false;
   transcript.hidden = true;
-  historyList.replaceChildren(el("div", "notice", "Loading…"));
-  post({ type: "historyList", query: historySearch.value });
-  historySearch.focus();
+  history.open();
 }
 function closeHistory(): void {
-  historyView.hidden = true;
+  history.view.hidden = true;
   transcript.hidden = false;
   input.focus();
 }
-historyButton.addEventListener("click", () => (historyView.hidden ? openHistory() : closeHistory()));
-historyClose.addEventListener("click", closeHistory);
-historySearch.addEventListener("input", () => {
-  clearTimeout(historyTimer);
-  historyTimer = window.setTimeout(() => post({ type: "historyList", query: historySearch.value }), 250);
-});
-historySearch.addEventListener("keydown", (ev) => {
-  if (ev.key === "Escape") {
-    ev.stopPropagation();
-    closeHistory();
-  }
-});
-
-function ago(ms: number): string {
-  const s = (Date.now() - ms) / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  const d = new Date(ms);
-  return s < 7 * 86400 ? `${Math.floor(s / 86400)} d ago` : d.toLocaleDateString();
-}
-
-function renderHistory(items: { id: string; title: string; modified: number; prompts: number; current: boolean }[]): void {
-  if (items.length === 0) {
-    historyList.replaceChildren(el("div", "notice", historySearch.value ? "No conversation matches." : "No past conversations in this project yet."));
-    return;
-  }
-  historyList.replaceChildren(
-    ...items.map((it) => {
-      const row = el("button", `history-item${it.current ? " current" : ""}`);
-      row.append(
-        el("span", "history-title", it.title),
-        el("span", "history-meta", `${ago(it.modified)} · ${it.prompts} message${it.prompts === 1 ? "" : "s"}${it.current ? " · open" : ""}`),
-      );
-      row.addEventListener("click", () => {
-        closeHistory();
-        post({ type: "resume", sessionId: it.id });
-      });
-      return row;
-    }),
-  );
-}
+historyButton.addEventListener("click", () => (history.view.hidden ? openHistory() : closeHistory()));
 
 // ---------- Focus view ----------
 function toggleFocus(): void {
@@ -753,7 +699,7 @@ function handle(msg: FromKotlin): void {
       break;
     }
     case "historyItems":
-      renderHistory(msg.items);
+      history.render(msg.items, msg.groups ?? [], msg.filter ?? "ACTIVE");
       break;
     case "historyLoaded":
       // Said at the end (historyEnd), where you look after the replay; at the top it scrolled out of sight (v0.22.0 test).
