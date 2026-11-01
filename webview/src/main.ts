@@ -9,6 +9,7 @@ import { createHistory, type HistoryItem } from "./history";
 import { createAgentMap } from "./agents";
 import { createModelBar } from "./modelbar";
 import { installTooltips } from "./tooltip";
+import { moreMenu, statusCard, usageCard } from "./account";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -31,7 +32,7 @@ const newButton = el("button", "link-button", "New session");
 const headerButtons = el("span", "header-buttons");
 const historyButton = el("button", "link-button", "History");
 historyButton.title = "Past conversations in this project";
-headerButtons.append(historyButton, focusButton, newButton);
+headerButtons.append(historyButton, focusButton, newButton, moreMenu((command) => void panelCommand(command)));
 const modes = modeControl();
 const headerLeft = el("span", "header-left");
 headerLeft.append(status, modes.node);
@@ -163,6 +164,10 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "resume", hint: "open the conversation history" },
   { name: "tasks", hint: "show agents and background tasks" },
   { name: "model", hint: "pick the model, effort and extended thinking" },
+  { name: "usage", hint: "plan limits, this session's cost, what uses your limits" },
+  { name: "status", hint: "versions, account, model, MCP servers" },
+  { name: "bug", hint: "report a Claude Code problem (/bug plugin: a Clawed UI problem)" },
+  { name: "logout", hint: "sign out of Claude Code" },
 ];
 
 function setBusy(b: boolean): void {
@@ -457,6 +462,22 @@ function panelCommand(text: string): boolean {
     toggleFocus();
     return true;
   }
+  if (text === "/usage") {
+    post({ type: "usage" });
+    return true;
+  }
+  if (text === "/status") {
+    post({ type: "status" });
+    return true;
+  }
+  if (text === "/logout") {
+    post({ type: "signOut" });
+    return true;
+  }
+  if (text === "/bug" || text === "/feedback" || text === "/bug plugin") {
+    post({ type: "reportProblem", kind: text === "/bug plugin" ? "plugin" : "claude" });
+    return true;
+  }
   if (text === "/model") {
     modelBar.open();
     return true;
@@ -510,6 +531,7 @@ newButton.addEventListener("click", () => post({ type: "newSession" }));
 focusButton.addEventListener("click", () => toggleFocus());
 
 // ---------- history (Phase 10, history.ts) ----------
+let usageNote: HTMLElement | null = null;
 let resumedNote = "";
 let forkNote = false;
 const history = createHistory(() => closeHistory());
@@ -792,6 +814,28 @@ function handle(msg: FromKotlin): void {
       turnTexts = [];
       break;
     }
+    case "usageLoading":
+      usageNote?.remove();
+      usageNote = el("div", "notice", "Reading usage… (the first time it scans this week's transcripts, which can take a few seconds)");
+      append(usageNote, true);
+      break;
+    case "usageReport":
+      usageNote?.remove();
+      usageNote = null;
+      append(usageCard(msg), true);
+      break;
+    case "statusReport":
+      append(statusCard(msg), true);
+      break;
+    case "queueMessages":
+      // "Fix" from /usage: the CLI's own messages, sent one after another like typed ones.
+      for (const text of msg.texts) {
+        const o: Outgoing = { text, files: [], images: [], includeFile: false, includeSelection: false };
+        if (busy || queue.length) queue.push(o);
+        else dispatch(o);
+      }
+      renderQueue();
+      break;
     case "historyEnd":
       transcript.scrollTop = transcript.scrollHeight;
       append(el("div", "notice", forkNote ? resumedNote : `${resumedNote} Your next message continues this conversation.`.trim()), true);

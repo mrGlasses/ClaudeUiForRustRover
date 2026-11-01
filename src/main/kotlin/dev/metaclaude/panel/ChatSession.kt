@@ -61,6 +61,11 @@ class ChatSession(
     private val process: Process
     private val stdin: BufferedWriter
     private var counter = 0
+    /** Answers to our own control requests, by request id (declared before init: initialize uses it). */
+    private val callbacks = java.util.concurrent.ConcurrentHashMap<String, (JsonObject?, String?) -> Unit>()
+    /** Phase 12b: the `initialize` answer's `account` (who is signed in), for /status. */
+    @Volatile var account: JsonObject? = null
+        private set
     @Volatile private var closed = false
     val bypassAllowedAtStart = allowBypass
 
@@ -96,7 +101,7 @@ class ChatSession(
             // stderr is for errors; log only a short head of each line (no message bodies expected here).
             runCatching { process.errorStream.bufferedReader(StandardCharsets.UTF_8).forEachLine { BridgeLog.log("chat stderr: ${it.take(200)}", tag) } }
         }
-        write(control("initialize", JsonObject().apply { add("hooks", null) }))
+        request("initialize", JsonObject().apply { add("hooks", null) }) { payload, _ -> account = payload?.get("account") as? JsonObject }
     }
 
     private fun onLine(line: String) {
@@ -243,41 +248,44 @@ class ChatSession(
         add("parent_tool_use_id", null)
     })
 
-    private val callbacks = java.util.concurrent.ConcurrentHashMap<String, (JsonObject?, String?) -> Unit>()
-
     /** Phase 11a: restore (or, with [dryRun], only list) the files Claude changed since prompt [uuid]. [done] runs once. */
     fun rewindFiles(uuid: String, dryRun: Boolean, done: (JsonObject?, String?) -> Unit) =
-        request("rewind_files", Checkpoints.rewindRequest(uuid, dryRun), done)
+        request("rewind_files", Checkpoints.rewindRequest(uuid, dryRun), done = done)
 
     /** Phase 11b: stop a running task (subagent, background command, monitor). */
     fun stopTask(taskId: String, done: (JsonObject?, String?) -> Unit) =
-        request("stop_task", JsonObject().apply { addProperty("task_id", taskId) }, done)
+        request("stop_task", JsonObject().apply { addProperty("task_id", taskId) }, done = done)
 
     /** Phase 11b: send one running tool call (Bash, Agent) to the background, like Ctrl+B in the terminal. */
     fun backgroundTool(toolUseId: String, done: (JsonObject?, String?) -> Unit) =
-        request("background_tasks", JsonObject().apply { addProperty("tool_use_id", toolUseId) }, done)
+        request("background_tasks", JsonObject().apply { addProperty("tool_use_id", toolUseId) }, done = done)
 
     /** Phase 11b: the last 8 KiB a shell or monitor task wrote. */
     fun taskOutput(taskId: String, done: (JsonObject?, String?) -> Unit) =
-        request("get_task_output", JsonObject().apply { addProperty("task_id", taskId) }, done)
+        request("get_task_output", JsonObject().apply { addProperty("task_id", taskId) }, done = done)
 
     /** Phase 12a: model, effort, Ultracode, thinking and context, each a control request answered once to [done]. */
-    fun listModels(done: (JsonObject?, String?) -> Unit) = request("list_models", JsonObject(), done)
-    fun getSettings(done: (JsonObject?, String?) -> Unit) = request("get_settings", JsonObject(), done)
+    fun listModels(done: (JsonObject?, String?) -> Unit) = request("list_models", JsonObject(), done = done)
+    fun getSettings(done: (JsonObject?, String?) -> Unit) = request("get_settings", JsonObject(), done = done)
     fun contextUsage(done: (JsonObject?, String?) -> Unit) =
-        request("get_context_usage", JsonObject().apply { addProperty("detail", "summary") }, done)
-    fun setModel(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("set_model", body, done)
-    fun applyFlagSettings(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("apply_flag_settings", body, done)
-    fun setThinking(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("set_max_thinking_tokens", body, done)
+        request("get_context_usage", JsonObject().apply { addProperty("detail", "summary") }, done = done)
+    fun setModel(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("set_model", body, done = done)
+    fun applyFlagSettings(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("apply_flag_settings", body, done = done)
+    fun setThinking(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("set_max_thinking_tokens", body, done = done)
+
+    /** Phase 12b: `/usage` and `/status`. */
+    fun getUsage(done: (JsonObject?, String?) -> Unit) = request("get_usage", JsonObject(), timeoutSeconds = 120, done = done) // scans a week of transcripts
+    fun binaryVersion(done: (JsonObject?, String?) -> Unit) = request("get_binary_version", JsonObject(), done = done)
+    fun mcpStatus(done: (JsonObject?, String?) -> Unit) = request("mcp_status", JsonObject(), done = done)
 
     /** A control request whose answer (payload, or error text) goes to [done], exactly once. */
-    private fun request(subtype: String, body: JsonObject, done: (JsonObject?, String?) -> Unit) {
+    private fun request(subtype: String, body: JsonObject, timeoutSeconds: Long = 30, done: (JsonObject?, String?) -> Unit) {
         val req = control(subtype, body)
         val id = req.get("request_id").asString
         callbacks[id] = done
         write(req)
         // Never wait forever: an old CLI or a dead process may not answer.
-        AppExecutorUtil.getAppScheduledExecutorService().schedule({ callbacks.remove(id)?.invoke(null, "Claude didn't answer") }, 30, TimeUnit.SECONDS)
+        AppExecutorUtil.getAppScheduledExecutorService().schedule({ callbacks.remove(id)?.invoke(null, "Claude didn't answer") }, timeoutSeconds, TimeUnit.SECONDS)
     }
 
     fun interrupt() = write(control("interrupt", JsonObject()))

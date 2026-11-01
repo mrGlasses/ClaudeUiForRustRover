@@ -32,6 +32,11 @@ export type ToKotlin =
   | { type: "checkpoint"; action: "fork" | "rewind" | "forkRewind"; uuid: string }
   | { type: "taskAction"; action: "stop" | "output" | "background"; id: string }
   | { type: "modelMenu" }
+  | { type: "usage" }
+  | { type: "usageFix"; period: "day" | "week" }
+  | { type: "status" }
+  | { type: "signOut" }
+  | { type: "reportProblem"; kind: "claude" | "plugin" }
   | { type: "modelSet"; what: "model" | "effort" | "ultracode" | "thinking"; value: string | boolean };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
@@ -68,6 +73,10 @@ export type FromKotlin =
   | { type: "notice"; text: string }
   | { type: "turnEnd"; stopReason: string; costUsd?: number; durationMs?: number; isError: boolean; cacheTtlMin?: number }
   | ({ type: "modelState" | "contextUsage" } & Record<string, unknown>)
+  | { type: "usageLoading" }
+  | ({ type: "usageReport" } & import("./account").UsageReport)
+  | ({ type: "statusReport" } & import("./account").StatusReport)
+  | { type: "queueMessages"; texts: string[] }
   | { type: "sessionReset" }
   | ({ type: "agentTaskStarted" | "agentTaskProgress" | "agentTaskUpdated" | "agentTaskEnded" | "agentTasksLive" | "agentTasksGone" | "agentActivity" | "agentTaskOutput" } & Record<string, unknown>)
   | { type: "error"; message: string };

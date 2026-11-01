@@ -24,7 +24,7 @@ Everything below is **not started** unless marked otherwise.
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
-| 12 Model, usage, status | 12a (model picker, effort, Ultracode, thinking, context, cache clock) ok in v0.27.0 except tooltips; **v0.27.1: the page's own tooltips, waiting for your test**. 12b (`/usage`, `/status`, sign out, report a problem) next |
+| 12 Model, usage, status | 12a ok (v0.27.0 tested 2026-11-01); v0.27.1 tooltips to test with 12b. **12b (`/usage`, `/status`, sign out, report a problem) v0.28.0: waiting for your test** |
 | 13–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -478,6 +478,18 @@ Model picker with Effort and Ultracode, extended thinking toggle, context indica
 v0.27.0 test (2026-11-01): all ok except that no tooltip appeared (the context meter's). JCEF in the IDE never shows the
 native `title` tooltip, so no tooltip in the panel ever worked. v0.27.1 draws its own (`tooltip.ts`, text only) for every
 element with a `title`.
+
+12b (v0.28.0), the header's "•••" menu and panel commands (`UsageReport`):
+- `/usage`: a card with the plan's limit bars (5 hours, week, per model, extra usage) and when they reset, this session's cost,
+  API time and lines, and "What's using your limits" for the last 24 hours / 7 days (behaviors, recommendations, most-used
+  agents, skills, plugins, MCP servers). "Fix" sends the CLI's own suggested messages (`fix.messages`, e.g. `/effort high`)
+  as your next messages; Kotlin sends only those. Data: `get_usage` (experimental in the CLI; every field optional here).
+- `/status`: Clawed UI, IDE and Claude Code versions, folder, account (from the `initialize` answer), model and effort,
+  MCP servers with their state (`get_binary_version`, `get_settings`, `mcp_status`).
+- `/logout` (Sign out): native confirmation, then `claude auth logout`; the session stops.
+- `/bug` (`/feedback`): Claude Code's `/bug` is interactive, so it opens a Claude terminal tab to type it there.
+  `/bug plugin`: a new GitHub issue for Clawed UI with the versions filled in (no conversation text).
+  (`submit_feedback` exists in the CLI but is marked internal, so it isn't used.)
 
 ### Phase 13 — Customize dialogs (PARITY §I)
 Slash commands browser and `/skills` visibility, output styles (+ build custom), hooks editor, permissions editor, memory, instructions (CLAUDE.md),

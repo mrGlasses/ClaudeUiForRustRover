@@ -38,10 +38,10 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Paste text stays visible; invisible-character notices | UI/CLI | 7 | ☐ |
 | `/` command menu with inline suggestions | Stream/CLI | 7 | ◐ v0.17.0: panel commands + the CLI's `slash_commands` (after the first message) |
 | Permission mode indicator (Auto / Manual / Plan / Edit automatically / Bypass) | Stream | 8 | ◐ v0.18.0: header menu, follows the CLI |
-| Model name button and picker, Effort row, Ultracode switch, `/model` | Stream | 12 | ◐ v0.27.0, waiting for test |
-| Extended thinking toggle | Stream | 12 | ◐ v0.27.0, waiting for test |
-| Context indicator and `/compact` | Stream | 12 | ◐ v0.27.0, waiting for test |
-| Prompt cache clock (minutes left, red when expired) | Stream | 12 | ◐ v0.27.0, waiting for test |
+| Model name button and picker, Effort row, Ultracode switch, `/model` | Stream | 12 | ☑ v0.27.0 |
+| Extended thinking toggle | Stream | 12 | ☑ v0.27.0 |
+| Context indicator and `/compact` | Stream | 12 | ☑ v0.27.0 (tooltip fixed in v0.27.1, waiting for test) |
+| Prompt cache clock (minutes left, red when expired) | Stream | 12 | ☑ v0.27.0 |
 | Agent count and agent map | Stream | 11 | ☑ v0.26.0 |
 | Side questions `/btw` in a panel beside the chat (newest 20 exchanges kept) | Stream | 14 | ☐ |
 
@@ -143,15 +143,15 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Permissions rules viewer/editor (Allow / Ask / Deny) | CLI | ☐ |
 | Memory: auto memory on/off, browse, read, edit, delete, reveal folder | CLI | ☐ |
 | Instructions: open or create CLAUDE.md files | UI/CLI | ☐ |
-| `/status` (version, account, model, MCP) | CLI | ☐ |
+| `/status` (version, account, model, MCP) | CLI | ◐ v0.28.0 (card in the panel), waiting for test |
 | `/sandbox` (mode, excluded commands) | CLI | ☐ |
 | `/chrome` (Claude in Chrome connection) | CLI | ☐ |
 | `/mcp` dialog: add, remove, enable/disable, reconnect, OAuth | CLI | ☐ |
 | `/plugins` dialog: installed toggles, scopes, config form, uninstall, marketplaces tab | CLI | ☐ |
 | Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ☐ |
 | Enable Remote Control for all sessions (`remoteControlAtStartup`) | CLI | ☐ |
-| Sign out (`/logout`), Report a problem (`/bug`, `/feedback`) | CLI | ☐ |
-| `/usage` dialog (plan bars, recommendations + Fix button, attribution, Day/Week) | CLI | ☐ |
+| Sign out (`/logout`), Report a problem (`/bug`, `/feedback`) | CLI | ◐ v0.28.0: `claude auth logout` after a native confirmation; `/bug` in a Claude terminal tab, or a GitHub issue for the plugin; waiting for test |
+| `/usage` dialog (plan bars, recommendations + Fix button, attribution, Day/Week) | CLI | ◐ v0.28.0 (card in the panel), waiting for test |
 
 ## J. IDE bridge (terminal sessions) — Phases 1–3
 

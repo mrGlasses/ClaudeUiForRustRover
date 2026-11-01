@@ -13,6 +13,7 @@ import com.intellij.openapi.ui.Messages
 import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.Checkpoints
 import dev.metaclaude.protocol.ModelControls
+import dev.metaclaude.protocol.UsageReport
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
 import dev.metaclaude.protocol.SessionFiles
@@ -329,6 +330,11 @@ class ChatPanel(
             "taskAction" -> taskAction(msg)
             "modelMenu" -> AppExecutorUtil.getAppExecutorService().execute { sessionOrStart()?.let { refreshModelState(it) } }
             "modelSet" -> modelSet(msg)
+            "usage" -> AppExecutorUtil.getAppExecutorService().execute { usage() }
+            "usageFix" -> usageFix(msg.get("period")?.takeIf { it.isJsonPrimitive }?.asString)
+            "status" -> AppExecutorUtil.getAppExecutorService().execute { status() }
+            "signOut" -> ApplicationManager.getApplication().invokeLater { signOut() }
+            "reportProblem" -> reportProblem(msg.get("kind")?.takeIf { it.isJsonPrimitive }?.asString)
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
     }
@@ -518,6 +524,91 @@ class ChatPanel(
             runCatching { java.nio.file.Files.writeString(target.file.toPath(), text) }
                 .onSuccess { send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Saved to ${target.file.name}.") }) }
                 .onFailure { send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Couldn't save: ${it.message}") }) }
+        }
+    }
+
+    // ---------- usage, status, sign out, report a problem (Phase 12b) ----------
+
+    /** The last `get_usage` answer: "Fix" sends only the messages the CLI itself proposed there (rule 4). */
+    @Volatile private var lastUsage: JsonObject? = null
+
+    /** Background thread. `/usage`: plan limits, this session, and what used them (day / week). */
+    private fun usage() {
+        val s = sessionOrStart() ?: return
+        send(JsonObject().apply { addProperty("type", "usageLoading") })
+        s.getUsage { payload, err ->
+            lastUsage = payload
+            if (err != null) BridgeLog.log("panel: get_usage failed: ${err.take(200)}", project.name)
+            send(UsageReport.usage(payload).apply { err?.let { addProperty("error", it.take(300)) } })
+        }
+    }
+
+    /** "Fix": the CLI's own messages for that period go out as your next messages, in order. */
+    private fun usageFix(period: String?) {
+        if (period !in UsageReport.PERIODS) return
+        val messages = UsageReport.fixMessages(lastUsage, period!!)
+        if (messages.isEmpty()) return BridgeLog.log("panel: refused usage fix (nothing to fix)", project.name)
+        BridgeLog.log("panel: usage fix (${messages.size} message(s))", project.name)
+        send(JsonObject().apply {
+            addProperty("type", "queueMessages")
+            add("texts", com.google.gson.JsonArray().apply { messages.forEach { add(it) } })
+        })
+    }
+
+    /** Background thread. `/status`: versions, account, model, MCP servers. */
+    private fun status() {
+        val s = sessionOrStart() ?: return
+        val ide = ApplicationInfo.getInstance().build.asString()
+        s.binaryVersion { version, _ ->
+            s.getSettings { settings, _ ->
+                s.mcpStatus { mcp, _ ->
+                    send(UsageReport.status(PluginInfo.version, ide, s.account, version, settings, mcp, project.basePath))
+                }
+            }
+        }
+    }
+
+    /** EDT. Native confirmation (rule 5), then `claude auth logout`; the session stops, the next message asks to sign in. */
+    private fun signOut() {
+        val yes = Messages.showYesNoDialog(
+            project, "Sign out of Claude Code on this computer?\n\nThis signs out every Claude Code session (terminal too). " +
+                "To sign in again, use the sign-in card or run /login in a Claude terminal tab.",
+            "Sign Out", "Sign Out", Messages.getCancelButton(), Messages.getQuestionIcon(),
+        ) == Messages.YES
+        if (!yes) return
+        AppExecutorUtil.getAppExecutorService().execute {
+            val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath) ?: return@execute notice("Claude CLI not found.")
+            session?.let { s -> ApplicationManager.getApplication().invokeAndWait { Disposer.dispose(s) } }
+            session = null
+            clearTasks()
+            val ok = runCatching {
+                val p = ProcessBuilder(exe, "auth", "logout").redirectErrorStream(true).start()
+                p.inputStream.readAllBytes() // nothing logged: it may name the account
+                p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS) && p.exitValue() == 0
+            }.getOrDefault(false)
+            BridgeLog.log("panel: sign out ${if (ok) "done" else "failed"}", project.name)
+            notice(if (ok) "Signed out. Your next message shows the sign-in card." else "Sign out didn't work: run `claude auth logout` in a terminal.")
+        }
+    }
+
+    /**
+     * "Report a problem": Claude Code's own `/bug` is interactive, so it runs in a Claude terminal tab; a problem with this
+     * plugin opens a new GitHub issue with the versions filled in (no conversation text).
+     */
+    private fun reportProblem(kind: String?) {
+        when (kind) {
+            "claude" -> {
+                project.service<MetaClaudeService>().startSession()
+                notice("A Claude terminal tab is opening: type /bug there to send a report to Anthropic. It asks before it includes a transcript.")
+            }
+            "plugin" -> {
+                val body = "**What happened**\n\n\n**What you expected**\n\n\n---\nClawed UI ${PluginInfo.version}, " +
+                    "${ApplicationInfo.getInstance().fullApplicationName} (${ApplicationInfo.getInstance().build.asString()}), " +
+                    "${System.getProperty("os.name")} ${System.getProperty("os.version")}"
+                val q = { v: String -> java.net.URLEncoder.encode(v, Charsets.UTF_8) }
+                BrowserUtil.browse("$ISSUES_URL?title=${q("[Clawed UI] ")}&body=${q(body)}")
+            }
+            else -> BridgeLog.log("panel: refused reportProblem", project.name)
         }
     }
 
@@ -964,6 +1055,7 @@ ${themeCss()}</style></head><body><div id="app"></div>
 
     companion object {
         private const val MAX_PROMPT = 100_000
+        private const val ISSUES_URL = "https://github.com/mrGlasses/ClaudeUiForRustRover/issues/new"
         private const val MAX_COPY = 2_000_000
         private const val LAST_SESSION_KEY = "clawed.ui.lastSession"
         private const val LAST_ACTIVE_KEY = "clawed.ui.lastActive"
