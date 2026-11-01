@@ -56,7 +56,25 @@ import javax.swing.KeyStroke
  *  3. no navigation (request handler cancels it)       4. closed, validated JS → Kotlin message set (handle())
  *  6. DevTools menu item disabled. (5, native confirmation, applies once risky actions exist: Phase 8.)
  */
-class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
+class ChatPanel(
+    private val project: Project,
+    parent: Disposable,
+    /** Only the tool window's first tab may bring back the last conversation after a restart. */
+    private val continueLast: Boolean = false,
+    /** A session to show right away (reopened tab, history opened in a new tab). */
+    private val initialResume: String? = null,
+) : Disposable {
+    /** Set by ChatTabs: this panel's tab, and its dot. */
+    @Volatile var content: com.intellij.ui.content.Content? = null
+    @Volatile var status: ChatTabs.Status = ChatTabs.Status.NONE
+    private var titled = false
+    private val pendingRequests = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val tabs get() = project.service<ChatTabs>()
+
+    /** The session this tab shows (for reopen-closed and "already open in another tab"). */
+    fun sessionForReopen(): String? = currentSessionId ?: pendingResume
+
+    private fun onEdt(block: () -> Unit) = ApplicationManager.getApplication().invokeLater { if (!project.isDisposed) block() }
     private val browser: JBCefBrowser = JBCefBrowser.createBuilder()
         .setEnableOpenDevToolsMenuItem(false)
         .build()
@@ -124,6 +142,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         // keymap while the panel has focus.
         panelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK), "toggleThinking")
         panelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK or InputEvent.ALT_DOWN_MASK), "toggleFocus")
+        // Ctrl+Shift+T: reopen the last closed conversation tab (VS Code: Reopen Closed Session).
+        panelShortcutAction(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK or InputEvent.SHIFT_DOWN_MASK)) { tabs.reopenClosed() }
 
         toKotlin.addHandler { json -> handle(json); null }
         openPanels.add(this)
@@ -165,7 +185,10 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 addProperty("ideBuild", ApplicationInfo.getInstance().build.asString())
             }, settingsMessage(), modeMessage()).also {
                 ApplicationManager.getApplication().invokeLater { contextTracker.push(force = true) }
-                AppExecutorUtil.getAppExecutorService().execute { continueAfterReload() }
+                AppExecutorUtil.getAppExecutorService().execute {
+                    if (initialResume != null) resume(initialResume, automatic = false)
+                    else if (continueLast) continueAfterReload()
+                }
             }
             // Sign-in card: signing in is interactive, so it happens in a Claude terminal tab (`/login` there).
             "signIn" -> project.service<MetaClaudeService>().startSession()
@@ -174,6 +197,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 if (text.isNullOrEmpty() || text.length > MAX_PROMPT) {
                     BridgeLog.log("panel: refused send (empty or over $MAX_PROMPT chars)", project.name)
                 } else {
+                    if (!titled) onEdt { titled = true; tabs.setTitle(this, text) } // a new chat is named after its first prompt
                     // The page says which chips are still on (the user can drop them with X); Kotlin reads the context itself.
                     val withFile = msg.get("includeFile")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
                     val withSelection = msg.get("includeSelection")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
@@ -216,6 +240,8 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
                 pendingResume = null
                 currentSessionId = null
                 mode = initialMode()
+                titled = false
+                onEdt { tabs.setTitle(this, ChatTabs.NEW_TITLE); tabs.setStatus(this, ChatTabs.Status.NONE) }
                 send(modeMessage())
                 send(JsonObject().apply { addProperty("type", "sessionReset") })
             }
@@ -350,6 +376,12 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
     private fun resume(id: String, automatic: Boolean) {
         val h = history ?: return
         if (!h.exists(id)) return BridgeLog.log("panel: refused resume (no such session here)", project.name)
+        // Already open in another tab: go there instead of opening it twice (VS Code's "switch to its tab").
+        var elsewhere = false
+        ApplicationManager.getApplication().invokeAndWait {
+            tabs.open(id)?.takeIf { it !== this }?.let { other -> elsewhere = true; tabs.select(other) }
+        }
+        if (elsewhere) return
         if (id == currentSessionId && session != null) return
         val transcript = h.read(id) { SessionFiles.transcript(it) } ?: return
         val title = h.read(id) { SessionFiles.summarize(id, it, 0L)?.title } ?: id
@@ -361,6 +393,7 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         BridgeLog.log("panel: resumed session ${if (automatic) "after reload" else "from history"} (${transcript.size} items)", project.name)
         send(JsonObject().apply { addProperty("type", "sessionReset") })
         send(JsonObject().apply { addProperty("type", "historyLoaded"); addProperty("title", title); addProperty("automatic", automatic) })
+        onEdt { titled = true; tabs.setTitle(this, title) }
         transcript.forEach { send(it) }
         send(JsonObject().apply { addProperty("type", "historyEnd") })
     }
@@ -418,6 +451,18 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         }
         if (type == "sessionInfo") m.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString?.let { rememberSession(it) }
         if (type == "turnEnd") currentSessionId?.let { rememberSession(it) }
+        // Tab dot: blue while a permission waits; orange when a turn ends and you aren't looking at this tab.
+        when (type) {
+            "permission" -> { m.get("requestId")?.asString?.let { pendingRequests.add(it) }; onEdt { tabs.setStatus(this, ChatTabs.Status.NEEDS_INPUT) } }
+            "permissionResolved" -> {
+                m.get("requestId")?.asString?.let { pendingRequests.remove(it) }
+                if (pendingRequests.isEmpty()) onEdt { if (status == ChatTabs.Status.NEEDS_INPUT) tabs.setStatus(this, ChatTabs.Status.NONE) }
+            }
+            "turnEnd" -> onEdt {
+                pendingRequests.clear()
+                tabs.setStatus(this, if (tabs.isShowing(this)) ChatTabs.Status.NONE else ChatTabs.Status.DONE_UNSEEN)
+            }
+        }
         if (type == "permissionResolved") {
             val id = m.get("requestId").asString
             ApplicationManager.getApplication().invokeLater { diffs.close(id); plans.close(id) }
@@ -539,6 +584,13 @@ class ChatPanel(private val project: Project, parent: Disposable) : Disposable {
         }
     }
 
+    private fun panelShortcutAction(key: KeyStroke, action: () -> Unit) {
+        object : DumbAwareAction() {
+            override fun actionPerformed(e: AnActionEvent) = action()
+            override fun getActionUpdateThread() = ActionUpdateThread.BGT
+        }.registerCustomShortcutSet(CustomShortcutSet(key), browser.component, this)
+    }
+
     private fun panelShortcut(key: KeyStroke, messageType: String) {
         object : DumbAwareAction() {
             override fun actionPerformed(e: AnActionEvent) = send(JsonObject().apply { addProperty("type", messageType) })
@@ -610,7 +662,9 @@ ${themeCss()}</style></head><body><div id="app"></div>
         fun insertMention(project: Project, text: String): Boolean {
             val window = com.intellij.openapi.wm.ToolWindowManager.getInstance(project).getToolWindow("Claude Chat")
             if (window?.isVisible != true) return false
-            val panel = openPanels.firstOrNull { it.project == project } ?: return false
+            val selected = window.contentManager.selectedContent
+            val panel = openPanels.firstOrNull { it.project == project && it.content == selected }
+                ?: openPanels.firstOrNull { it.project == project } ?: return false
             panel.send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", text) })
             window.activate(null)
             return true

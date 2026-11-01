@@ -100,18 +100,18 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Feature | Via | Status |
 |---|---|---|
 | Session history: search by keyword, browse by time | CLI session files | ◐ v0.22.0 |
-| Resume a conversation (switch to its tab if already open) | Stream (`--resume`) | ◐ v0.22.0 (one conversation at a time until 10b) |
+| Resume a conversation (switch to its tab if already open) | Stream (`--resume`) | ☑ v0.23.0 |
 | AI-generated session titles | CLI | ☐ |
 | Rename, archive, unarchive (one or all) | UI/CLI | ☐ |
 | Auto-archive after N days, `archiveInactiveSessions` (1/2/7/14/0) | UI | ☐ |
 | Session groups (create, move, multi-select, rename, delete; per workspace) | UI | ☐ |
 | Filters: Active toggle; Needs input / Working / Completed / Open / Closed | UI | ☐ |
-| Multiple conversations: Open in New Tab / New Window | UI | ☐ |
-| Status dot on tabs (blue = permission pending, orange = finished while hidden) | UI | ☐ |
-| Reopen Closed Session (Ctrl+Shift+T) | UI | ☐ |
+| Multiple conversations: Open in New Tab / New Window | UI | ◐ v0.23.0: tabs in the tool window; no editor-tab or new-window placement yet |
+| Status dot on tabs (blue = permission pending, orange = finished while hidden) | UI | ◐ v0.23.0 |
+| Reopen Closed Session (Ctrl+Shift+T) | UI | ◐ v0.23.0 (inside the panel) |
 | Continue after reload (editor tabs always; sidebar if active < 10 min), `continueAfterReload` | UI + Stream | ◐ v0.22.0 (panel, < 10 min) |
 | "Not reopened" guard after two failed opens | UI | ☐ |
-| "Still open somewhere else" guard with "Open here anyway" | UI | ☐ |
+| "Still open somewhere else" guard with "Open here anyway" | UI | ◐ v0.23.0: switches to the open tab; no "Open here anyway" |
 | Mark Session as Unread, Add Session Tab to Group, Rename Session Tab | UI | ☐ |
 | `/export` (copy or save to file) | CLI | ☑ v0.22.0 |
 | Web tab: resume cloud sessions and Remote Control sessions from claude.ai | CLI | ☐ |

@@ -22,7 +22,7 @@ Everything below is **not started** unless marked otherwise.
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
-| 10 Sessions | 10a tested (v0.22.0). **v0.22.1: resume notes; waiting for your test**. 10b: several conversations, status dots, reopen closed, rename / archive / groups / filters |
+| 10 Sessions | ☑ 10a done (v0.22.1 tested 2026-11-01). **10b written (v0.23.0): conversation tabs, tab dots, reopen closed, switch to an open tab; waiting for your test**. 10c: rename, archive, auto-archive, groups, filters |
 | 11–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -391,6 +391,15 @@ reload"). Two fixes in v0.22.1: the "Resumed …" note was at the top of a long 
 together with "Your next message continues this conversation"; and a reply cut off by closing the IDE isn't in the session
 file (the CLI saves finished blocks only), so the replay now ends with "Claude's reply to the last message didn't finish …"
 when the conversation stops after your prompt or mid-tool.
+v0.22.1 test (2026-11-01): note at the end, interrupted reply flagged, "continue" resumes it. 10a done.
+
+10b (v0.23.0): the "Claude Chat" tool window holds several conversations, one tab per conversation, each with its own `claude`
+process (`panel/ChatTabs.kt`, a project service). "+" in the tool window title opens a new tab; a tab is named after its
+first prompt (or the resumed conversation's title); closing the last tab opens a fresh one. Tab dots like VS Code: blue while
+a permission waits for you, orange when a turn ends in a tab you aren't looking at (cleared when you open it). Ctrl+Shift+T
+inside the panel reopens the last closed conversation (up to 20 remembered). Opening a conversation that is already open in
+another tab switches to that tab instead of opening it twice. Only the first tab continues the last conversation after a
+restart. Alt+K goes to the selected tab.
 
 ### Phase 11 — Checkpoints, agents, background work (PARITY §G, §H)
 Fork from here, rewind code, fork + rewind; agent map (tree, status, time, tokens, transcript, stop), background tasks with live output,
