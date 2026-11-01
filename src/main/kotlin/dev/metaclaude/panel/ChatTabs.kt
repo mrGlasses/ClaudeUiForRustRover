@@ -79,6 +79,8 @@ class ChatTabs(private val project: Project) {
         }
         val content = ContentFactory.getInstance().createContent(panel.component, NEW_TITLE, false)
         content.isCloseable = true
+        // Tool window tabs hide content icons unless asked (v0.23.0 test: the dots never showed).
+        content.putUserData(ToolWindow.SHOW_CONTENT_ICON, true)
         content.setDisposer(panel)
         content.putUserData(PANEL, panel)
         panel.content = content

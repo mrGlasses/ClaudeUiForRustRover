@@ -22,7 +22,7 @@ Everything below is **not started** unless marked otherwise.
 | 8 Permissions and review | ☑ Done (8a v0.18.1, 8b v0.19.1, tested 2026-10-31) |
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
-| 10 Sessions | ☑ 10a done (v0.22.1 tested 2026-11-01). **10b written (v0.23.0): conversation tabs, tab dots, reopen closed, switch to an open tab; waiting for your test**. 10c: rename, archive, auto-archive, groups, filters |
+| 10 Sessions | ☑ 10a done (v0.22.1 tested 2026-11-01). 10b: tabs and switching ok (v0.23.0). **v0.23.1: close button and dots; waiting for your test**. 10c: rename, archive, auto-archive, groups, filters |
 | 11–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -400,6 +400,9 @@ a permission waits for you, orange when a turn ends in a tab you aren't looking 
 inside the panel reopens the last closed conversation (up to 20 remembered). Opening a conversation that is already open in
 another tab switches to that tab instead of opening it twice. Only the first tab continues the last conversation after a
 restart. Alt+K goes to the selected tab.
+v0.23.0 test (2026-11-01): new tab, naming and switching to an open conversation work. Tabs had no close button: the tool
+window needs `canCloseContents="true"` in its declaration. The dots never showed: tool window tabs hide content icons unless
+the content has `ToolWindow.SHOW_CONTENT_ICON`. Both fixed in v0.23.1.
 
 ### Phase 11 — Checkpoints, agents, background work (PARITY §G, §H)
 Fork from here, rewind code, fork + rewind; agent map (tree, status, time, tokens, transcript, stop), background tasks with live output,
