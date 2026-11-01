@@ -120,18 +120,18 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Hover a message → Fork conversation from here | Stream/CLI | ◐ v0.25.0, waiting for test |
-| Rewind code to here | Stream/CLI | ◐ v0.25.0, waiting for test |
-| Fork conversation and rewind code | Stream/CLI | ◐ v0.25.0, waiting for test |
+| Hover a message → Fork conversation from here | Stream/CLI | ☑ v0.25.0 |
+| Rewind code to here | Stream/CLI | ☑ v0.25.0 |
+| Fork conversation and rewind code | Stream/CLI | ☑ v0.25.0 |
 
 ## H. Agents and background work — Phase 11
 
 | Feature | Via | Status |
 |---|---|---|
-| Agent map (tree, status, elapsed time, tokens, prompt, tool calls, transcript, stop) | Stream | ☐ |
-| Background tasks in the map (shells, monitors, latest output) | Stream | ☐ |
-| "Run in background" under a long command or subagent | Stream | ☐ |
-| `/tasks` | Stream/CLI | ☐ |
+| Agent map (tree, status, elapsed time, tokens, prompt, tool calls, transcript, stop) | Stream | ◐ v0.26.0, waiting for test |
+| Background tasks in the map (shells, monitors, latest output) | Stream | ◐ v0.26.0, waiting for test |
+| "Run in background" under a long command or subagent | Stream | ◐ v0.26.0, waiting for test |
+| `/tasks` | Stream/CLI | ◐ v0.26.0 (panel command: shows the map), waiting for test |
 
 ## I. Customize dialogs — Phase 13
 

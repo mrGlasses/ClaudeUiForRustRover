@@ -6,6 +6,7 @@ import { onMessage, post, type FromKotlin } from "./bridge";
 import { renderMarkdown } from "./markdown";
 import { clearCards, modeControl, pendingCount, permissionCard, resolveCard } from "./permissions";
 import { createHistory, type HistoryItem } from "./history";
+import { createAgentMap } from "./agents";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -73,7 +74,8 @@ composer.append(input, sendButton);
 // Phase 9: chips for what goes with the next message (open file, selection); X drops one until the editor changes.
 const chips = el("div", "chips");
 chips.hidden = true;
-root.append(header, transcript, todoBox, queueBox, slashMenu, chips, composer);
+const agentMap = createAgentMap();
+root.append(header, transcript, agentMap.node, todoBox, queueBox, slashMenu, chips, composer);
 
 // ---------- state ----------
 let busy = false;
@@ -152,6 +154,7 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "focus", hint: "toggle Focus view" },
   { name: "export", hint: "save this conversation as Markdown (/export copy: copy it)" },
   { name: "resume", hint: "open the conversation history" },
+  { name: "tasks", hint: "show agents and background tasks" },
 ];
 
 function setBusy(b: boolean): void {
@@ -446,6 +449,10 @@ function panelCommand(text: string): boolean {
     toggleFocus();
     return true;
   }
+  if (text === "/tasks") {
+    if (!agentMap.show()) append(el("div", "notice", "No agents or background tasks in this conversation yet."));
+    return true;
+  }
   return false;
 }
 
@@ -638,6 +645,7 @@ function turnFooter(parts: string[]): HTMLElement {
 
 // ---------- receiving ----------
 function handle(msg: FromKotlin): void {
+  if (msg.type.startsWith("agent") && agentMap.handle(msg as { type: string } & Record<string, unknown>)) return;
   switch (msg.type) {
     case "hello":
       status.textContent = "Ready";
@@ -795,6 +803,15 @@ function handle(msg: FromKotlin): void {
     case "toolUse": {
       const card = el("div", "tool");
       card.append(el("span", "tool-name", msg.name), el("span", "tool-summary", msg.summary), el("span", "tool-state", "…"));
+      if (msg.canBackground) {
+        // Phase 11b: like Ctrl+B in the terminal, for this one call; Kotlin checks it's still running.
+        const bg = el("button", "link-button tool-bg", "Run in background");
+        bg.addEventListener("click", () => {
+          bg.remove();
+          post({ type: "taskAction", action: "background", id: msg.id });
+        });
+        card.append(bg);
+      }
       toolCards.set(msg.id, card);
       append(card);
       break;
@@ -802,6 +819,7 @@ function handle(msg: FromKotlin): void {
     case "toolResult": {
       const card = toolCards.get(msg.toolUseId);
       if (!card) break;
+      card.querySelector(".tool-bg")?.remove();
       card.classList.add(msg.isError ? "error" : "done");
       card.querySelector(".tool-state")!.textContent = msg.isError ? "✗" : "✓";
       if (msg.preview) {
@@ -843,6 +861,7 @@ function handle(msg: FromKotlin): void {
       tasks.clear();
       pendingTasks.clear();
       showTodos([]);
+      agentMap.clear();
       transcript.replaceChildren(empty);
       model = "";
       setBusy(false);

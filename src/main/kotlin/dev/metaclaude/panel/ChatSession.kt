@@ -246,8 +246,24 @@ class ChatSession(
     private val callbacks = java.util.concurrent.ConcurrentHashMap<String, (JsonObject?, String?) -> Unit>()
 
     /** Phase 11a: restore (or, with [dryRun], only list) the files Claude changed since prompt [uuid]. [done] runs once. */
-    fun rewindFiles(uuid: String, dryRun: Boolean, done: (JsonObject?, String?) -> Unit) {
-        val req = control("rewind_files", Checkpoints.rewindRequest(uuid, dryRun))
+    fun rewindFiles(uuid: String, dryRun: Boolean, done: (JsonObject?, String?) -> Unit) =
+        request("rewind_files", Checkpoints.rewindRequest(uuid, dryRun), done)
+
+    /** Phase 11b: stop a running task (subagent, background command, monitor). */
+    fun stopTask(taskId: String, done: (JsonObject?, String?) -> Unit) =
+        request("stop_task", JsonObject().apply { addProperty("task_id", taskId) }, done)
+
+    /** Phase 11b: send one running tool call (Bash, Agent) to the background, like Ctrl+B in the terminal. */
+    fun backgroundTool(toolUseId: String, done: (JsonObject?, String?) -> Unit) =
+        request("background_tasks", JsonObject().apply { addProperty("tool_use_id", toolUseId) }, done)
+
+    /** Phase 11b: the last 8 KiB a shell or monitor task wrote. */
+    fun taskOutput(taskId: String, done: (JsonObject?, String?) -> Unit) =
+        request("get_task_output", JsonObject().apply { addProperty("task_id", taskId) }, done)
+
+    /** A control request whose answer (payload, or error text) goes to [done], exactly once. */
+    private fun request(subtype: String, body: JsonObject, done: (JsonObject?, String?) -> Unit) {
+        val req = control(subtype, body)
         val id = req.get("request_id").asString
         callbacks[id] = done
         write(req)
@@ -267,6 +283,7 @@ class ChatSession(
         }
     }
 
+    @Synchronized
     private fun control(subtype: String, body: JsonObject) = JsonObject().apply {
         addProperty("type", "control_request")
         addProperty("request_id", "ui_${++counter}")

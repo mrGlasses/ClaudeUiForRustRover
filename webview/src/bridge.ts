@@ -29,7 +29,8 @@ export type ToKotlin =
   | { type: "groupAction"; action: "create" | "rename" | "delete"; name: string; newName?: string }
   | { type: "resume"; sessionId: string }
   | { type: "export"; mode: "file" | "copy" }
-  | { type: "checkpoint"; action: "fork" | "rewind" | "forkRewind"; uuid: string };
+  | { type: "checkpoint"; action: "fork" | "rewind" | "forkRewind"; uuid: string }
+  | { type: "taskAction"; action: "stop" | "output" | "background"; id: string };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
@@ -60,11 +61,12 @@ export type FromKotlin =
   | { type: "historyEnd" }
   | { type: "mentionResults"; seq: number; items: string[] }
   | { type: "signIn" }
-  | { type: "toolUse"; id: string; name: string; summary: string }
+  | { type: "toolUse"; id: string; name: string; summary: string; canBackground?: boolean }
   | { type: "toolResult"; toolUseId: string; isError: boolean; preview: string }
   | { type: "notice"; text: string }
   | { type: "turnEnd"; stopReason: string; costUsd?: number; durationMs?: number; isError: boolean }
   | { type: "sessionReset" }
+  | ({ type: "agentTaskStarted" | "agentTaskProgress" | "agentTaskUpdated" | "agentTaskEnded" | "agentTasksLive" | "agentTasksGone" | "agentActivity" | "agentTaskOutput" } & Record<string, unknown>)
   | { type: "error"; message: string };
 
 declare global {

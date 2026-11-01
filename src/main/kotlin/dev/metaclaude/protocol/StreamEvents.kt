@@ -12,7 +12,7 @@ import com.google.gson.JsonObject
  * Phase 7b adds thinking blocks (start / delta / stop) and the to-do list: TodoWrite (whole list) or the task tools
  * TaskCreate / TaskUpdate (one item at a time; the new id arrives in the result's `tool_use_result.task.id`).
  * Task tools are off by default on recent models (code.claude.com/docs/en/agent-sdk/todo-tracking).
- * Still out of scope: subagent output (parent_tool_use_id != null, Phase 11), permission cards (Phase 8).
+ * Phase 11b: task events and subagent traffic (parent_tool_use_id != null) go to the agent map ([AgentTasks]).
  */
 object StreamEvents {
     private const val SUMMARY_MAX = 200
@@ -20,8 +20,8 @@ object StreamEvents {
     private val TODO_STATUSES = setOf("pending", "in_progress", "completed")
 
     fun toPanel(event: JsonObject): List<JsonObject> {
-        // Subagent traffic is shown in Phase 11 (agent map); the main transcript skips it.
-        if (event.str("parent_tool_use_id") != null) return emptyList()
+        // Subagent traffic goes to the agent map (Phase 11b); the main transcript skips it.
+        if (event.str("parent_tool_use_id") != null) return AgentTasks.subagent(event)
         return when (event.str("type")) {
             "system" -> system(event)
             "stream_event" -> streamEvent(event)
@@ -55,7 +55,7 @@ object StreamEvents {
             if (e.str("status") == "requesting") msg("busy") {} else null,
             e.str("permissionMode")?.let { m -> msg("permissionMode") { addProperty("mode", m) } },
         )
-        else -> emptyList()
+        else -> AgentTasks.system(e) ?: emptyList()
     }
 
     /**

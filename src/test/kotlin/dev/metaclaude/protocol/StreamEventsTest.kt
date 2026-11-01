@@ -63,8 +63,11 @@ class StreamEventsTest {
     }
 
     @Test
-    fun `subagent output and unknown events are skipped`() {
-        assertTrue(map("""{"type":"assistant","message":{"id":"m","content":[{"type":"text","text":"x"}]},"parent_tool_use_id":"toolu_9"}""").isEmpty())
+    fun `subagent output goes to the agent map, unknown events are skipped`() {
+        val sub = map("""{"type":"assistant","message":{"id":"m","content":[{"type":"text","text":"x"}]},"parent_tool_use_id":"toolu_9"}""").single()
+        assertEquals("agentActivity", sub.get("type").asString) // not textFinal: the main transcript stays clean
+        assertEquals("toolu_9", sub.get("toolUseId").asString)
+        assertTrue(map("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"x"}},"parent_tool_use_id":"toolu_9","api_message_id":"m"}""").isEmpty())
         assertTrue(map("""{"type":"rate_limit_event","rate_limit_info":{}}""").isEmpty())
     }
 

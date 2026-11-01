@@ -23,7 +23,7 @@ Everything below is **not started** unless marked otherwise.
 | Precheck | ☑ v0.19.2: compile, tests and plugin verifier run before every hand-over (`tools/precheck/`) |
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
-| 11 Checkpoints, agents | **11a (checkpoints) v0.25.0: waiting for your test**. 11b (agent map, background tasks) next |
+| 11 Checkpoints, agents | 11a (checkpoints) done (v0.25.0 tested 2026-11-01). **11b (agent map, background tasks) v0.26.0: waiting for your test** |
 | 12–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -446,6 +446,17 @@ Run in background, `/tasks`.
   on send with `--resume <id> --fork-session --resume-session-at <entry before the prompt>`. The original stays as it was.
   Forking at the first prompt is a new conversation with that prompt in the box.
 - Refused (with a notice) while Claude is still answering, and for messages not in this tab's own session file.
+v0.25.0 test (2026-11-01): rewind, nothing-to-rewind, fork, fork + rewind, mid-turn refusal, resumed conversations: all ok.
+
+11b (v0.26.0), agent map and background work (stream events and control requests from the CLI's schema, `AgentTasks`):
+- "Agents and tasks" box above the composer, opened by the first task: a tree (`parent_task_id`) of subagents, background
+  commands and monitors with status, elapsed time, tokens, tool count and the tool in use (`task_started`, `task_progress`,
+  `task_updated`, `task_notification`, `background_tasks_changed`).
+- Subagents: "Transcript" shows the task given to the agent, its replies and tool calls (stream events with
+  `parent_tool_use_id`, no longer dropped) and its result. Commands and monitors: "Output" shows the last 8 KiB, refreshed
+  every 2 s while running (`get_task_output`, escape sequences removed). "Stop" on anything running (`stop_task`).
+- "Run in background" on a running Bash/Agent tool card (`background_tasks` with its `tool_use_id`, Ctrl+B for one call).
+- `/tasks` shows the map again after "Hide". Kotlin accepts actions only for tasks and tool calls this session reported.
 
 ### Phase 12 — Model, usage, status (PARITY §B, §I)
 Model picker with Effort and Ultracode, extended thinking toggle, context indicator, prompt-cache clock, `/usage` dialog (bars, recommendations + Fix, attribution),

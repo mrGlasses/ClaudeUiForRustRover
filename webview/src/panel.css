@@ -174,3 +174,30 @@ button:disabled { opacity: .5; cursor: default; }
 .checkpoint-button { visibility: hidden; font-size: 14px; padding: 0 4px; color: var(--muted); }
 .msg.user:hover .checkpoint-button, .checkpoint:focus-within .checkpoint-button { visibility: visible; }
 .checkpoint-menu { position: absolute; top: 1.6em; left: 0; z-index: 10; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 0; min-width: 240px; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+
+/* Phase 11b: agent map */
+.agents { border-top: 1px solid var(--border); padding: 4px 12px; font-size: 12px; max-height: 40vh; overflow-y: auto; }
+.agents summary { cursor: pointer; color: var(--muted); }
+.agents-label { margin-right: 10px; }
+.agents-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0; }
+.agent { border-left: 2px solid var(--border); padding-left: 6px; }
+.agent.running { border-left-color: var(--accent, #3574f0); }
+.agent.failed { border-left-color: var(--error); }
+.agent-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.agent-mark { color: var(--muted); }
+.agent.running .agent-mark { color: var(--accent, #3574f0); }
+.agent.completed .agent-mark { color: var(--ok); }
+.agent.failed .agent-mark { color: var(--error); }
+.agent-kind { font-weight: 600; }
+.agent-desc { flex: 1; overflow-wrap: anywhere; }
+.agent-meta { color: var(--muted); }
+.agent-actions { display: flex; gap: 8px; }
+.agent-bg { font-size: 10px; }
+.agent-error { color: var(--error); }
+.agent-summary { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 8em; overflow-y: auto; }
+.agent-transcript, .agent-output { margin: 4px 0 2px; padding: 4px 8px; background: var(--code-bg); border-radius: 4px; display: flex; flex-direction: column; gap: 4px; }
+.agent-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+.agent-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 8em; overflow-y: auto; }
+.agent-tool { font-family: var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.agent-output pre { font-family: var(--mono); margin: 0; white-space: pre-wrap; max-height: 240px; overflow-y: auto; }
+.tool-bg { font-size: 11px; }

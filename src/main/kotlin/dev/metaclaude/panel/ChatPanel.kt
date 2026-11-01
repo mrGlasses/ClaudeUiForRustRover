@@ -252,6 +252,7 @@ class ChatPanel(
             "newSession" -> {
                 session?.let { Disposer.dispose(it) }
                 session = null
+                clearTasks()
                 pendingResume = null
                 pendingFork = null
                 turnRunning = false
@@ -324,6 +325,7 @@ class ChatPanel(
             }
             "setMode" -> setMode(msg.get("mode")?.takeIf { it.isJsonPrimitive }?.asString)
             "checkpoint" -> checkpoint(msg)
+            "taskAction" -> taskAction(msg)
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
     }
@@ -350,6 +352,8 @@ class ChatPanel(
                 onPanelMessage = { onSessionMessage(it) }, onExit = { code ->
                 session = null
                 turnRunning = false
+                clearTasks()
+                send(JsonObject().apply { addProperty("type", "agentTasksGone") }) // they ended with the process
                 send(JsonObject().apply {
                     addProperty("type", "error")
                     addProperty("message", "Claude stopped (exit code $code). Your next message starts a new session.")
@@ -465,6 +469,7 @@ class ChatPanel(
         val title = project.service<SessionNotes>().notes().titles[id] ?: h.read(id) { SessionFiles.summarize(id, it, 0L)?.title } ?: id
         session?.let { s -> ApplicationManager.getApplication().invokeAndWait { Disposer.dispose(s) } }
         session = null
+        clearTasks()
         pendingResume = id
         currentSessionId = id
         props.setValue(LAST_SESSION_KEY, id)
@@ -510,6 +515,73 @@ class ChatPanel(
             runCatching { java.nio.file.Files.writeString(target.file.toPath(), text) }
                 .onSuccess { send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Saved to ${target.file.name}.") }) }
                 .onFailure { send(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Couldn't save: ${it.message}") }) }
+        }
+    }
+
+    // ---------- agent map (Phase 11b) ----------
+
+    /** Tasks this session reported (id → kind) and the ones still running: the page may act only on these (rule 4). */
+    private val taskKinds = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val runningTasks = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    /** Tool calls still running that can go to the background (Bash, Agent). */
+    private val backgroundable = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    private fun clearTasks() {
+        taskKinds.clear(); runningTasks.clear(); backgroundable.clear()
+    }
+
+    private fun trackTasks(type: String?, m: JsonObject) {
+        fun str(k: String) = m.get(k)?.takeIf { it.isJsonPrimitive }?.asString
+        when (type) {
+            "agentTaskStarted" -> str("taskId")?.let { id -> taskKinds[id] = str("kind") ?: "other"; runningTasks.add(id) }
+            "agentTasksLive" -> (m.get("tasks") as? com.google.gson.JsonArray)?.forEach { t ->
+                val o = t as? JsonObject ?: return@forEach
+                val id = o.get("taskId")?.asString ?: return@forEach
+                taskKinds.putIfAbsent(id, o.get("kind")?.asString ?: "other")
+                runningTasks.add(id)
+            }
+            "agentTaskUpdated" -> str("status")?.takeIf { it != "running" && it != "pending" && it != "paused" }?.let { str("taskId")?.let(runningTasks::remove) }
+            "agentTaskEnded" -> str("taskId")?.let(runningTasks::remove)
+            "toolUse" -> if (str("name") in dev.metaclaude.protocol.AgentTasks.BACKGROUNDABLE) str("id")?.let { id ->
+                backgroundable.add(id)
+                m.addProperty("canBackground", true) // the page shows "Run in background" on this card only
+            }
+            "toolResult" -> str("toolUseId")?.let(backgroundable::remove)
+            "turnEnd" -> backgroundable.clear()
+        }
+    }
+
+    /** Stop a task, read a shell task's output, or send a running tool call to the background. Rule 4: known ids only. */
+    private fun taskAction(msg: JsonObject) {
+        val action = msg.get("action")?.takeIf { it.isJsonPrimitive }?.asString
+        val id = msg.get("id")?.takeIf { it.isJsonPrimitive }?.asString?.take(200)
+        val s = session
+        if (id == null || s == null) return
+        when (action) {
+            "stop" -> {
+                if (id !in runningTasks) return BridgeLog.log("panel: refused stop (task not running)", project.name)
+                BridgeLog.log("panel: stopping a ${taskKinds[id]} task", project.name)
+                s.stopTask(id) { _, err -> if (err != null) notice("Couldn't stop the task: ${err.take(200)}") }
+            }
+            "output" -> {
+                val kind = taskKinds[id] ?: return BridgeLog.log("panel: refused task output (unknown task)", project.name)
+                if (!dev.metaclaude.protocol.AgentTasks.hasOutput(kind)) return
+                s.taskOutput(id) { payload, err ->
+                    send(dev.metaclaude.protocol.AgentTasks.output(payload).apply {
+                        addProperty("type", "agentTaskOutput")
+                        addProperty("taskId", id)
+                        err?.let { addProperty("error", it.take(200)) }
+                    })
+                }
+            }
+            "background" -> {
+                if (!backgroundable.remove(id)) return BridgeLog.log("panel: refused background (tool call not running)", project.name)
+                BridgeLog.log("panel: sending a tool call to the background", project.name)
+                s.backgroundTool(id) { payload, err ->
+                    val moved = payload?.get("backgrounded")?.takeIf { it.isJsonPrimitive }?.asBoolean
+                    if (err != null || moved == false) notice("Couldn't run it in the background${err?.let { ": ${it.take(200)}" } ?: " (it may have just finished)"}.")
+                }
+            }
         }
     }
 
@@ -627,6 +699,7 @@ class ChatPanel(
         }
         if (type == "sessionInfo") m.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString?.let { rememberSession(it) }
         if (type == "turnEnd") { turnRunning = false; currentSessionId?.let { rememberSession(it) } }
+        trackTasks(type, m)
         // Tab dot: blue while a permission waits; orange when a turn ends and you aren't looking at this tab.
         when (type) {
             "permission" -> { m.get("requestId")?.asString?.let { pendingRequests.add(it) }; onEdt { tabs.setStatus(this, ChatTabs.Status.NEEDS_INPUT) } }
