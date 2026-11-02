@@ -125,6 +125,11 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                         .bindText({ settings.state.environmentVariables ?: "" }, { settings.state.environmentVariables = it })
                         .comment("One KEY=value per line for every claude the chat panel starts, e.g. CLAUDE_CODE_USE_BEDROCK=1 and AWS_REGION=us-east-1. Values are never logged. Applies to new conversations.")
                 }
+                row("Rust toolchain folder:") {
+                    textField().columns(COLUMNS_LARGE)
+                        .bindText({ settings.state.rustToolchainDir ?: "" }, { settings.state.rustToolchainDir = it.trim() })
+                        .comment("Optional: the folder with cargo and rustc (e.g. C:\\Users\\you\\.cargo\\bin, or a toolchain's bin) put first on PATH for Claude, like RustRover's own toolchain setting. Empty: Claude uses your PATH.")
+                }
                 row("Process wrapper:") {
                     textField().columns(COLUMNS_LARGE)
                         .bindText({ settings.state.claudeProcessWrapper ?: "" }, { settings.state.claudeProcessWrapper = it.trim() })

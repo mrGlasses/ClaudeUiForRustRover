@@ -148,7 +148,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | `/chrome` (Claude in Chrome connection) | CLI | ◐ v0.32.0, waiting for test |
 | `/mcp` dialog: add, remove, enable/disable, reconnect, OAuth | CLI | ☑ v0.31.0 (OAuth sign-in through a terminal tab) |
 | `/plugins` dialog: installed toggles, scopes, config form, uninstall, marketplaces tab | CLI | ☑ v0.31.0 |
-| Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ◐ v0.35.0 `jetbrains://rustrover/clawed-ui/install-plugin?…`, waiting for test |
+| Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ☑ v0.35.0 `jetbrains://rustrover/clawed-ui/install-plugin?…` |
 | Enable Remote Control for all sessions (`remoteControlAtStartup`) | CLI | ☐ Phase 15 (with the Web tab) |
 | Sign out (`/logout`), Report a problem (`/bug`, `/feedback`) | CLI | ☑ v0.28.0: `claude auth logout` after a native confirmation (not tried by choice); `/bug` in a Claude terminal tab, or a GitHub issue for the plugin |
 | `/usage` dialog (plan bars, recommendations + Fix button, attribution, Day/Week) | CLI | ☑ v0.28.0 (card in the panel); usage ring planned after all features |
@@ -181,16 +181,16 @@ Status: ☐ not started · ◐ partial · ☑ done
 | VS Code setting | Equivalent | Status |
 |---|---|---|
 | `useTerminal`, `initialPermissionMode`, `preferredLocation`, `lockEditorGroups`, `autosave`, `attachOpenFile`, `attachSelection`, `useCtrlEnterToSend`, `scrollToBottomOnSend`, `showMessageTimestamps`, `spinnerVerbs`, `enableNewConversationShortcut`, `enableReopenClosedSessionShortcut`, `archiveInactiveSessions`, `continueAfterReload`, `hideOnboarding`, `focusView`, `respectGitIgnore`, `environmentVariables`, `disableLoginPrompt`, `allowDangerouslySkipPermissions`, `claudeProcessWrapper` | Same names on our settings page | ◐ v0.35.0: all present except `lockEditorGroups` (no editor-tab placement) and the two shortcut switches (shortcuts are panel-local, so they can't clash) |
-| `usePythonEnvironment` | Adapt: optional Rust toolchain environment (rustup toolchain / cargo env) | ☐ |
+| `usePythonEnvironment` | Adapt: optional Rust toolchain environment (rustup toolchain / cargo env) | ◐ v0.36.0 "Rust toolchain folder" (first on PATH), waiting for test |
 | (ours) Integration mode Built-in / Official / Auto, path to `claude` | Settings page | ☑ v0.9.0 (tested) |
 
 ## M. Links, accessibility, providers — Phase 14
 
 | Feature | Via | Status |
 |---|---|---|
-| URI handler `…/open?prompt=…&session=…` | Adapt: JetBrains protocol handler (`jetbrains://rustrover/…`) | ◐ v0.35.0 `jetbrains://rustrover/clawed-ui/open?…`, waiting for test |
-| Screen reader announcements, labeled transcript, Focus last message | UI (JCEF accessibility + IDE announcements) | ◐ v0.35.0 (live log, labels, Focus Last Message), waiting for test |
-| Third-party providers (Bedrock, Vertex/Agent Platform, Foundry): `disableLoginPrompt`, no claude.ai-only features | UI + CLI | ◐ v0.35.0 (`environmentVariables`, `disableLoginPrompt`; claude.ai-only data comes back empty from the CLI), waiting for test |
+| URI handler `…/open?prompt=…&session=…` | Adapt: JetBrains protocol handler (`jetbrains://rustrover/…`) | ☑ v0.35.0 `jetbrains://rustrover/clawed-ui/open?…` |
+| Screen reader announcements, labeled transcript, Focus last message | UI (JCEF accessibility + IDE announcements) | ☑ v0.35.0 (live log, labels, Focus Last Message) |
+| Third-party providers (Bedrock, Vertex/Agent Platform, Foundry): `disableLoginPrompt`, no claude.ai-only features | UI + CLI | ◐ v0.35.0 (`environmentVariables`, `disableLoginPrompt`; not tried with a real provider) |
 | Show Logs (extension debug logs) | UI (open `bridge.log` + IDE log) | ☑ v0.33.0: Tools > Claude > Show Logs opens bridge.log (IDE log: Help > Show Log) |
 
 ## N. Out of scope (for now)

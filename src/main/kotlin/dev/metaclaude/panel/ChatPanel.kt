@@ -719,7 +719,7 @@ class ChatPanel(
     /** Phase 14c: `claude` with the user's wrapper and extra environment, for the CLI commands the panel runs. */
     private fun claudeProcess(exe: String, args: List<String>): ProcessBuilder {
         val settings = ClaudeUiSettings.instance
-        return ProcessBuilder(settings.command(exe, args)).apply { environment().putAll(settings.processEnv()) }
+        return ProcessBuilder(settings.command(exe, args)).apply { settings.applyEnv(environment()) }
     }
 
     private fun viaCmd() = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)?.let { Extensions.viaCmd(it) } ?: false

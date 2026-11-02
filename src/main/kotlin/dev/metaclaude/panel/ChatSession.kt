@@ -89,12 +89,12 @@ class ChatSession(
         val settings = dev.metaclaude.settings.ClaudeUiSettings.instance
         val extraEnv = settings.processEnv()
         process = ProcessBuilder(settings.command(cmd.first(), cmd.drop(1))).directory(root.toFile()).apply {
-            environment().putAll(extraEnv) // Phase 14c: provider variables etc. (names logged, never values)
+            settings.applyEnv(environment()) // Phase 14c/15a: provider variables, Rust toolchain (names logged, never values)
             if (todoTools) environment()["CLAUDE_CODE_ENABLE_TODO_TOOLS"] = "1"
             environment()[Checkpoints.ENV] = "true" // every prompt becomes a restore point (Phase 11a)
         }.start()
         stdin = process.outputStream.bufferedWriter(StandardCharsets.UTF_8)
-        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"}, mode $permissionMode${if (allowBypass) ", bypass allowed" else ""}${if (forkAt != null) ", forked" else ""}, extra env ${dev.metaclaude.protocol.ProcessOptions.describe(extraEnv)}${if (!settings.state.claudeProcessWrapper.isNullOrBlank()) ", wrapped" else ""})", tag)
+        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"}, mode $permissionMode${if (allowBypass) ", bypass allowed" else ""}${if (forkAt != null) ", forked" else ""}, extra env ${dev.metaclaude.protocol.ProcessOptions.describe(extraEnv)}${if (!settings.state.claudeProcessWrapper.isNullOrBlank()) ", wrapped" else ""}${if (!settings.state.rustToolchainDir.isNullOrBlank()) ", Rust toolchain on PATH" else ""})", tag)
 
         thread(name = "claude-ui-chat-out", isDaemon = true) {
             runCatching {

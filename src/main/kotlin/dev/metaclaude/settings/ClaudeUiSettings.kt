@@ -66,10 +66,19 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var claudeProcessWrapper by string("")
         /** VS Code `disableLoginPrompt`: no sign-in card (third-party providers sign in their own way). */
         var disableLoginPrompt by property(false)
+        /** Phase 15a, VS Code's usePythonEnvironment for Rust: a toolchain folder (…/bin with cargo, rustc) put first on PATH. */
+        var rustToolchainDir by string("")
     }
 
     /** Phase 14c: the extra environment and the command line every chat-panel `claude` uses. */
     fun processEnv(): Map<String, String> = dev.metaclaude.protocol.ProcessOptions.parseEnv(state.environmentVariables).first
+
+    /** Adds [processEnv] and the Rust toolchain folder (first on PATH) to a process environment. */
+    fun applyEnv(env: MutableMap<String, String>) {
+        env.putAll(processEnv())
+        val pathKey = env.keys.firstOrNull { it.equals("PATH", ignoreCase = true) } ?: "PATH"
+        dev.metaclaude.protocol.RustHelp.pathWith(state.rustToolchainDir, env[pathKey], java.io.File.pathSeparator)?.let { env[pathKey] = it }
+    }
     fun command(exe: String, args: List<String>): List<String> =
         dev.metaclaude.protocol.ProcessOptions.command(state.claudeProcessWrapper, exe, args)
 

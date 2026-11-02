@@ -10,6 +10,11 @@
     <statusBarWidgetFactory id="ClawedUiStatus" implementation="dev.metaclaude.panel.ClaudeStatusWidgetFactory" order="first"/>
     <!-- Phase 14c: jetbrains://rustrover/clawed-ui/open?prompt=…&session=… and …/install-plugin?plugin=…&marketplace=… -->
     <jbProtocolCommand implementation="dev.metaclaude.panel.ClawedProtocolCommand"/>
+    <!-- Phase 15a: Alt+Enter "Ask Claude to fix" on any highlighted problem. -->
+    <intentionAction>
+      <className>dev.metaclaude.panel.AskClaudeToFixIntention</className>
+      <category>Claude</category>
+    </intentionAction>
   </extensions>
 
   <!-- Phase 14a: entry points (Tools > Claude, Find Action, editor toolbar, selection toolbar). No global shortcuts by default. -->
@@ -24,6 +29,14 @@
               text="Claude: Reopen Closed Conversation" description="Bring back the last conversation tab you closed"/>
       <action id="dev.metaclaude.FocusLastMessage" class="dev.metaclaude.panel.FocusLastMessageAction"
               text="Claude: Focus Last Message" description="Move keyboard focus to the newest message (screen readers read it)"/>
+      <separator/>
+      <action id="dev.metaclaude.CargoCheck" class="dev.metaclaude.panel.CargoCheckAction"
+              text="Claude: Fix Cargo Check Errors" description="Ask Claude to run cargo check and fix the errors"/>
+      <action id="dev.metaclaude.CargoClippy" class="dev.metaclaude.panel.CargoClippyAction"
+              text="Claude: Fix Clippy Warnings" description="Ask Claude to run cargo clippy and fix the warnings"/>
+      <action id="dev.metaclaude.CargoTest" class="dev.metaclaude.panel.CargoTestAction"
+              text="Claude: Fix Failing Tests" description="Ask Claude to run cargo test and fix the failures"/>
+      <separator/>
       <action id="dev.metaclaude.ShowLogs" class="dev.metaclaude.panel.ShowLogsAction"
               text="Claude: Show Logs" description="Open Clawed UI's bridge.log"/>
     </group>
@@ -32,6 +45,10 @@
       <add-to-group group-id="EditorContextBarMenu" anchor="first"/>
       <add-to-group group-id="Floating.CodeToolbar" anchor="last"/>
       <add-to-group group-id="dev.metaclaude.ClaudeMenu" anchor="after" relative-to-action="dev.metaclaude.ReopenClosedConversation"/>
+    </action>
+    <action id="dev.metaclaude.SendConsoleToClaude" class="dev.metaclaude.panel.SendConsoleToClaudeAction" icon="/icons/clawed.svg"
+            text="Send to Claude" description="Send the selected output (or the end of it) to the Claude chat">
+      <add-to-group group-id="ConsoleEditorPopupMenu" anchor="last"/>
     </action>
   </actions>
 </idea-plugin>

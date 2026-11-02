@@ -26,8 +26,9 @@ Everything below is **not started** unless marked otherwise.
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
 | 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
 | 13 Customize | ☑ Done (13a–13d, v0.29.0–v0.32.0, tested 2026-11-02). Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
-| 14 IDE polish | 14a, 14b done (v0.33.0, v0.34.0 tested 2026-11-02). **14c (links, accessibility, providers, environment) v0.35.0: waiting for your test** |
-| 15–16 | Not started |
+| 14 IDE polish | ☑ Done (14a–14c, v0.33.0–v0.35.0, tested 2026-11-02; provider sign-in switch not tried) |
+| 15 Rust extras, web | **15a (Rust extras) v0.36.0: waiting for your test**. 15b (Web tab, Remote Control, `@browser`) next |
+| 16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -611,6 +612,8 @@ v0.34.0 test (2026-11-02): all ok. 14b done.
 - Third-party providers and environment: `environmentVariables` (KEY=value lines; names logged, values never),
   `claudeProcessWrapper`, `disableLoginPrompt` (no sign-in card); all used for the chat sessions and for every `claude`
   command the panel runs (plugins, MCP, settings edits, sign out).
+v0.35.0 test (2026-11-02): links, Focus Last Message, environment ok; sign-in switch skipped. 14 done. (The JCEF
+"ProxyMigrationService" warning at install is the platform's own, seen since v0.17, harmless.)
 
 ---
 
@@ -618,6 +621,20 @@ v0.34.0 test (2026-11-02): all ok. 14b done.
 
 ### Phase 15 — Rust extras (the differentiator)
 "Ask Claude to fix" on compiler errors, `cargo check` / `clippy` / `test` failures to the session, crate and workspace context, optional Rust toolchain environment (the `usePythonEnvironment` analogue).
+
+15a (v0.36.0, `RustHelp`, `RustActions`):
+- Alt+Enter "Ask Claude to fix" (intention, category Claude) on any line with an error or warning (the IDE's own
+  highlights: rustc, Clippy and inspections; the selected lines with a selection): the chat opens with
+  "Fix this problem in @src/x.rs#12:" and the messages in the box.
+- "Send to Claude" in the right-click menu of a Run / cargo / test console: the selection, or the last 12 000 characters,
+  as a fenced block with "Explain what went wrong and fix it".
+- Tools > Claude > Fix Cargo Check Errors / Fix Clippy Warnings / Fix Failing Tests: ready-made requests in the box;
+  Claude runs cargo itself and loops until it passes.
+- Settings > Rust toolchain folder: put first on PATH for every claude the panel starts (the `usePythonEnvironment`
+  analogue).
+- Crate and workspace context: not added as an automatic block. Claude reads Cargo.toml itself, and `@` mentions and
+  Ask Claude already point it at crates and files; an extra block on every message would cost tokens for little gain.
+  Revisit if you miss it.
 
 ### After all features — usage ring (your request, 2026-11-01)
 Like the Claude desktop app: a small circle in the panel that fills with the plan's usage (5-hour window), and on click or
