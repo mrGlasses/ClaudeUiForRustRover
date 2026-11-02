@@ -254,3 +254,10 @@ button:disabled { opacity: .5; cursor: default; }
 .customize-empty { padding: 8px 12px; }
 .customize .history-meta { white-space: normal; overflow-wrap: anywhere; }
 .customize label.customize-row { display: flex; gap: 8px; align-items: center; }
+
+/* Phase 13b: hooks, permissions, memory */
+.hook-form { display: flex; flex-direction: column; gap: 6px; background: var(--code-bg); }
+.hook-form .input { width: 100%; box-sizing: border-box; }
+.hook-timeout { max-width: 110px; flex: 0 0 auto; }
+.customize .mono { font-family: var(--mono); }
+.customize .deny { color: var(--error); }

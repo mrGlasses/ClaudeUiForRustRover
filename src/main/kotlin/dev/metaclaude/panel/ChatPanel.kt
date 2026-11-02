@@ -15,6 +15,7 @@ import dev.metaclaude.protocol.Checkpoints
 import dev.metaclaude.protocol.ModelControls
 import dev.metaclaude.protocol.UsageReport
 import dev.metaclaude.protocol.Customize
+import dev.metaclaude.protocol.CustomizeEdits
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
 import dev.metaclaude.protocol.SessionFiles
@@ -340,6 +341,10 @@ class ChatPanel(
             "skillState" -> skillState(msg.get("name")?.takeIf { it.isJsonPrimitive }?.asString, msg.get("state")?.takeIf { it.isJsonPrimitive }?.asString)
             "outputStyle" -> outputStyle(msg.get("style")?.takeIf { it.isJsonPrimitive }?.asString)
             "openInstructions" -> msg.get("index")?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }?.let { openInstructions(it) }
+            "customizeTab" -> AppExecutorUtil.getAppExecutorService().execute { customizeTab(msg.get("tab")?.takeIf { it.isJsonPrimitive }?.asString) }
+            "hookEdit" -> hookEdit(msg)
+            "permissionEdit" -> permissionEdit(msg)
+            "memoryAction" -> memoryAction(msg)
             "customStyle" -> send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", Customize.CUSTOM_STYLE_PROMPT) })
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
@@ -591,23 +596,146 @@ class ChatPanel(
     private fun skillState(name: String?, state: String?) {
         val edit = Customize.skillEdit(lastSkills, name, state) ?: return BridgeLog.log("panel: refused skill state (unknown, locked or bad state)", project.name)
         AppExecutorUtil.getAppExecutorService().execute {
-            val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath) ?: return@execute notice("Claude CLI not found.")
-            val root = project.basePath ?: return@execute
-            val result = runCatching {
-                val p = ProcessBuilder(exe, "edit-skill-overrides", "--json").directory(java.io.File(root)).redirectErrorStream(true).start()
-                p.outputStream.use { it.write(edit.toString().toByteArray(Charsets.UTF_8)) }
-                val out = p.inputStream.readAllBytes().toString(Charsets.UTF_8)
-                p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
-                p.exitValue() to out
-            }
-            val (code, out) = result.getOrDefault(-1 to "")
-            BridgeLog.log("panel: skill state change ${if (code == 0) "done" else "failed (exit $code)"}", project.name)
-            if (code != 0) {
-                val reason = out.lineSequence().map { it.trim() }.lastOrNull { it.isNotEmpty() }?.take(300) ?: "unknown error"
-                notice("Couldn't change the skill: $reason")
-            }
+            val (ok, reason) = runCliEdit("edit-skill-overrides", edit) ?: return@execute
+            if (!ok) notice("Couldn't change the skill: $reason")
             val s = session ?: return@execute customizeData()
             s.reloadSkills { _, _ -> customizeData() }
+        }
+    }
+
+    /**
+     * Background thread. One edit through the CLI's own writer (`claude <subcommand> --json`, the edit on stdin), as the
+     * VS Code extension does. Returns (ok, warnings or reason); null if the CLI can't be found. Edits are never logged.
+     */
+    private fun runCliEdit(subcommand: String, edit: JsonObject): Pair<Boolean, String>? {
+        val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath) ?: run { notice("Claude CLI not found."); return null }
+        val root = project.basePath ?: return null
+        val (code, out) = runCatching {
+            val p = ProcessBuilder(exe, subcommand, "--json").directory(java.io.File(root)).redirectErrorStream(true).start()
+            p.outputStream.use { it.write(edit.toString().toByteArray(Charsets.UTF_8)) }
+            val out = p.inputStream.readAllBytes().toString(Charsets.UTF_8)
+            if (!p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)) { p.destroyForcibly(); -1 to "timed out" } else p.exitValue() to out
+        }.getOrElse { -1 to (it.message ?: it::class.java.simpleName) }
+        val result = CustomizeEdits.cliResult(code, out)
+        BridgeLog.log("panel: $subcommand ${if (result.first) "done" else "failed (exit $code)"}", project.name)
+        return result
+    }
+
+    // ---------- Customize: hooks, permissions, memory (Phase 13b) ----------
+
+    @Volatile private var lastHooks: JsonObject? = null
+    @Volatile private var lastRules: JsonObject? = null
+    @Volatile private var lastMemory: JsonObject? = null
+
+    /** Background thread. The data for one of the 13b tabs. */
+    private fun customizeTab(tab: String?) {
+        val s = sessionOrStart() ?: return
+        fun reply(type: String, data: JsonObject, err: String?) = send(data.apply {
+            addProperty("type", type)
+            err?.let { addProperty("error", it.take(200)) }
+        })
+        when (tab) {
+            "hooks" -> s.hooksListing { p, err -> lastHooks = p; reply("hooksData", CustomizeEdits.hooks(p), err) }
+            "permissions" -> s.permissionRules { p, err -> lastRules = p; reply("permissionsData", CustomizeEdits.permissions(p), err) }
+            "memory" -> s.memoryDialog { p, err -> lastMemory = p; reply("memoryData", CustomizeEdits.memory(p), err) }
+        }
+    }
+
+    private fun JsonObject.string(key: String) = get(key)?.takeIf { it.isJsonPrimitive }?.asString
+    private fun JsonObject.int(key: String) = get(key)?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }
+
+    /** Add, change or remove a hook. A hook runs commands on your computer, so every change is confirmed natively (rule 5). */
+    private fun hookEdit(msg: JsonObject) {
+        val edit = CustomizeEdits.hookEdit(
+            lastHooks, msg.string("op"), msg.int("index"), msg.string("source"), msg.string("event"),
+            msg.string("matcher"), msg.string("command"), msg.int("timeout"),
+        ) ?: return BridgeLog.log("panel: refused hook edit (doesn't match the listing)", project.name)
+        val op = edit.get("op").asString
+        val command = edit.getAsJsonObject("hook")?.get("command")?.asString
+        val text = buildString {
+            append(when (op) { "add" -> "Add this hook?"; "replace" -> "Save this hook?"; else -> "Remove this hook?" }).append("\n\n")
+            append("When: ").append(edit.get("event").asString)
+            edit.get("matcher")?.asString?.takeIf { it.isNotEmpty() }?.let { append(" (matching ").append(it).append(")") }
+            append("\nSaved in: ").append(CustomizeEdits.sourceLabel(edit.get("source").asString))
+            if (command != null) append("\n\nIt runs this command on your computer:\n").append(command.take(1500))
+        }
+        ApplicationManager.getApplication().invokeLater {
+            val yes = Messages.showYesNoDialog(project, text, "Hooks", if (op == "remove") "Remove" else "Save", Messages.getCancelButton(), Messages.getWarningIcon()) == Messages.YES
+            if (!yes) return@invokeLater send(JsonObject().apply { addProperty("type", "customizeDone") })
+            AppExecutorUtil.getAppExecutorService().execute {
+                val (ok, reason) = runCliEdit("edit-hook", edit) ?: return@execute
+                notice(if (ok) "Hook ${if (op == "remove") "removed" else "saved"}. Claude Code reads it from its next tool call." else "Couldn't change the hook: $reason")
+                customizeTab("hooks")
+            }
+        }
+    }
+
+    /** Add rules (Allow is confirmed natively, rule 5) or remove a saved one. */
+    private fun permissionEdit(msg: JsonObject) {
+        val edit = when (msg.string("op")) {
+            "add" -> CustomizeEdits.permissionAdd(msg.string("rules"), msg.string("behavior"), msg.string("destination"))
+            "remove" -> CustomizeEdits.permissionRemove(lastRules, msg.int("index"))
+            else -> null
+        } ?: run {
+            notice("Nothing to save: type one rule per line, like Bash(cargo test:*) or Read(./src/**).")
+            return send(JsonObject().apply { addProperty("type", "customizeDone") })
+        }
+        val apply = {
+            AppExecutorUtil.getAppExecutorService().execute {
+                val (ok, reason) = runCliEdit("edit-permission-rules", edit) ?: return@execute
+                notice(if (ok) "Permission rules saved.${if (reason.isNotEmpty()) " $reason" else ""}" else "Couldn't change the rules: $reason")
+                customizeTab("permissions")
+            }
+        }
+        if (edit.get("op").asString == "add" && edit.get("behavior").asString == "allow") {
+            val rules = edit.getAsJsonArray("rules").joinToString("\n") { "  " + it.asString.take(300) }
+            ApplicationManager.getApplication().invokeLater {
+                val yes = Messages.showYesNoDialog(
+                    project, "Always allow, without asking:\n\n$rules\n\nSaved in: ${CustomizeEdits.sourceLabel(edit.get("destination").asString)}",
+                    "Permission Rules", "Allow", Messages.getCancelButton(), Messages.getWarningIcon(),
+                ) == Messages.YES
+                if (yes) apply() else send(JsonObject().apply { addProperty("type", "customizeDone") })
+            }
+        } else apply()
+    }
+
+    /** Memory tab: open a file, folder or saved memory; delete a saved memory (confirmed); toggle auto-memory / auto-dream. */
+    private fun memoryAction(msg: JsonObject) {
+        when (val action = msg.string("action")) {
+            "toggle" -> {
+                val edit = CustomizeEdits.memoryEdit(msg.string("key"), msg.get("on")?.takeIf { it.isJsonPrimitive }?.asBoolean == true) ?: return
+                AppExecutorUtil.getAppExecutorService().execute {
+                    val (ok, reason) = runCliEdit("edit-memory-settings", edit) ?: return@execute
+                    if (!ok) notice("Couldn't change memory settings: $reason")
+                    customizeTab("memory")
+                }
+            }
+            "open", "delete" -> {
+                val (path, creatable) = CustomizeEdits.memoryPath(lastMemory, msg.string("what"), msg.int("index"))
+                    ?: return BridgeLog.log("panel: refused memory action (not in the listing)", project.name)
+                ApplicationManager.getApplication().invokeLater {
+                    val file = java.io.File(path)
+                    if (action == "delete") {
+                        if (msg.string("what") != "memory" || !file.isFile) return@invokeLater
+                        val yes = Messages.showYesNoDialog(project, "Delete this memory?\n\n$path", "Memory", "Delete", Messages.getCancelButton(), Messages.getWarningIcon()) == Messages.YES
+                        if (yes) runCatching { java.nio.file.Files.delete(file.toPath()) }.onFailure { notice("Couldn't delete it: ${it.message}") }
+                        AppExecutorUtil.getAppExecutorService().execute { customizeTab("memory") }
+                        return@invokeLater
+                    }
+                    if (msg.string("what") == "folder") {
+                        if (!file.isDirectory) return@invokeLater notice("That folder doesn't exist yet: Claude creates it when it first saves a memory.")
+                        return@invokeLater com.intellij.ide.actions.RevealFileAction.openDirectory(file)
+                    }
+                    if (!file.isFile) {
+                        if (!creatable) return@invokeLater notice("That file doesn't exist.")
+                        val yes = Messages.showYesNoDialog(project, "Create $path?", "Create Instructions File", "Create", Messages.getCancelButton(), Messages.getQuestionIcon()) == Messages.YES
+                        if (!yes) return@invokeLater
+                        runCatching { file.parentFile?.mkdirs(); file.writeText(Customize.NEW_FILE_TEXT) }.onFailure { return@invokeLater notice("Couldn't create it: ${it.message}") }
+                    }
+                    val vf = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(file) ?: return@invokeLater
+                    com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openFile(vf, true)
+                }
+            }
         }
     }
 

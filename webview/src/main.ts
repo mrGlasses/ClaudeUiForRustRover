@@ -169,6 +169,9 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "customize", hint: "commands, skills, output style, CLAUDE.md files" },
   { name: "skills", hint: "turn skills on or off" },
   { name: "output-style", hint: "pick how Claude writes its answers" },
+  { name: "hooks", hint: "commands that run on Claude Code events" },
+  { name: "permissions", hint: "Allow / Ask / Deny rules" },
+  { name: "memory", hint: "instruction files, auto-memory, saved memories" },
   { name: "usage", hint: "plan limits, this session's cost, what uses your limits" },
   { name: "status", hint: "versions, account, model, MCP servers" },
   { name: "bug", hint: "report a Claude Code problem (/bug plugin: a Clawed UI problem)" },
@@ -479,6 +482,10 @@ function panelCommand(text: string): boolean {
     openCustomize("style");
     return true;
   }
+  if (text === "/hooks" || text === "/permissions" || text === "/memory") {
+    openCustomize(text.slice(1) as "hooks" | "permissions" | "memory");
+    return true;
+  }
   if (text === "/usage") {
     post({ type: "usage" });
     return true;
@@ -564,7 +571,7 @@ const customize = createCustomize({
   },
 });
 transcript.before(customize.view);
-function openCustomize(tab?: "commands" | "skills" | "style" | "instructions"): void {
+function openCustomize(tab?: "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory"): void {
   history.view.hidden = true;
   transcript.hidden = true;
   customize.open(tab);
@@ -865,6 +872,14 @@ function handle(msg: FromKotlin): void {
       break;
     case "customizeData":
       customize.show(msg);
+      break;
+    case "hooksData":
+    case "permissionsData":
+    case "memoryData":
+      customize.showTab(msg.type, msg);
+      break;
+    case "customizeDone":
+      customize.done();
       break;
     case "outputStyleChanged":
       customize.styleChanged(msg.style);

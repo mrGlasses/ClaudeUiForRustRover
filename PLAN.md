@@ -25,7 +25,7 @@ Everything below is **not started** unless marked otherwise.
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
 | 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
-| 13 Customize | **13a (commands, skills, output style, instructions) v0.29.0: waiting for your test**. 13b (hooks, permissions, memory), 13c (MCP, plugins, sandbox, Chrome, Remote Control) next |
+| 13 Customize | 13a done (v0.29.0 tested 2026-11-02). **13b (hooks, permissions, memory) v0.30.0: waiting for your test**. 13c (MCP, plugins, sandbox, Chrome, Remote Control) next |
 | 14–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -518,6 +518,20 @@ protocol object and a failure is shown, not hidden.
   Claude to write the style file in .claude/output-styles/.
 - Instructions: the four CLAUDE.md files Claude Code reads (project, project/.claude, CLAUDE.local.md, ~/.claude); Open,
   or Create… after a native confirmation (only those four paths, chosen by index in Kotlin).
+v0.29.0 test (2026-11-02): all ok.
+
+13b (v0.30.0), three more Customize tabs (`CustomizeEdits`):
+- Hooks (`/hooks`): every hook by event and matcher with its source (`get_hooks_listing`); "+ Add a hook" and Edit
+  (command hooks: event, matcher when the event takes one, command, timeout, which settings file) and Remove (any hook from
+  a settings file). Plugin, managed and session hooks are read-only; a managed lock disables editing. Writes:
+  `claude edit-hook --json` (target = the CLI's own stored entry). Every change shows the command in a native
+  confirmation first (rule 5: a hook runs commands on your computer).
+- Permissions (`/permissions`): Allow / Ask / Deny rules with the CLI's plain-language reading and source, extra folders
+  (`list_permission_rules`). Add rules (one per line, a behavior, a settings file) and remove saved ones:
+  `claude edit-permission-rules --json`. New Allow rules are confirmed natively (rule 5); the CLI's warnings are shown.
+- Memory (`/memory`): auto-memory and auto-dream switches (`claude edit-memory-settings --json`), the instruction files
+  (open; the user and project ones can be created), the memory folders (shown in the file manager) and the saved memories
+  (open, or delete after a native confirmation) (`get_memory_dialog`). Paths are taken by index from the CLI's listing.
 
 ### Phase 14 — IDE polish (PARITY §A, §K, §L, §M)
 Tool window / editor toolbar / status bar entry points, panel placement (`preferredLocation`), editor-split behavior, keymap (resolve the JetBrains conflicts listed in PARITY §K),

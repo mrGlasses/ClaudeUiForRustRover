@@ -161,7 +161,7 @@ export function moreMenu(run: (command: string) => void): HTMLElement {
   const menu = el("div", "mode-menu more-menu");
   menu.hidden = true;
   const items: [string, string][] = [
-    ["Customize (commands, skills, style, instructions)", "/customize"],
+    ["Customize (commands, skills, hooks, permissions, memory…)", "/customize"],
     ["Usage", "/usage"],
     ["Status", "/status"],
     ["Report a Claude Code problem", "/bug"],

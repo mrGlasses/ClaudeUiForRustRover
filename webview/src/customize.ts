@@ -19,14 +19,38 @@ export type CustomizeData = {
   outputStyle: { current?: string; available: string[] };
   instructions: Instr[];
 };
-export type Tab = "commands" | "skills" | "style" | "instructions";
+export type Tab = "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory";
 
 const TABS: [Tab, string][] = [
   ["commands", "Commands"],
   ["skills", "Skills"],
   ["style", "Output style"],
   ["instructions", "Instructions"],
+  ["hooks", "Hooks"],
+  ["permissions", "Permissions"],
+  ["memory", "Memory"],
 ];
+
+// Phase 13b data (each tab asks for its own when shown).
+type HookRow = { event: string; matcher: string; source: string; sourceLabel: string; type: string; text: string; contentLabel: string; timeout?: number; disabled: boolean; editable: boolean; formEditable: boolean };
+export type HooksData = { error?: string; events: { name: string; summary: string; supportsMatcher: boolean }[]; hooks: HookRow[]; locked: boolean; lockReason?: string; notice?: string };
+type RuleRow = { behavior: string; rule: string; source: string; description?: string; removable: boolean; notInEffect: boolean };
+export type PermissionsData = { error?: string; rules: RuleRow[]; directories: { path: string; source: string }[]; managedOnly: boolean };
+type Toggle = { enabled: boolean; toggleable: boolean; status: string; detail?: string };
+export type MemoryData = {
+  error?: string;
+  files: { label: string; description: string; path: string; exists: boolean }[];
+  folders: { label: string; description: string; path: string }[];
+  memories: { name: string; description: string; kind?: string; modified?: number }[];
+  autoMemory?: Toggle;
+  autoDream?: Toggle;
+};
+const DESTS: [string, string][] = [
+  ["localSettings", "This project, just you"],
+  ["projectSettings", "This project, shared"],
+  ["userSettings", "All your projects"],
+];
+const BEHAVIOR_LABEL: Record<string, string> = { allow: "Allow", ask: "Ask", deny: "Deny" };
 const STATES: [string, string][] = [
   ["on", "On"],
   ["name-only", "Name only (Claude sees just the name)"],
@@ -57,6 +81,16 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
 
   let tab: Tab = "commands";
   let data: CustomizeData | null = null;
+  let hooksData: HooksData | null = null;
+  let permData: PermissionsData | null = null;
+  let memData: MemoryData | null = null;
+  const LIVE: Tab[] = ["hooks", "permissions", "memory"];
+  const request = (t: Tab) => {
+    if (t === "hooks") hooksData = null;
+    if (t === "permissions") permData = null;
+    if (t === "memory") memData = null;
+    post({ type: "customizeTab", tab: t } as never);
+  };
 
   const matches = (...texts: string[]) => {
     const q = search.value.trim().toLowerCase();
@@ -69,12 +103,16 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
         const b = el("button", `filter-chip${id === tab ? " active" : ""}`, label);
         b.addEventListener("click", () => {
           tab = id;
+          if (LIVE.includes(id)) request(id);
           render();
         });
         return b;
       }),
     );
-    search.hidden = tab === "style" || tab === "instructions";
+    search.hidden = tab !== "commands" && tab !== "skills" && tab !== "permissions";
+    if (tab === "hooks") return void body.replaceChildren(...(hooksData ? hooks(hooksData) : [loading()]));
+    if (tab === "permissions") return void body.replaceChildren(...(permData ? permissions(permData) : [loading()]));
+    if (tab === "memory") return void body.replaceChildren(...(memData ? memory(memData) : [loading()]));
     if (!data) {
       body.replaceChildren(el("div", "muted customize-empty", "Loading…"));
       return;
@@ -171,6 +209,218 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
     });
   }
 
+  const loading = () => el("div", "muted customize-empty", "Loading…");
+
+  // ---------- hooks ----------
+  function hooks(d: HooksData): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    if (d.error) out.push(el("div", "agent-error customize-empty", `Couldn't read hooks: ${d.error}`));
+    if (d.lockReason) out.push(el("div", "notice customize-empty", d.lockReason));
+    if (d.notice) out.push(el("div", "notice customize-empty", d.notice));
+    if (!d.locked) {
+      const add = el("button", "link-button customize-row", "+ Add a hook");
+      add.addEventListener("click", () => add.replaceWith(hookForm(d, null)));
+      out.push(add);
+    }
+    if (!d.hooks.length) out.push(el("div", "muted customize-empty", "No hooks configured."));
+    d.hooks.forEach((h, i) => {
+      const row = el("div", "customize-row customize-skill");
+      const text = el("div", "customize-text");
+      const head = el("span", "customize-head");
+      head.append(el("span", "customize-name", h.event));
+      if (h.matcher) head.append(el("span", "chip", h.matcher));
+      head.append(el("span", "muted", h.type));
+      if (h.disabled) head.append(el("span", "chip", "not running"));
+      text.append(head, el("span", "history-meta mono", `${h.contentLabel || "Runs"}: ${h.text}`), el("span", "history-meta", h.sourceLabel));
+      row.append(text);
+      if (!d.locked && h.formEditable) {
+        const edit = el("button", "link-button", "Edit");
+        edit.addEventListener("click", () => row.replaceWith(hookForm(d, i)));
+        row.append(edit);
+      }
+      if (!d.locked && h.editable) {
+        const del = el("button", "link-button deny", "Remove");
+        del.addEventListener("click", () => post({ type: "hookEdit", op: "remove", index: i } as never));
+        row.append(del);
+      } else if (!h.editable) row.title = "Read-only here (a plugin, your organization or this session set it)";
+      out.push(row);
+    });
+    return out;
+  }
+
+  function hookForm(d: HooksData, index: number | null): HTMLElement {
+    const h = index === null ? null : d.hooks[index];
+    const form = el("div", "customize-row hook-form");
+    const event = el("select", "destination");
+    for (const e of d.events) {
+      const o = el("option", undefined, e.name);
+      o.value = e.name;
+      o.selected = h ? e.name === h.event : e.name === "PostToolUse";
+      o.title = e.summary;
+      event.append(o);
+    }
+    const summary = el("div", "history-meta");
+    const matcher = el("input", "history-search");
+    matcher.placeholder = "Matcher: tool name or pattern, e.g. Edit|Write (empty: every tool)";
+    matcher.value = h?.matcher ?? "";
+    const command = el("textarea", "input");
+    command.rows = 2;
+    command.placeholder = "Command to run, e.g. cargo fmt";
+    command.value = h?.text ?? "";
+    const timeout = el("input", "history-search hook-timeout");
+    timeout.type = "number";
+    timeout.min = "1";
+    timeout.max = "3600";
+    timeout.placeholder = "Timeout (s)";
+    if (h?.timeout) timeout.value = String(h.timeout);
+    const source = el("select", "destination");
+    for (const [id, label] of DESTS) {
+      const o = el("option", undefined, label);
+      o.value = id;
+      source.append(o);
+    }
+    const sync = () => {
+      const e = d.events.find((x) => x.name === event.value);
+      summary.textContent = e?.summary ?? "";
+      matcher.hidden = !e?.supportsMatcher;
+    };
+    event.addEventListener("change", sync);
+    sync();
+    const save = el("button", "send", "Save");
+    save.addEventListener("click", () => {
+      if (!command.value.trim()) return command.focus();
+      save.disabled = true;
+      post({
+        type: "hookEdit",
+        op: index === null ? "add" : "replace",
+        index: index ?? undefined,
+        source: source.value,
+        event: event.value,
+        matcher: matcher.hidden ? "" : matcher.value,
+        command: command.value,
+        timeout: timeout.value ? Number(timeout.value) : undefined,
+      } as never);
+    });
+    const cancel = el("button", "link-button", "Cancel");
+    cancel.addEventListener("click", render);
+    const row1 = el("div", "customize-head");
+    row1.append(el("span", "muted", "When"), event);
+    if (index === null) row1.append(el("span", "muted", "save in"), source);
+    const row2 = el("div", "customize-head");
+    row2.append(save, cancel, timeout);
+    form.append(el("div", "info-title", index === null ? "New hook" : "Edit hook"), row1, summary, matcher, command, row2);
+    return form;
+  }
+
+  // ---------- permissions ----------
+  function permissions(d: PermissionsData): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    if (d.error) out.push(el("div", "agent-error customize-empty", `Couldn't read the rules: ${d.error}`));
+    if (d.managedOnly) out.push(el("div", "notice customize-empty", "Your organization allows only its own rules: the others are listed but not in effect."));
+    out.push(ruleForm());
+    for (const behavior of ["allow", "ask", "deny"]) {
+      const rows = d.rules.map((r, i) => ({ r, i })).filter(({ r }) => r.behavior === behavior && matches(r.rule, r.description ?? "", r.source));
+      out.push(el("div", "info-section customize-empty", `${BEHAVIOR_LABEL[behavior]} (${rows.length})`));
+      for (const { r, i } of rows) {
+        const row = el("div", "customize-row customize-skill");
+        const text = el("div", "customize-text");
+        text.append(el("span", "customize-name", r.rule));
+        if (r.description) text.append(el("span", "history-meta", r.description));
+        text.append(el("span", "history-meta", r.notInEffect ? `${r.source} · not in effect` : r.source));
+        row.append(text);
+        if (r.removable) {
+          const del = el("button", "link-button deny", "Remove");
+          del.addEventListener("click", () => {
+            del.disabled = true;
+            post({ type: "permissionEdit", op: "remove", index: i } as never);
+          });
+          row.append(del);
+        }
+        out.push(row);
+      }
+    }
+    if (d.directories.length) {
+      out.push(el("div", "info-section customize-empty", "Extra folders Claude may use"));
+      for (const dir of d.directories) out.push(el("div", "customize-row history-meta", `${dir.path} · ${dir.source}`));
+    }
+    return out;
+  }
+
+  function ruleForm(): HTMLElement {
+    const form = el("div", "customize-row hook-form");
+    const rules = el("textarea", "input");
+    rules.rows = 2;
+    rules.placeholder = "One rule per line, e.g. Bash(cargo test:*)  Read(./src/**)  WebFetch(domain:docs.rs)";
+    const behavior = el("select", "destination");
+    for (const b of ["allow", "ask", "deny"]) {
+      const o = el("option", undefined, BEHAVIOR_LABEL[b]);
+      o.value = b;
+      behavior.append(o);
+    }
+    const dest = el("select", "destination");
+    for (const [id, label] of DESTS) {
+      const o = el("option", undefined, label);
+      o.value = id;
+      dest.append(o);
+    }
+    const add = el("button", "send", "Add");
+    add.addEventListener("click", () => {
+      if (!rules.value.trim()) return rules.focus();
+      add.disabled = true;
+      post({ type: "permissionEdit", op: "add", rules: rules.value, behavior: behavior.value, destination: dest.value } as never);
+    });
+    const row = el("div", "customize-head");
+    row.append(behavior, el("span", "muted", "save in"), dest, add);
+    form.append(rules, row);
+    return form;
+  }
+
+  // ---------- memory ----------
+  function memory(d: MemoryData): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    if (d.error) out.push(el("div", "agent-error customize-empty", `Couldn't read memory: ${d.error}`));
+    const toggle = (label: string, key: "autoMemory" | "autoDream", t?: Toggle) => {
+      if (!t) return;
+      const row = el("label", "model-toggle customize-row");
+      const box = el("input");
+      box.type = "checkbox";
+      box.checked = t.enabled;
+      box.disabled = !t.toggleable;
+      box.addEventListener("change", () => {
+        box.disabled = true;
+        post({ type: "memoryAction", action: "toggle", key, on: box.checked } as never);
+      });
+      row.append(box, el("span", undefined, label), el("span", "muted", [t.status, t.detail].filter(Boolean).join(" · ")));
+      out.push(row);
+    };
+    toggle("Auto-memory (Claude saves what it learns about you and this project)", "autoMemory", d.autoMemory);
+    toggle("Auto-dream (tidies saved memories in the background)", "autoDream", d.autoDream);
+    const open = (what: string, index: number, label: string, sub: string, button: string) => {
+      const row = el("div", "customize-row customize-skill");
+      const text = el("div", "customize-text");
+      text.append(el("span", "customize-name", label));
+      if (sub) text.append(el("span", "history-meta", sub));
+      const b = el("button", "link-button", button);
+      b.addEventListener("click", () => post({ type: "memoryAction", action: "open", what, index } as never));
+      row.append(text, b);
+      return row;
+    };
+    if (d.files.length) out.push(el("div", "info-section customize-empty", "Instruction files"));
+    d.files.forEach((f, i) => out.push(open("file", i, f.label, [f.description, f.path].filter(Boolean).join(" · "), f.exists ? "Open" : "Create…")));
+    if (d.folders.length) out.push(el("div", "info-section customize-empty", "Memory folders"));
+    d.folders.forEach((f, i) => out.push(open("folder", i, f.label, [f.description, f.path].filter(Boolean).join(" · "), "Show folder")));
+    if (d.memories.length) out.push(el("div", "info-section customize-empty", `Saved memories (${d.memories.length})`));
+    d.memories.forEach((m, i) => {
+      const when = m.modified ? new Date(m.modified).toLocaleDateString() : "";
+      const row = open("memory", i, m.name, [m.kind, m.description, when].filter(Boolean).join(" · "), "Open");
+      const del = el("button", "link-button deny", "Delete");
+      del.addEventListener("click", () => post({ type: "memoryAction", action: "delete", what: "memory", index: i } as never));
+      row.append(del);
+      out.push(row);
+    });
+    return out;
+  }
+
   search.addEventListener("input", render);
 
   return {
@@ -182,6 +432,17 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
       search.value = "";
       render();
       post({ type: "customize" });
+      if (LIVE.includes(tab)) request(tab);
+    },
+    showTab(t: "hooksData" | "permissionsData" | "memoryData", d: unknown): void {
+      if (t === "hooksData") hooksData = d as HooksData;
+      if (t === "permissionsData") permData = d as PermissionsData;
+      if (t === "memoryData") memData = d as MemoryData;
+      if (!view.hidden) render();
+    },
+    /** A native dialog was cancelled or an edit was refused: re-enable the form. */
+    done(): void {
+      if (!view.hidden) render();
     },
     show(d: CustomizeData): void {
       data = d;

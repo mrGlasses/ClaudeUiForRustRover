@@ -137,12 +137,12 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| Slash commands browser with filter; `/skills` with visibility toggles | CLI | ◐ v0.29.0 (Customize view), waiting for test |
-| Output styles picker; "Build a custom style" | CLI | ◐ v0.29.0, waiting for test |
-| Hooks viewer/editor (user, project, local; others read-only) | CLI | ☐ |
-| Permissions rules viewer/editor (Allow / Ask / Deny) | CLI | ☐ |
-| Memory: auto memory on/off, browse, read, edit, delete, reveal folder | CLI | ☐ |
-| Instructions: open or create CLAUDE.md files | UI/CLI | ◐ v0.29.0, waiting for test |
+| Slash commands browser with filter; `/skills` with visibility toggles | CLI | ☑ v0.29.0 (Customize view) |
+| Output styles picker; "Build a custom style" | CLI | ☑ v0.29.0 |
+| Hooks viewer/editor (user, project, local; others read-only) | CLI | ◐ v0.30.0, waiting for test |
+| Permissions rules viewer/editor (Allow / Ask / Deny) | CLI | ◐ v0.30.0, waiting for test |
+| Memory: auto memory on/off, browse, read, edit, delete, reveal folder | CLI | ◐ v0.30.0, waiting for test |
+| Instructions: open or create CLAUDE.md files | UI/CLI | ☑ v0.29.0 |
 | `/status` (version, account, model, MCP) | CLI | ☑ v0.28.0 (card in the panel) |
 | `/sandbox` (mode, excluded commands) | CLI | ☐ |
 | `/chrome` (Claude in Chrome connection) | CLI | ☐ |

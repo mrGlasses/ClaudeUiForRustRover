@@ -299,6 +299,11 @@ class ChatSession(
     fun reloadOutputStyles(done: (JsonObject?, String?) -> Unit) = request("reload_output_styles", JsonObject(), done = done)
     fun updateSettings(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("update_settings", body, done = done)
 
+    /** Phase 13b: Hooks, Permissions, Memory tabs. */
+    fun hooksListing(done: (JsonObject?, String?) -> Unit) = request("get_hooks_listing", JsonObject(), done = done)
+    fun permissionRules(done: (JsonObject?, String?) -> Unit) = request("list_permission_rules", JsonObject(), done = done)
+    fun memoryDialog(done: (JsonObject?, String?) -> Unit) = request("get_memory_dialog", JsonObject(), done = done)
+
     /** A control request whose answer (payload, or error text) goes to [done], exactly once. */
     private fun request(subtype: String, body: JsonObject, timeoutSeconds: Long = 30, done: (JsonObject?, String?) -> Unit) {
         val req = control(subtype, body)
