@@ -6,5 +6,28 @@
                 factoryClass="dev.metaclaude.panel.ChatToolWindowFactory"/>
     <!-- Banner (Send my comments / Approve plan) on a plan opened from the chat panel. -->
     <editorNotificationProvider implementation="dev.metaclaude.panel.PlanNotificationProvider"/>
+    <!-- Phase 14a: status bar item "✻ Claude". -->
+    <statusBarWidgetFactory id="ClawedUiStatus" implementation="dev.metaclaude.panel.ClaudeStatusWidgetFactory" order="first"/>
   </extensions>
+
+  <!-- Phase 14a: entry points (Tools > Claude, Find Action, editor toolbar, selection toolbar). No global shortcuts by default. -->
+  <actions>
+    <group id="dev.metaclaude.ClaudeMenu" text="Claude" popup="true" icon="/icons/clawed.svg">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+      <action id="dev.metaclaude.OpenChat" class="dev.metaclaude.panel.OpenChatAction" icon="/icons/clawed.svg"
+              text="Claude: Open Chat" description="Show the Claude Chat panel"/>
+      <action id="dev.metaclaude.NewConversation" class="dev.metaclaude.panel.NewConversationAction"
+              text="Claude: New Conversation" description="Start a new conversation in a new tab of the Claude Chat panel"/>
+      <action id="dev.metaclaude.ReopenClosedConversation" class="dev.metaclaude.panel.ReopenClosedConversationAction"
+              text="Claude: Reopen Closed Conversation" description="Bring back the last conversation tab you closed"/>
+      <action id="dev.metaclaude.ShowLogs" class="dev.metaclaude.panel.ShowLogsAction"
+              text="Claude: Show Logs" description="Open Clawed UI's bridge.log"/>
+    </group>
+    <action id="dev.metaclaude.AskClaude" class="dev.metaclaude.panel.AskClaudeAction" icon="/icons/clawed.svg"
+            text="Ask Claude" description="Mention this file (or the selected lines) in the Claude chat">
+      <add-to-group group-id="EditorContextBarMenu" anchor="first"/>
+      <add-to-group group-id="Floating.CodeToolbar" anchor="last"/>
+      <add-to-group group-id="dev.metaclaude.ClaudeMenu" anchor="after" relative-to-action="dev.metaclaude.ReopenClosedConversation"/>
+    </action>
+  </actions>
 </idea-plugin>

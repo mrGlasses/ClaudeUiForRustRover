@@ -32,6 +32,17 @@ import javax.swing.Icon
 @Service(Service.Level.PROJECT)
 class ChatTabs(private val project: Project) {
     enum class Status { NONE, NEEDS_INPUT, DONE_UNSEEN }
+    enum class Overall { IDLE, WORKING, NEEDS_YOU }
+
+    /** Phase 14a: the status bar item's state, the busiest of this project's conversations. */
+    fun overallState(): Overall {
+        val all = panels()
+        return when {
+            all.any { it.status == Status.NEEDS_INPUT } -> Overall.NEEDS_YOU
+            all.any { it.busy } -> Overall.WORKING
+            else -> Overall.IDLE
+        }
+    }
 
     private val closed = ArrayDeque<String>() // session ids of closed tabs, newest last
     private var tabs: JBTabs? = null
@@ -201,6 +212,7 @@ class ChatTabs(private val project: Project) {
 
     fun setStatus(panel: ChatPanel, status: Status) {
         panel.status = status
+        ClaudeStatusWidgetFactory.refresh(project)
         panel.tab?.setIcon(when (status) {
             Status.NONE -> null
             Status.NEEDS_INPUT -> Dot(JBColor(0x3574F0, 0x548AF7))

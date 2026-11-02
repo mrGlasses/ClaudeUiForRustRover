@@ -48,6 +48,8 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var continueAfterReload by property(true)
         /** VS Code `archiveInactiveSessions`: days without activity before a conversation counts as archived (0 = never). */
         var archiveInactiveSessions by property(0)
+        /** VS Code `preferredLocation`: side of the IDE for the Claude Chat panel (right, left, bottom). */
+        var preferredLocation by string("right")
     }
 
     var integrationMode: IntegrationMode

@@ -18,12 +18,12 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature (VS Code) | JetBrains equivalent | Via | Status |
 |---|---|---|---|
-| Spark icon in Editor Toolbar (when a file is open) | Floating editor toolbar action | UI | ☐ |
-| Activity Bar icon → sessions list | Tool window stripe icon → sessions list | UI | ☐ |
-| Status Bar "✻ Claude Code" | Status bar widget | UI | ☐ |
-| Command Palette "Claude Code: …" commands | Find Action (Ctrl+Shift+A) + Tools menu | UI | ◐ New Claude Session, Toggle Focus, Send Selection (v0.10.0) |
-| Panel in secondary sidebar / primary sidebar / editor tab, draggable | Tool window (right/left/bottom, draggable) or editor tab | UI | ☐ |
-| `preferredLocation` setting | Same setting | UI | ☐ |
+| Spark icon in Editor Toolbar (when a file is open) | Floating editor toolbar action | UI | ◐ v0.33.0: "Ask Claude" in the editor's top-right toolbar and in the selection toolbar, waiting for test |
+| Activity Bar icon → sessions list | Tool window stripe icon → sessions list | UI | ◐ stripe icon opens the panel; "Open Conversations" list in its title bar (v0.23.0) |
+| Status Bar "✻ Claude Code" | Status bar widget | UI | ◐ v0.33.0: "✻ Claude", "· working", "· needs you"; click opens the panel; waiting for test |
+| Command Palette "Claude Code: …" commands | Find Action (Ctrl+Shift+A) + Tools menu | UI | ◐ v0.33.0: Tools > Claude (Open Chat, New Conversation, Reopen Closed Conversation, Ask Claude, Show Logs) + the terminal-mode actions; waiting for test |
+| Panel in secondary sidebar / primary sidebar / editor tab, draggable | Tool window (right/left/bottom, draggable) or editor tab | UI | ◐ tool window, draggable; no editor-tab placement |
+| `preferredLocation` setting | Same setting | UI | ◐ v0.33.0 "Chat panel location" (right / left / bottom), waiting for test |
 | `lockEditorGroups` | Adapt: open files outside the Claude editor split | Adapt | ☐ |
 | Terminal mode (`useTerminal`) and "Open in Terminal" | Terminal tool window running `claude` | UI | ☑ v0.10.0: "Claude" tab in the Terminal tool window (tested) |
 | Sign-in screen, "Not logged in" handling | Detect from stream, show sign-in button that runs `/login` | Stream/CLI | ◐ v0.17.0: sign-in card opens a Claude terminal tab for `/login` |
@@ -169,9 +169,9 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|---|---|
 | Focus Input (toggle editor ↔ Claude) | Ctrl+Esc | **Alt+Shift+K** (Ctrl+Esc opens the Windows Start menu) | ☑ v0.10.0 (tested) |
 | Open in New Tab | Ctrl+Shift+Esc | Pick another key: Windows reserves Ctrl+Shift+Esc for Task Manager | ☐ |
-| New Conversation (`enableNewConversationShortcut`) | Ctrl+N | Only when Claude has focus: Ctrl+N is "Go to Class" in JetBrains | ☐ |
-| Reopen Closed Session (`enableReopenClosedSessionShortcut`) | Ctrl+Shift+T | Only when Claude has focus: Ctrl+Shift+T is "Go to Test" in JetBrains | ☐ |
-| Insert @-Mention | Alt+K | Same, if free | ☐ |
+| New Conversation (`enableNewConversationShortcut`) | Ctrl+N | Only when Claude has focus: Ctrl+N is "Go to Class" in JetBrains | ◐ v0.33.0 (panel-local), waiting for test |
+| Reopen Closed Session (`enableReopenClosedSessionShortcut`) | Ctrl+Shift+T | Only when Claude has focus: Ctrl+Shift+T is "Go to Test" in JetBrains | ☑ v0.23.0 (panel-local) |
+| Insert @-Mention | Alt+K | Same, if free | ☑ v0.7.0 / panel v0.20.0 |
 | Toggle Focus view | Ctrl+Alt+F | Panel-local shortcut, so "Introduce Field" still works in the editor | ◐ v0.17.0 |
 | Expand/collapse thinking | Ctrl+O | Only inside the panel | ☑ v0.16.1 (panel-local shortcut) |
 | Accept/Reject Change at Cursor, Rename/Group/Mark Unread tab, Show Logs, Logout, Focus last message, Open in Side Bar/Terminal/New Window | — | Actions without default keys | ☐ |
@@ -191,7 +191,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | URI handler `…/open?prompt=…&session=…` | Adapt: JetBrains protocol handler (`jetbrains://rustrover/…`) | ☐ |
 | Screen reader announcements, labeled transcript, Focus last message | UI (JCEF accessibility + IDE announcements) | ☐ |
 | Third-party providers (Bedrock, Vertex/Agent Platform, Foundry): `disableLoginPrompt`, no claude.ai-only features | UI + CLI | ☐ |
-| Show Logs (extension debug logs) | UI (open `bridge.log` + IDE log) | ◐ (bridge.log exists) |
+| Show Logs (extension debug logs) | UI (open `bridge.log` + IDE log) | ◐ v0.33.0: Tools > Claude > Show Logs opens bridge.log (IDE log: Help > Show Log); waiting for test |
 
 ## N. Out of scope (for now)
 

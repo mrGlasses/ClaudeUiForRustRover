@@ -25,8 +25,9 @@ Everything below is **not started** unless marked otherwise.
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
 | 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
-| 13 Customize | 13a, 13b, 13c done (v0.29.0, v0.30.1, v0.31.0 tested 2026-11-02). **13d (sandbox, Chrome) v0.32.0: waiting for your test**. Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
-| 14–16 | Not started |
+| 13 Customize | ☑ Done (13a–13d, v0.29.0–v0.32.0, tested 2026-11-02). Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
+| 14 IDE polish | **14a (entry points, status bar, location, Ctrl+N) v0.33.0: waiting for your test**. 14b (prompt-box and transcript settings, `/btw`, bookmarks, onboarding), 14c (URI handler, accessibility, providers, environment) next |
+| 15–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -568,12 +569,25 @@ marketplace add: all ok. 13c done.
   in the system browser (only http(s) URLs from the CLI's answer).
 - Not here: "Enable Remote Control for all sessions" (`remoteControlAtStartup` is a user setting that no CLI command
   writes; it goes with the Web tab in Phase 15) and plugin install links (a JetBrains URL handler, Phase 14).
+v0.32.0 test (2026-11-02): ok. 13 done.
 
 ### Phase 14 — IDE polish (PARITY §A, §K, §L, §M)
 Tool window / editor toolbar / status bar entry points, panel placement (`preferredLocation`), editor-split behavior, keymap (resolve the JetBrains conflicts listed in PARITY §K),
 `/btw` side panel, bookmarks, onboarding page, URI handler (open with prompt/session, install-plugin links), screen reader support, third-party provider mode, Show Logs.
 
 **Done when:** every row in PARITY.md is ☑ or explicitly marked Skip.
+
+14a (v0.33.0), entry points (`PanelActions`):
+- Tools > Claude (also in Find Action): Open Chat, New Conversation, Reopen Closed Conversation, Ask Claude, Show Logs
+  (bridge.log in the editor). No global shortcuts are taken.
+- "Ask Claude" (✻ icon, an original asterisk, not Anthropic's logo) in the editor's top-right toolbar
+  (`EditorContextBarMenu`) and in the selection's floating toolbar (`Floating.CodeToolbar`): opens the chat and puts
+  `@file#lines` (or `@file`) in the message box.
+- Status bar item "✻ Claude", "✻ Claude · working" while a conversation answers, "✻ Claude · needs you" while a permission
+  card waits; click opens the chat.
+- Settings > Chat panel location (right / left / bottom), VS Code's `preferredLocation`: moves the panel when applied.
+- Ctrl+N inside the panel: new conversation tab (panel-local, so "Go to Class" keeps working in the editor).
+- The Phase 6 developer action "Run Stream Spike" is gone from the Tools menu.
 
 ---
 

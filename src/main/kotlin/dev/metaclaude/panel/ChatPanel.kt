@@ -160,6 +160,8 @@ class ChatPanel(
         panelShortcutAction(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK or InputEvent.SHIFT_DOWN_MASK)) { tabs.reopenClosed() }
         // Ctrl+F4 (JetBrains' "close tab") closes this conversation tab.
         panelShortcutAction(KeyStroke.getKeyStroke(KeyEvent.VK_F4, InputEvent.CTRL_DOWN_MASK)) { tabs.close(this) }
+        // Ctrl+N: new conversation (VS Code's enableNewConversationShortcut). Panel-local: "Go to Class" stays in the editor.
+        panelShortcutAction(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK)) { tabs.newTab(null) }
 
         toKotlin.addHandler { json -> handle(json); null }
         openPanels.add(this)
@@ -1203,6 +1205,12 @@ class ChatPanel(
 
     /** True from a send until its turn ends: rewinding or forking mid-turn would race with Claude's own edits. */
     @Volatile private var turnRunning = false
+        set(v) { field = v; onEdt { ClaudeStatusWidgetFactory.refresh(project) } } // Phase 14a: status bar item
+    /** Claude is answering in this conversation (status bar item). */
+    val busy: Boolean get() = turnRunning
+
+    /** Sends one message to the page (actions outside the panel: Ask Claude). */
+    fun post(msg: JsonObject) = send(msg)
     /** A fork chosen in another tab: its process starts (with --fork-session) on the first message. */
     @Volatile private var pendingFork: Fork? = null
 

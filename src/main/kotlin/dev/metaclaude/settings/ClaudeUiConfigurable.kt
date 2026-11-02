@@ -99,13 +99,32 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                     .bindItem({ settings.state.archiveInactiveSessions }, { settings.state.archiveInactiveSessions = it ?: 0 })
                     .comment("They move to History > Archived. Bringing one back keeps it out of auto-archive.")
             }
+            row("Chat panel location:") {
+                comboBox(listOf("right", "left", "bottom"), SideRenderer())
+                    .bindItem({ settings.state.preferredLocation ?: "right" }, { settings.state.preferredLocation = it ?: "right" })
+                    .comment("Moves the Claude Chat panel when you apply. You can still drag it anywhere.")
+            }
         }
     }
 
     override fun apply() {
+        val location = settings.state.preferredLocation
         super.apply()
+        if (settings.state.preferredLocation != location) moveChatPanels(settings.state.preferredLocation ?: "right")
         MetaClaudeService.applySettingsToOpenProjects() // a mode change starts or stops the bridge right away
         applyToChatPanels()
+    }
+
+    /** Phase 14a: VS Code's `preferredLocation`, applied when it changes (a drag afterwards still wins). */
+    private fun moveChatPanels(side: String) {
+        val anchor = when (side) {
+            "left" -> com.intellij.openapi.wm.ToolWindowAnchor.LEFT
+            "bottom" -> com.intellij.openapi.wm.ToolWindowAnchor.BOTTOM
+            else -> com.intellij.openapi.wm.ToolWindowAnchor.RIGHT
+        }
+        com.intellij.openapi.project.ProjectManager.getInstance().openProjects.forEach { p ->
+            com.intellij.openapi.wm.ToolWindowManager.getInstance(p).getToolWindow("Claude Chat")?.setAnchor(anchor, null)
+        }
     }
 
     /** The chat panel lives in claude-ui-jcef.xml (only with JCEF), so reach it only when its class can load. */
@@ -130,6 +149,13 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                 ModalityState.any(),
             )
         }
+    }
+}
+
+/** "Right side", "Left side", "Bottom". */
+private class SideRenderer : com.intellij.ui.ColoredListCellRenderer<String>() {
+    override fun customizeCellRenderer(list: javax.swing.JList<out String>, value: String?, index: Int, selected: Boolean, hasFocus: Boolean) {
+        append(when (value) { "left" -> "Left side"; "bottom" -> "Bottom"; else -> "Right side" })
     }
 }
 
