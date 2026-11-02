@@ -72,6 +72,8 @@ export type FromKotlin =
       spinnerVerbs?: string[];
     }
   | { type: "sideAnswer"; question: string; answer: string; error?: string }
+  | { type: "openCustomize"; tab: string; filter?: string }
+  | { type: "focusLast" }
   | { type: "bookmarkList"; items: import("./side").Bookmark[] }
   | import("./permissions").PermissionCard
   | { type: "permissionResolved"; requestId: string; outcome: string }

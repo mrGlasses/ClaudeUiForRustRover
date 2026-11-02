@@ -202,6 +202,8 @@ class ChatPanel(
                 addProperty("version", PluginInfo.version)
                 addProperty("ideBuild", ApplicationInfo.getInstance().build.asString())
             }, settingsMessage(), modeMessage()).also {
+                pageReady = true
+                waiting.toList().also { waiting.clear() }.forEach { send(it) }
                 ApplicationManager.getApplication().invokeLater { contextTracker.push(force = true) }
                 AppExecutorUtil.getAppExecutorService().execute {
                     if (initialFork != null) showFork(initialFork)
@@ -625,7 +627,7 @@ class ChatPanel(
         val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath) ?: run { notice("Claude CLI not found."); return null }
         val root = project.basePath ?: return null
         val (code, out) = runCatching {
-            val p = ProcessBuilder(exe, subcommand, "--json").directory(java.io.File(root)).redirectErrorStream(true).start()
+            val p = claudeProcess(exe, listOf(subcommand, "--json")).directory(java.io.File(root)).redirectErrorStream(true).start()
             p.outputStream.use { it.write(edit.toString().toByteArray(Charsets.UTF_8)) }
             val out = p.inputStream.readAllBytes().toString(Charsets.UTF_8)
             if (!p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)) { p.destroyForcibly(); -1 to "timed out" } else p.exitValue() to out
@@ -704,7 +706,7 @@ class ChatPanel(
         val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath) ?: run { notice("Claude CLI not found."); return null }
         val root = project.basePath ?: return null
         val result = runCatching {
-            val p = ProcessBuilder(listOf(exe) + args).directory(java.io.File(root)).redirectErrorStream(true).start()
+            val p = claudeProcess(exe, args).directory(java.io.File(root)).redirectErrorStream(true).start()
             p.outputStream.use { o -> stdin?.let { o.write(it.toByteArray(Charsets.UTF_8)) } }
             val out = java.util.concurrent.CompletableFuture.supplyAsync({ p.inputStream.readAllBytes().toString(Charsets.UTF_8) }, AppExecutorUtil.getAppExecutorService())
             if (!p.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)) { p.destroyForcibly(); -1 to "timed out after $timeoutSeconds s" }
@@ -712,6 +714,12 @@ class ChatPanel(
         }.getOrElse { -1 to (it.message ?: it::class.java.simpleName) }
         BridgeLog.log("panel: claude ${args.take(2).joinToString(" ")} exit ${result.first}", project.name)
         return result
+    }
+
+    /** Phase 14c: `claude` with the user's wrapper and extra environment, for the CLI commands the panel runs. */
+    private fun claudeProcess(exe: String, args: List<String>): ProcessBuilder {
+        val settings = ClaudeUiSettings.instance
+        return ProcessBuilder(settings.command(exe, args)).apply { environment().putAll(settings.processEnv()) }
     }
 
     private fun viaCmd() = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)?.let { Extensions.viaCmd(it) } ?: false
@@ -1047,7 +1055,7 @@ class ChatPanel(
             session = null
             clearTasks()
             val ok = runCatching {
-                val p = ProcessBuilder(exe, "auth", "logout").redirectErrorStream(true).start()
+                val p = claudeProcess(exe, listOf("auth", "logout")).redirectErrorStream(true).start()
                 p.inputStream.readAllBytes() // nothing logged: it may name the account
                 p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS) && p.exitValue() == 0
             }.getOrDefault(false)
@@ -1267,6 +1275,11 @@ class ChatPanel(
 
     /** Sends one message to the page (actions outside the panel: Ask Claude). */
     fun post(msg: JsonObject) = send(msg)
+
+    /** Phase 14c: messages for a page that isn't ready yet (a tab just opened by a jetbrains:// link) wait here. */
+    private val waiting = java.util.concurrent.CopyOnWriteArrayList<JsonObject>()
+    @Volatile private var pageReady = false
+    fun postWhenReady(msg: JsonObject) { if (pageReady) send(msg) else waiting.add(msg) }
     /** A fork chosen in another tab: its process starts (with --fork-session) on the first message. */
     @Volatile private var pendingFork: Fork? = null
 
@@ -1371,6 +1384,8 @@ class ChatPanel(
     /** Keeps [mode] in step with the CLI before passing session messages on to the page. */
     private fun onSessionMessage(m: JsonObject) {
         val type = m.get("type")?.asString
+        // Phase 14c, VS Code's disableLoginPrompt: a third-party provider signs in its own way, so no sign-in card.
+        if (type == "signIn" && ClaudeUiSettings.instance.state.disableLoginPrompt) return
         if (type == "permissionMode" || type == "sessionInfo") {
             m.get(if (type == "permissionMode") "mode" else "permissionMode")?.takeIf { it.isJsonPrimitive }?.asString
                 ?.takeIf { it.isNotEmpty() }?.let { mode = it }

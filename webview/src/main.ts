@@ -28,6 +28,7 @@ function clock(d = new Date()): string {
 const root = document.getElementById("app")!;
 const header = el("div", "header");
 const status = el("span", "status", "Starting…");
+status.setAttribute("role", "status"); // Phase 14c: screen readers hear Ready / Working / Waiting for you
 const focusButton = el("button", "link-button", "Focus");
 focusButton.title = "Hide tool calls and thinking (Ctrl+Alt+F)";
 const newButton = el("button", "link-button", "New session");
@@ -41,6 +42,10 @@ headerLeft.append(status, modes.node);
 header.append(headerLeft, headerButtons);
 
 const transcript = el("div", "transcript");
+// Phase 14c: the conversation is a live log: new messages are read out without moving focus.
+transcript.setAttribute("role", "log");
+transcript.setAttribute("aria-live", "polite");
+transcript.setAttribute("aria-label", "Conversation with Claude");
 const empty = el("div", "empty", "Ask Claude about this project. Enter sends, Shift+Enter adds a line, Esc stops, / opens commands, @ mentions a file or terminal, paste images or drop files here, Ctrl+O shows thinking, Ctrl+Alt+F toggles Focus view.");
 transcript.append(empty);
 
@@ -72,6 +77,7 @@ slashMenu.hidden = true;
 
 const composer = el("div", "composer");
 const input = el("textarea", "input");
+input.setAttribute("aria-label", "Message Claude");
 input.rows = 3;
 input.placeholder = "Message Claude…";
 const sendButton = el("button", "send", "Send");
@@ -242,6 +248,8 @@ function textBlock(key: string): { el: HTMLDivElement; text: string } {
   let b = textBlocks.get(key);
   if (!b) {
     b = { el: el("div", "msg assistant markdown"), text: "" };
+    b.el.setAttribute("role", "article");
+    b.el.setAttribute("aria-label", "Claude");
     textBlocks.set(key, b);
     turnTexts.push(key);
     append(b.el);
@@ -337,6 +345,8 @@ function dayLine(): void {
 function userMessage(o: Outgoing): void {
   dayLine();
   const m = el("div", "msg user");
+  m.setAttribute("role", "article");
+  m.setAttribute("aria-label", "You");
   if (o.uuid) m.append(checkpointButton(o.uuid));
   m.append(el("div", "user-text", o.text));
   if (o.images.length || o.files.length) {
@@ -619,10 +629,10 @@ const customize = createCustomize({
   },
 });
 transcript.before(customize.view);
-function openCustomize(tab?: "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory" | "mcp" | "plugins" | "sandbox" | "chrome"): void {
+function openCustomize(tab?: "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory" | "mcp" | "plugins" | "sandbox" | "chrome", filter?: string): void {
   history.view.hidden = true;
   transcript.hidden = true;
-  customize.open(tab);
+  customize.open(tab, filter);
 }
 function closeCustomize(): void {
   customize.view.hidden = true;
@@ -800,6 +810,19 @@ function handle(msg: FromKotlin): void {
       focusApplied = true;
       showOnboarding();
       break;
+    case "openCustomize":
+      openCustomize(msg.tab as never, msg.filter);
+      break;
+    case "focusLast": {
+      // Phase 14c (VS Code's "Focus last message"): the newest message gets keyboard / screen-reader focus.
+      const last = [...transcript.querySelectorAll<HTMLElement>(".msg")].pop();
+      if (last) {
+        last.tabIndex = -1;
+        last.focus();
+        last.scrollIntoView({ block: "nearest" });
+      }
+      break;
+    }
     case "sideAnswer":
       sideQuestions.answer(msg.question, msg.answer, msg.error);
       break;

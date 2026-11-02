@@ -780,11 +780,11 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
 
   return {
     view,
-    open(which?: Tab): void {
+    open(which?: Tab, filter?: string): void {
       if (which) tab = which;
       view.hidden = false;
       data = null;
-      search.value = "";
+      search.value = filter ?? "";
       render();
       post({ type: "customize" });
       if (LIVE.includes(tab)) request(tab);

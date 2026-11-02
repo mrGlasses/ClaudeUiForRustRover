@@ -27,7 +27,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | `lockEditorGroups` | Adapt: open files outside the Claude editor split | Adapt | ☐ |
 | Terminal mode (`useTerminal`) and "Open in Terminal" | Terminal tool window running `claude` | UI | ☑ v0.10.0: "Claude" tab in the Terminal tool window (tested) |
 | Sign-in screen, "Not logged in" handling | Detect from stream, show sign-in button that runs `/login` | Stream/CLI | ◐ v0.17.0: sign-in card opens a Claude terminal tab for `/login` |
-| Onboarding checklist, "Open Walkthrough", `hideOnboarding` | Getting-started page in the tool window | UI | ◐ v0.34.0 (list in an empty conversation), waiting for test |
+| Onboarding checklist, "Open Walkthrough", `hideOnboarding` | Getting-started page in the tool window | UI | ☑ v0.34.0 (list in an empty conversation) |
 
 ## B. Prompt box — Phases 7, 9, 12
 
@@ -43,7 +43,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Context indicator and `/compact` | Stream | 12 | ☑ v0.27.0 (tooltip v0.27.1) |
 | Prompt cache clock (minutes left, red when expired) | Stream | 12 | ☑ v0.27.0 |
 | Agent count and agent map | Stream | 11 | ☑ v0.26.0 |
-| Side questions `/btw` in a panel beside the chat (newest 20 exchanges kept) | Stream | 14 | ◐ v0.34.0 (box above the prompt), waiting for test |
+| Side questions `/btw` in a panel beside the chat (newest 20 exchanges kept) | Stream | 14 | ☑ v0.34.0 (box above the prompt) |
 
 ## C. Context and mentions — Phase 9
 
@@ -87,11 +87,11 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Latest to-do list stays visible | Stream + UI | ◐ v0.16.1: TodoWrite and TaskCreate/TaskUpdate; opt-in setting, since recent models leave the task tools out |
 | Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ◐ v0.17.0: button, `/focus`, Ctrl+Alt+F; `focusView` setting v0.34.0, waiting for test |
 | Message timestamps and date lines, `showMessageTimestamps` | UI | ☑ v0.17.0 |
-| `scrollToBottomOnSend` | UI | ◐ v0.34.0, waiting for test |
-| `spinnerVerbs` | UI | ◐ v0.34.0, waiting for test |
+| `scrollToBottomOnSend` | UI | ☑ v0.34.0 |
+| `spinnerVerbs` | UI | ☑ v0.34.0 |
 | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, ```` ```math ````), copy gives TeX source | UI (KaTeX in the web view) | ☑ v0.17.0 (KaTeX → MathML, no fonts or inline styles) |
 | Copy response (hover button), `/copy`, `/copy 2` | UI | ☑ v0.17.0 (Copy per turn, `/copy`, `/copy N`) |
-| Bookmarks (bookmark response, Bookmarks panel, `/bookmarks`) | UI/CLI | ◐ v0.34.0 (☆ under responses, `/bookmarks` card), waiting for test |
+| Bookmarks (bookmark response, Bookmarks panel, `/bookmarks`) | UI/CLI | ☑ v0.34.0 (☆ under responses, `/bookmarks` card) |
 | Files Claude sends ("Sent report.md …", click to open; network paths not linked) | Stream + UI | ☐ |
 | Stop button / Esc ends the turn (background agents keep running) | Stream | ◐ v0.14.0 (pending test) |
 
@@ -148,7 +148,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | `/chrome` (Claude in Chrome connection) | CLI | ◐ v0.32.0, waiting for test |
 | `/mcp` dialog: add, remove, enable/disable, reconnect, OAuth | CLI | ☑ v0.31.0 (OAuth sign-in through a terminal tab) |
 | `/plugins` dialog: installed toggles, scopes, config form, uninstall, marketplaces tab | CLI | ☑ v0.31.0 |
-| Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ☐ Phase 14 (URI handler) |
+| Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ◐ v0.35.0 `jetbrains://rustrover/clawed-ui/install-plugin?…`, waiting for test |
 | Enable Remote Control for all sessions (`remoteControlAtStartup`) | CLI | ☐ Phase 15 (with the Web tab) |
 | Sign out (`/logout`), Report a problem (`/bug`, `/feedback`) | CLI | ☑ v0.28.0: `claude auth logout` after a native confirmation (not tried by choice); `/bug` in a Claude terminal tab, or a GitHub issue for the plugin |
 | `/usage` dialog (plan bars, recommendations + Fix button, attribution, Day/Week) | CLI | ☑ v0.28.0 (card in the panel); usage ring planned after all features |
@@ -180,7 +180,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | VS Code setting | Equivalent | Status |
 |---|---|---|
-| `useTerminal`, `initialPermissionMode`, `preferredLocation`, `lockEditorGroups`, `autosave`, `attachOpenFile`, `attachSelection`, `useCtrlEnterToSend`, `scrollToBottomOnSend`, `showMessageTimestamps`, `spinnerVerbs`, `enableNewConversationShortcut`, `enableReopenClosedSessionShortcut`, `archiveInactiveSessions`, `continueAfterReload`, `hideOnboarding`, `focusView`, `respectGitIgnore`, `environmentVariables`, `disableLoginPrompt`, `allowDangerouslySkipPermissions`, `claudeProcessWrapper` | Same names on our settings page | ☐ |
+| `useTerminal`, `initialPermissionMode`, `preferredLocation`, `lockEditorGroups`, `autosave`, `attachOpenFile`, `attachSelection`, `useCtrlEnterToSend`, `scrollToBottomOnSend`, `showMessageTimestamps`, `spinnerVerbs`, `enableNewConversationShortcut`, `enableReopenClosedSessionShortcut`, `archiveInactiveSessions`, `continueAfterReload`, `hideOnboarding`, `focusView`, `respectGitIgnore`, `environmentVariables`, `disableLoginPrompt`, `allowDangerouslySkipPermissions`, `claudeProcessWrapper` | Same names on our settings page | ◐ v0.35.0: all present except `lockEditorGroups` (no editor-tab placement) and the two shortcut switches (shortcuts are panel-local, so they can't clash) |
 | `usePythonEnvironment` | Adapt: optional Rust toolchain environment (rustup toolchain / cargo env) | ☐ |
 | (ours) Integration mode Built-in / Official / Auto, path to `claude` | Settings page | ☑ v0.9.0 (tested) |
 
@@ -188,9 +188,9 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature | Via | Status |
 |---|---|---|
-| URI handler `…/open?prompt=…&session=…` | Adapt: JetBrains protocol handler (`jetbrains://rustrover/…`) | ☐ |
-| Screen reader announcements, labeled transcript, Focus last message | UI (JCEF accessibility + IDE announcements) | ☐ |
-| Third-party providers (Bedrock, Vertex/Agent Platform, Foundry): `disableLoginPrompt`, no claude.ai-only features | UI + CLI | ☐ |
+| URI handler `…/open?prompt=…&session=…` | Adapt: JetBrains protocol handler (`jetbrains://rustrover/…`) | ◐ v0.35.0 `jetbrains://rustrover/clawed-ui/open?…`, waiting for test |
+| Screen reader announcements, labeled transcript, Focus last message | UI (JCEF accessibility + IDE announcements) | ◐ v0.35.0 (live log, labels, Focus Last Message), waiting for test |
+| Third-party providers (Bedrock, Vertex/Agent Platform, Foundry): `disableLoginPrompt`, no claude.ai-only features | UI + CLI | ◐ v0.35.0 (`environmentVariables`, `disableLoginPrompt`; claude.ai-only data comes back empty from the CLI), waiting for test |
 | Show Logs (extension debug logs) | UI (open `bridge.log` + IDE log) | ☑ v0.33.0: Tools > Claude > Show Logs opens bridge.log (IDE log: Help > Show Log) |
 
 ## N. Out of scope (for now)

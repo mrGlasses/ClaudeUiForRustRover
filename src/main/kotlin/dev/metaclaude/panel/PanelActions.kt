@@ -132,3 +132,13 @@ private class ClaudeStatusWidget(private val project: Project) : StatusBarWidget
     override fun getTooltipText() = "Open the Claude chat"
     override fun getClickConsumer(): Consumer<MouseEvent> = Consumer { project.service<ChatTabs>().toolWindow()?.activate(null) }
 }
+
+/** Phase 14c, VS Code's "Focus last message": the newest message of the selected conversation gets keyboard focus. */
+class FocusLastMessageAction : DumbAwareAction() {
+    override fun getActionUpdateThread() = ActionUpdateThread.BGT
+    override fun update(e: AnActionEvent) { e.presentation.isEnabledAndVisible = e.project != null }
+    override fun actionPerformed(e: AnActionEvent) {
+        val t = tabs(e) ?: return
+        t.toolWindow()?.activate({ t.selected()?.postWhenReady(JsonObject().apply { addProperty("type", "focusLast") }) }, true)
+    }
+}

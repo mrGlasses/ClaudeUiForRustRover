@@ -8,6 +8,8 @@
     <editorNotificationProvider implementation="dev.metaclaude.panel.PlanNotificationProvider"/>
     <!-- Phase 14a: status bar item "✻ Claude". -->
     <statusBarWidgetFactory id="ClawedUiStatus" implementation="dev.metaclaude.panel.ClaudeStatusWidgetFactory" order="first"/>
+    <!-- Phase 14c: jetbrains://rustrover/clawed-ui/open?prompt=…&session=… and …/install-plugin?plugin=…&marketplace=… -->
+    <jbProtocolCommand implementation="dev.metaclaude.panel.ClawedProtocolCommand"/>
   </extensions>
 
   <!-- Phase 14a: entry points (Tools > Claude, Find Action, editor toolbar, selection toolbar). No global shortcuts by default. -->
@@ -20,6 +22,8 @@
               text="Claude: New Conversation" description="Start a new conversation in a new tab of the Claude Chat panel"/>
       <action id="dev.metaclaude.ReopenClosedConversation" class="dev.metaclaude.panel.ReopenClosedConversationAction"
               text="Claude: Reopen Closed Conversation" description="Bring back the last conversation tab you closed"/>
+      <action id="dev.metaclaude.FocusLastMessage" class="dev.metaclaude.panel.FocusLastMessageAction"
+              text="Claude: Focus Last Message" description="Move keyboard focus to the newest message (screen readers read it)"/>
       <action id="dev.metaclaude.ShowLogs" class="dev.metaclaude.panel.ShowLogsAction"
               text="Claude: Show Logs" description="Open Clawed UI's bridge.log"/>
     </group>

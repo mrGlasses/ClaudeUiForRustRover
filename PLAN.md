@@ -26,7 +26,7 @@ Everything below is **not started** unless marked otherwise.
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
 | 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
 | 13 Customize | ☑ Done (13a–13d, v0.29.0–v0.32.0, tested 2026-11-02). Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
-| 14 IDE polish | 14a done (v0.33.0 tested 2026-11-02). **14b (`/btw`, bookmarks, getting started, prompt-box settings) v0.34.0: waiting for your test**. 14c (URI handler, accessibility, providers, environment) next |
+| 14 IDE polish | 14a, 14b done (v0.33.0, v0.34.0 tested 2026-11-02). **14c (links, accessibility, providers, environment) v0.35.0: waiting for your test** |
 | 15–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -598,6 +598,19 @@ v0.33.0 test (2026-11-02): all ok. 14a done.
 - Getting started (VS Code's onboarding): a short list in an empty conversation; each line does something (puts a question
   in the box, opens Customize or History); "Don't show again" sets `hideOnboarding`.
 - Settings (VS Code names): `useCtrlEnterToSend`, `scrollToBottomOnSend`, `focusView`, `spinnerVerbs`, `hideOnboarding`.
+v0.34.0 test (2026-11-02): all ok. 14b done.
+
+14c (v0.35.0):
+- Links (VS Code's URI handler) as a JetBrains protocol command: `jetbrains://rustrover/clawed-ui/open?prompt=…&session=…`
+  opens the chat (that session in a new tab) with the prompt in the box, never sent by itself;
+  `…/install-plugin?plugin=…&marketplace=…` opens Customize > Plugins filtered to it (installing still takes your click
+  and the confirmation). They reach the IDE through JetBrains Toolbox, or `rustrover64.exe "jetbrains://…"`.
+- Accessibility: the conversation is a live log (`role=log`, `aria-live=polite`), messages are labeled "You" / "Claude",
+  the status line is a `role=status`, symbol-only buttons keep their tooltip as the accessible name; Tools > Claude >
+  Focus Last Message moves keyboard focus to the newest message.
+- Third-party providers and environment: `environmentVariables` (KEY=value lines; names logged, values never),
+  `claudeProcessWrapper`, `disableLoginPrompt` (no sign-in card); all used for the chat sessions and for every `claude`
+  command the panel runs (plugins, MCP, settings edits, sign out).
 
 ---
 

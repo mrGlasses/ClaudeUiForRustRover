@@ -60,7 +60,18 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var spinnerVerbs by string("")
         /** VS Code `hideOnboarding`: no getting-started list in an empty conversation. */
         var hideOnboarding by property(false)
+        /** Phase 14c, VS Code `environmentVariables`: KEY=value lines for every claude the plugin starts. */
+        var environmentVariables by string("")
+        /** VS Code `claudeProcessWrapper`: a program that starts claude (gets claude's path and arguments). */
+        var claudeProcessWrapper by string("")
+        /** VS Code `disableLoginPrompt`: no sign-in card (third-party providers sign in their own way). */
+        var disableLoginPrompt by property(false)
     }
+
+    /** Phase 14c: the extra environment and the command line every chat-panel `claude` uses. */
+    fun processEnv(): Map<String, String> = dev.metaclaude.protocol.ProcessOptions.parseEnv(state.environmentVariables).first
+    fun command(exe: String, args: List<String>): List<String> =
+        dev.metaclaude.protocol.ProcessOptions.command(state.claudeProcessWrapper, exe, args)
 
     var integrationMode: IntegrationMode
         get() = IntegrationMode.entries.firstOrNull { it.name == state.integrationModeName } ?: IntegrationMode.BUILTIN

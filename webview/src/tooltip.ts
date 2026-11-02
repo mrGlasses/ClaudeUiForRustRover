@@ -48,8 +48,11 @@ export function installTooltips(): void {
     hide();
     if (!t) return;
     if (t.hasAttribute("title")) {
-      t.setAttribute("data-tip", t.getAttribute("title") ?? "");
+      const tip = t.getAttribute("title") ?? "";
+      t.setAttribute("data-tip", tip);
       t.removeAttribute("title");
+      // Phase 14c: screen readers still get the text (symbol-only buttons like ☆ and ↶ have no other name).
+      if (!t.hasAttribute("aria-label") && !(t.textContent ?? "").trim().match(/[A-Za-z]{3}/)) t.setAttribute("aria-label", tip);
     }
     target = t;
     timer = window.setTimeout(show, 450);

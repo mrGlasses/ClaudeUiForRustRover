@@ -12,6 +12,7 @@ import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.columns
 import com.intellij.ui.dsl.builder.panel
+import com.intellij.ui.dsl.builder.rows
 import dev.metaclaude.MetaClaudeService
 import dev.metaclaude.cli.ClaudeCli
 import dev.metaclaude.compat.IntegrationMode
@@ -114,6 +115,21 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
             row("Words while Claude works:") {
                 textField().bindText({ settings.state.spinnerVerbs ?: "" }, { settings.state.spinnerVerbs = it })
                     .comment("Comma-separated, e.g. Pondering, Brewing, Tinkering. Empty: \"Working\".")
+            }
+            group("Advanced: providers and environment") {
+                row {
+                    checkBox("Don't show the sign-in card (third-party provider: Bedrock, Vertex, Foundry…)").bindSelected(settings.state::disableLoginPrompt)
+                }
+                row("Environment variables:") {
+                    textArea().rows(3).columns(COLUMNS_LARGE)
+                        .bindText({ settings.state.environmentVariables ?: "" }, { settings.state.environmentVariables = it })
+                        .comment("One KEY=value per line for every claude the chat panel starts, e.g. CLAUDE_CODE_USE_BEDROCK=1 and AWS_REGION=us-east-1. Values are never logged. Applies to new conversations.")
+                }
+                row("Process wrapper:") {
+                    textField().columns(COLUMNS_LARGE)
+                        .bindText({ settings.state.claudeProcessWrapper ?: "" }, { settings.state.claudeProcessWrapper = it.trim() })
+                        .comment("Optional program that starts claude: it gets claude's path and arguments. Leave empty to run claude directly.")
+                }
             }
             row("Chat panel location:") {
                 comboBox(listOf("right", "left", "bottom"), SideRenderer())
