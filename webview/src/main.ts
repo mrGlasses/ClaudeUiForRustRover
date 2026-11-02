@@ -172,6 +172,8 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "hooks", hint: "commands that run on Claude Code events" },
   { name: "permissions", hint: "Allow / Ask / Deny rules" },
   { name: "memory", hint: "instruction files, auto-memory, saved memories" },
+  { name: "mcp", hint: "MCP servers: add, remove, turn on or off, reconnect" },
+  { name: "plugins", hint: "install, turn on or off, configure plugins; marketplaces" },
   { name: "usage", hint: "plan limits, this session's cost, what uses your limits" },
   { name: "status", hint: "versions, account, model, MCP servers" },
   { name: "bug", hint: "report a Claude Code problem (/bug plugin: a Clawed UI problem)" },
@@ -482,8 +484,12 @@ function panelCommand(text: string): boolean {
     openCustomize("style");
     return true;
   }
-  if (text === "/hooks" || text === "/permissions" || text === "/memory") {
-    openCustomize(text.slice(1) as "hooks" | "permissions" | "memory");
+  if (text === "/hooks" || text === "/permissions" || text === "/memory" || text === "/mcp") {
+    openCustomize(text.slice(1) as "hooks" | "permissions" | "memory" | "mcp");
+    return true;
+  }
+  if (text === "/plugins" || text === "/plugin") {
+    openCustomize("plugins");
     return true;
   }
   if (text === "/usage") {
@@ -571,7 +577,7 @@ const customize = createCustomize({
   },
 });
 transcript.before(customize.view);
-function openCustomize(tab?: "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory"): void {
+function openCustomize(tab?: "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory" | "mcp" | "plugins"): void {
   history.view.hidden = true;
   transcript.hidden = true;
   customize.open(tab);
@@ -876,6 +882,9 @@ function handle(msg: FromKotlin): void {
     case "hooksData":
     case "permissionsData":
     case "memoryData":
+    case "mcpData":
+    case "pluginsData":
+    case "pluginConfig":
       customize.showTab(msg.type, msg);
       break;
     case "customizeDone":

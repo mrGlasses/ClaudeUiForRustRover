@@ -304,6 +304,13 @@ class ChatSession(
     fun permissionRules(done: (JsonObject?, String?) -> Unit) = request("list_permission_rules", JsonObject(), done = done)
     fun memoryDialog(done: (JsonObject?, String?) -> Unit) = request("get_memory_dialog", JsonObject(), done = done)
 
+    /** Phase 13c: MCP servers and plugins. */
+    fun mcpToggle(name: String, enabled: Boolean, done: (JsonObject?, String?) -> Unit) =
+        request("mcp_toggle", JsonObject().apply { addProperty("serverName", name); addProperty("enabled", enabled) }, done = done)
+    fun mcpReconnect(name: String, done: (JsonObject?, String?) -> Unit) =
+        request("mcp_reconnect", JsonObject().apply { addProperty("serverName", name) }, timeoutSeconds = 60, done = done)
+    fun reloadPlugins(done: (JsonObject?, String?) -> Unit) = request("reload_plugins", JsonObject(), timeoutSeconds = 60, done = done)
+
     /** A control request whose answer (payload, or error text) goes to [done], exactly once. */
     private fun request(subtype: String, body: JsonObject, timeoutSeconds: Long = 30, done: (JsonObject?, String?) -> Unit) {
         val req = control(subtype, body)

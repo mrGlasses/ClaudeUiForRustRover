@@ -19,7 +19,7 @@ export type CustomizeData = {
   outputStyle: { current?: string; available: string[] };
   instructions: Instr[];
 };
-export type Tab = "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory";
+export type Tab = "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory" | "mcp" | "plugins";
 
 const TABS: [Tab, string][] = [
   ["commands", "Commands"],
@@ -29,7 +29,23 @@ const TABS: [Tab, string][] = [
   ["hooks", "Hooks"],
   ["permissions", "Permissions"],
   ["memory", "Memory"],
+  ["mcp", "MCP"],
+  ["plugins", "Plugins"],
 ];
+
+// Phase 13c data.
+type McpRow = { name: string; status: string; error?: string; scope: string; transport: string; target?: string; tools: number; own: boolean; removable: boolean };
+export type McpData = { error?: string; servers: McpRow[] };
+type Installed = { id: string; version: string; scope: string; enabled: boolean; hasUserConfig: boolean };
+type Available = { id: string; name: string; description: string; marketplace: string; version?: string };
+export type PluginsData = { error?: string; installed: Installed[]; available: Available[]; marketplaces: { name: string; source: string }[] };
+export type PluginConfig = { id: string; title: string; fields: { key: string; type: string; title: string; description: string; secret: boolean; value: string; choices?: string[] }[] };
+const SCOPES: [string, string][] = [
+  ["user", "All your projects"],
+  ["project", "This project, shared"],
+  ["local", "This project, just you"],
+];
+const MCP_STATUS: Record<string, string> = { connected: "●", failed: "✗", "needs-auth": "!", pending: "…", disabled: "○" };
 
 // Phase 13b data (each tab asks for its own when shown).
 type HookRow = { event: string; matcher: string; source: string; sourceLabel: string; type: string; text: string; contentLabel: string; timeout?: number; disabled: boolean; editable: boolean; formEditable: boolean };
@@ -84,8 +100,13 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
   let hooksData: HooksData | null = null;
   let permData: PermissionsData | null = null;
   let memData: MemoryData | null = null;
-  const LIVE: Tab[] = ["hooks", "permissions", "memory"];
+  let mcpData: McpData | null = null;
+  let pluginsData: PluginsData | null = null;
+  let pluginConfig: PluginConfig | null = null;
+  const LIVE: Tab[] = ["hooks", "permissions", "memory", "mcp", "plugins"];
   const request = (t: Tab) => {
+    if (t === "mcp") mcpData = null;
+    if (t === "plugins") pluginsData = null;
     if (t === "hooks") hooksData = null;
     if (t === "permissions") permData = null;
     if (t === "memory") memData = null;
@@ -109,7 +130,9 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
         return b;
       }),
     );
-    search.hidden = tab !== "commands" && tab !== "skills" && tab !== "permissions";
+    search.hidden = !["commands", "skills", "permissions", "plugins"].includes(tab);
+    if (tab === "mcp") return void body.replaceChildren(...(mcpData ? mcp(mcpData) : [loading()]));
+    if (tab === "plugins") return void body.replaceChildren(...(pluginsData ? plugins(pluginsData) : [el("div", "muted customize-empty", "Loading plugins… (reading the marketplaces can take a few seconds)")]));
     if (tab === "hooks") return void body.replaceChildren(...(hooksData ? hooks(hooksData) : [loading()]));
     if (tab === "permissions") return void body.replaceChildren(...(permData ? permissions(permData) : [loading()]));
     if (tab === "memory") return void body.replaceChildren(...(memData ? memory(memData) : [loading()]));
@@ -422,6 +445,218 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
     return out;
   }
 
+  // ---------- MCP ----------
+  function mcp(d: McpData): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    if (d.error) out.push(el("div", "agent-error customize-empty", `Couldn't read MCP servers: ${d.error}`));
+    const add = el("button", "link-button customize-row", "+ Add an MCP server");
+    add.addEventListener("click", () => add.replaceWith(mcpForm()));
+    out.push(add);
+    for (const m of d.servers) {
+      const row = el("div", "customize-row customize-skill");
+      const text = el("div", "customize-text");
+      const head = el("span", "customize-head");
+      head.append(el("span", `status-dot ${m.status === "connected" ? "ok" : m.status === "failed" ? "bad" : ""}`, MCP_STATUS[m.status] ?? "○"), el("span", "customize-name", m.name), el("span", "chip", m.own ? "this panel" : m.scope || "?"), el("span", "muted", `${m.status}${m.tools ? ` · ${m.tools} tools` : ""}`));
+      text.append(head);
+      if (m.target) text.append(el("span", "history-meta mono", `${m.transport} · ${m.target}`));
+      if (m.error) text.append(el("span", "agent-error", m.error));
+      row.append(text);
+      if (!m.own) {
+        const act = (label: string, body: Record<string, unknown>, cls = "link-button") => {
+          const b = el("button", cls, label);
+          b.addEventListener("click", () => {
+            b.disabled = true;
+            post({ type: "mcpAction", name: m.name, ...body } as never);
+          });
+          row.append(b);
+        };
+        if (m.status === "needs-auth") act("Sign in…", { action: "signIn" });
+        if (m.status === "failed" || m.status === "needs-auth" || m.status === "pending") act("Reconnect", { action: "reconnect" });
+        act(m.status === "disabled" ? "Enable" : "Disable", { action: "toggle", enabled: m.status === "disabled" });
+        if (m.removable) act("Remove", { action: "remove" }, "link-button deny");
+      }
+      out.push(row);
+    }
+    if (!d.servers.length) out.push(el("div", "muted customize-empty", "No MCP servers."));
+    return out;
+  }
+
+  function mcpForm(): HTMLElement {
+    const form = el("div", "customize-row hook-form");
+    const name = el("input", "history-search");
+    name.placeholder = "Name, e.g. github";
+    const transport = el("select", "destination");
+    for (const [id, label] of [["stdio", "Command (stdio)"], ["http", "HTTP"], ["sse", "SSE"]]) {
+      const o = el("option", undefined, label);
+      o.value = id;
+      transport.append(o);
+    }
+    const target = el("input", "history-search");
+    const args = el("textarea", "input");
+    args.rows = 2;
+    args.placeholder = "Arguments, one per line (e.g. -y, @modelcontextprotocol/server-github)";
+    const pairs = el("textarea", "input");
+    pairs.rows = 2;
+    const scope = el("select", "destination");
+    for (const [id, label] of [["local", "This project, just you"], ["project", "This project, shared (.mcp.json)"], ["user", "All your projects"]]) {
+      const o = el("option", undefined, label);
+      o.value = id;
+      scope.append(o);
+    }
+    const sync = () => {
+      const stdio = transport.value === "stdio";
+      target.placeholder = stdio ? "Command, e.g. npx" : "URL, e.g. https://mcp.example.com/mcp";
+      args.hidden = !stdio;
+      pairs.placeholder = stdio ? "Environment, one per line: KEY=value" : "Headers, one per line: Authorization: Bearer …";
+    };
+    transport.addEventListener("change", sync);
+    sync();
+    const save = el("button", "send", "Add");
+    save.addEventListener("click", () => {
+      save.disabled = true;
+      post({ type: "mcpAction", action: "add", name: name.value, transport: transport.value, target: target.value, args: args.value, pairs: pairs.value, scope: scope.value } as never);
+    });
+    const cancel = el("button", "link-button", "Cancel");
+    cancel.addEventListener("click", render);
+    const row1 = el("div", "customize-head");
+    row1.append(name, transport);
+    const row2 = el("div", "customize-head");
+    row2.append(el("span", "muted", "save in"), scope, save, cancel);
+    form.append(el("div", "info-title", "New MCP server"), row1, target, args, pairs, row2);
+    return form;
+  }
+
+  // ---------- plugins ----------
+  function scopeSelect(): HTMLSelectElement {
+    const sel = el("select", "destination");
+    for (const [id, label] of SCOPES) {
+      const o = el("option", undefined, label);
+      o.value = id;
+      sel.append(o);
+    }
+    return sel;
+  }
+
+  function plugins(d: PluginsData): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    if (d.error) out.push(el("div", "agent-error customize-empty", d.error));
+    out.push(el("div", "info-section customize-empty", `Installed (${d.installed.length})`));
+    for (const p of d.installed.filter((p) => matches(p.id))) {
+      const row = el("div", "customize-row customize-skill");
+      const text = el("div", "customize-text");
+      const head = el("span", "customize-head");
+      head.append(el("span", "customize-name", p.id), el("span", "chip", p.scope), el("span", "muted", p.version));
+      if (!p.enabled) head.append(el("span", "chip", "off"));
+      text.append(head);
+      row.append(text);
+      const act = (label: string, action: string, cls = "link-button") => {
+        const b = el("button", cls, label);
+        b.addEventListener("click", () => {
+          b.disabled = true;
+          post({ type: "pluginAction", action, id: p.id, scope: p.scope } as never);
+        });
+        row.append(b);
+      };
+      if (p.hasUserConfig) act("Options…", "configure");
+      act(p.enabled ? "Disable" : "Enable", p.enabled ? "disable" : "enable");
+      act("Uninstall", "uninstall", "link-button deny");
+      out.push(row);
+      if (pluginConfig?.id === p.id) out.push(configForm(pluginConfig));
+    }
+    const installedIds = new Set(d.installed.map((p) => p.id));
+    const avail = d.available.filter((a) => !installedIds.has(a.id) && matches(a.name, a.description, a.marketplace));
+    out.push(el("div", "info-section customize-empty", `Available (${avail.length})`));
+    for (const a of avail.slice(0, 200)) {
+      const row = el("div", "customize-row customize-skill");
+      const text = el("div", "customize-text");
+      const head = el("span", "customize-head");
+      head.append(el("span", "customize-name", a.name), el("span", "chip", a.marketplace));
+      if (a.version) head.append(el("span", "muted", a.version));
+      text.append(head);
+      if (a.description) text.append(el("span", "history-meta", a.description));
+      const scope = scopeSelect();
+      const b = el("button", "link-button", "Install");
+      b.addEventListener("click", () => {
+        b.disabled = true;
+        post({ type: "pluginAction", action: "install", id: a.id, scope: scope.value } as never);
+      });
+      row.append(text, scope, b);
+      out.push(row);
+    }
+    out.push(el("div", "info-section customize-empty", "Marketplaces"));
+    for (const m of d.marketplaces) {
+      const row = el("div", "customize-row customize-skill");
+      const text = el("div", "customize-text");
+      text.append(el("span", "customize-name", m.name), el("span", "history-meta", m.source));
+      const upd = el("button", "link-button", "Update");
+      upd.addEventListener("click", () => {
+        upd.disabled = true;
+        post({ type: "marketplaceAction", action: "update", value: m.name } as never);
+      });
+      const del = el("button", "link-button deny", "Remove");
+      del.addEventListener("click", () => post({ type: "marketplaceAction", action: "remove", value: m.name } as never));
+      row.append(text, upd, del);
+      out.push(row);
+    }
+    const addRow = el("div", "customize-row customize-head");
+    const src = el("input", "history-search");
+    src.placeholder = "Add a marketplace: owner/repo, a URL or a folder";
+    const add = el("button", "link-button", "Add");
+    add.addEventListener("click", () => {
+      if (!src.value.trim()) return src.focus();
+      post({ type: "marketplaceAction", action: "add", value: src.value.trim() } as never);
+    });
+    addRow.append(src, add);
+    out.push(addRow);
+    return out;
+  }
+
+  function configForm(c: PluginConfig): HTMLElement {
+    const form = el("div", "customize-row hook-form");
+    form.append(el("div", "info-title", `Options for ${c.title}`));
+    const inputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
+    for (const f of c.fields) {
+      const label = el("label", "customize-text");
+      label.append(el("span", "customize-name", f.title));
+      if (f.description) label.append(el("span", "history-meta", f.description));
+      let input: HTMLInputElement | HTMLSelectElement;
+      if (f.choices?.length) {
+        input = el("select", "destination");
+        for (const ch of f.choices) {
+          const o = el("option", undefined, ch);
+          o.value = ch;
+          o.selected = ch === f.value;
+          input.append(o);
+        }
+      } else {
+        input = el("input", "history-search");
+        input.type = f.secret ? "password" : f.type === "number" ? "number" : "text";
+        input.value = f.value;
+        if (f.secret) input.placeholder = "(saved; type to replace)";
+      }
+      inputs.set(f.key, input);
+      label.append(input);
+      form.append(label);
+    }
+    const save = el("button", "send", "Save");
+    save.addEventListener("click", () => {
+      save.disabled = true;
+      const values: Record<string, string> = {};
+      inputs.forEach((i, k) => (values[k] = i.value));
+      pluginConfig = null;
+      post({ type: "pluginAction", action: "saveConfig", id: c.id, values } as never);
+    });
+    const cancel = el("button", "link-button", "Cancel");
+    cancel.addEventListener("click", () => {
+      pluginConfig = null;
+      render();
+    });
+    const row = el("div", "customize-head");
+    row.append(save, cancel);
+    form.append(row);
+    return form;
+  }
+
   search.addEventListener("input", render);
 
   return {
@@ -435,7 +670,10 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
       post({ type: "customize" });
       if (LIVE.includes(tab)) request(tab);
     },
-    showTab(t: "hooksData" | "permissionsData" | "memoryData", d: unknown): void {
+    showTab(t: "hooksData" | "permissionsData" | "memoryData" | "mcpData" | "pluginsData" | "pluginConfig", d: unknown): void {
+      if (t === "mcpData") mcpData = d as McpData;
+      if (t === "pluginsData") pluginsData = d as PluginsData;
+      if (t === "pluginConfig") pluginConfig = d as PluginConfig;
       if (t === "hooksData") hooksData = d as HooksData;
       if (t === "permissionsData") permData = d as PermissionsData;
       if (t === "memoryData") memData = d as MemoryData;

@@ -16,6 +16,7 @@ import dev.metaclaude.protocol.ModelControls
 import dev.metaclaude.protocol.UsageReport
 import dev.metaclaude.protocol.Customize
 import dev.metaclaude.protocol.CustomizeEdits
+import dev.metaclaude.protocol.Extensions
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
 import dev.metaclaude.protocol.SessionFiles
@@ -345,6 +346,9 @@ class ChatPanel(
             "hookEdit" -> hookEdit(msg)
             "permissionEdit" -> permissionEdit(msg)
             "memoryAction" -> memoryAction(msg)
+            "mcpAction" -> mcpAction(msg)
+            "pluginAction" -> pluginAction(msg)
+            "marketplaceAction" -> marketplaceAction(msg)
             "customStyle" -> send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", Customize.CUSTOM_STYLE_PROMPT) })
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
@@ -639,6 +643,153 @@ class ChatPanel(
         }
     }
 
+    @Volatile private var lastMcp: JsonObject? = null
+    @Volatile private var lastConfig: JsonObject? = null
+
+    /**
+     * Background thread. Runs `claude <args>` in the project folder with optional stdin; (exit code, output) or null when the
+     * CLI can't be found. Output is never logged (it can name servers, URLs or accounts).
+     */
+    private fun runCli(args: List<String>, stdin: String?, timeoutSeconds: Long = 60): Pair<Int, String>? {
+        val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath) ?: run { notice("Claude CLI not found."); return null }
+        val root = project.basePath ?: return null
+        val result = runCatching {
+            val p = ProcessBuilder(listOf(exe) + args).directory(java.io.File(root)).redirectErrorStream(true).start()
+            p.outputStream.use { o -> stdin?.let { o.write(it.toByteArray(Charsets.UTF_8)) } }
+            val out = java.util.concurrent.CompletableFuture.supplyAsync({ p.inputStream.readAllBytes().toString(Charsets.UTF_8) }, AppExecutorUtil.getAppExecutorService())
+            if (!p.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)) { p.destroyForcibly(); -1 to "timed out after $timeoutSeconds s" }
+            else p.exitValue() to out.get(5, java.util.concurrent.TimeUnit.SECONDS)
+        }.getOrElse { -1 to (it.message ?: it::class.java.simpleName) }
+        BridgeLog.log("panel: claude ${args.take(2).joinToString(" ")} exit ${result.first}", project.name)
+        return result
+    }
+
+    private fun viaCmd() = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath)?.let { Extensions.viaCmd(it) } ?: false
+
+    /** EDT → background: a native yes/no (rule 5), then [action] off the EDT. */
+    private fun confirmThen(title: String, text: String, yes: String, action: () -> Unit) {
+        ApplicationManager.getApplication().invokeLater {
+            val ok = Messages.showYesNoDialog(project, text, title, yes, Messages.getCancelButton(), Messages.getWarningIcon()) == Messages.YES
+            if (ok) AppExecutorUtil.getAppExecutorService().execute(action)
+            else send(JsonObject().apply { addProperty("type", "customizeDone") })
+        }
+    }
+
+    /** MCP tab: enable / disable / reconnect on the running session; add / remove through `claude mcp`; sign-in in a terminal. */
+    private fun mcpAction(msg: JsonObject) {
+        val action = msg.string("action")
+        val name = msg.string("name")
+        val s = session
+        when (action) {
+            "toggle", "reconnect" -> {
+                val row = Extensions.mcpRow(lastMcp, name) ?: return BridgeLog.log("panel: refused mcp action (unknown server)", project.name)
+                if (name == Extensions.OWN_SERVER || s == null) return
+                val done: (JsonObject?, String?) -> Unit = { _, err ->
+                    if (err != null) notice("MCP server $name: ${err.take(300)}")
+                    refreshAfterEdit("mcp")
+                }
+                if (action == "toggle") s.mcpToggle(row.get("name").asString, msg.get("enabled")?.takeIf { it.isJsonPrimitive }?.asBoolean == true, done)
+                else s.mcpReconnect(row.get("name").asString, done)
+            }
+            "signIn" -> {
+                if (Extensions.mcpRow(lastMcp, name) == null) return
+                project.service<MetaClaudeService>().startSession()
+                notice("A Claude terminal tab is opening: type /mcp there, pick \"$name\" and sign in. Then click Reconnect here.")
+            }
+            "remove" -> {
+                val args = Extensions.mcpRemoveArgs(Extensions.mcpRow(lastMcp, name)) ?: return BridgeLog.log("panel: refused mcp remove", project.name)
+                confirmThen("MCP Servers", "Remove the MCP server \"$name\" (${args.last()} scope)?", "Remove") {
+                    val (code, out) = runCli(args, null) ?: return@confirmThen
+                    notice(if (code == 0) "Removed $name. It stays loaded in running sessions until they restart." else "Couldn't remove it: ${out.trim().lines().lastOrNull()?.take(300)}")
+                    refreshAfterEdit("mcp")
+                }
+            }
+            "add" -> {
+                val result = Extensions.mcpAddArgs(name, msg.string("transport"), msg.string("scope"), msg.string("target"), msg.string("args"), msg.string("pairs"), viaCmd())
+                val args = result.getOrElse { notice(it.message ?: "Check the form."); return send(JsonObject().apply { addProperty("type", "customizeDone") }) }
+                val transport = msg.string("transport")
+                val what = if (transport == "stdio") "It runs this command on your computer:\n${msg.string("target")} ${msg.string("args")?.lines()?.joinToString(" ") ?: ""}"
+                    else "Claude will send requests to:\n${msg.string("target")}"
+                confirmThen("MCP Servers", "Add the MCP server \"$name\"?\n\n${what.take(1500)}", "Add") {
+                    val (code, out) = runCli(args, null) ?: return@confirmThen
+                    notice(if (code == 0) "Added $name. New sessions load it: click New session to use it now." else "Couldn't add it: ${out.trim().lines().lastOrNull()?.take(300)}")
+                    refreshAfterEdit("mcp")
+                }
+            }
+        }
+    }
+
+    /** Plugins tab: enable, disable, install, uninstall, configure; then the running session reloads its plugins. */
+    private fun pluginAction(msg: JsonObject) {
+        val action = msg.string("action")
+        val id = msg.string("id")
+        val scope = msg.string("scope")
+        fun after(ok: Boolean, message: String, done: String) {
+            notice(if (ok) done else "Plugin: $message")
+            val s = session
+            if (ok && s != null) s.reloadPlugins { _, err -> if (err != null) notice("Reload: ${err.take(200)}"); refreshAfterEdit("plugins") }
+            else refreshAfterEdit("plugins")
+        }
+        when (action) {
+            "enable", "disable" -> {
+                val args = Extensions.pluginArgs(action, id, scope) ?: return
+                AppExecutorUtil.getAppExecutorService().execute {
+                    val (code, out) = runCli(args, null) ?: return@execute
+                    val (ok, m) = Extensions.jsonResult(code, out)
+                    after(ok, m, "${if (action == "enable") "Enabled" else "Disabled"} $id.")
+                }
+            }
+            "install", "uninstall" -> {
+                val args = Extensions.pluginArgs(action, id, scope) ?: return
+                val text = if (action == "install") "Install the plugin \"$id\" ($scope scope)?\n\nA plugin can add commands, agents, hooks and MCP servers that run on your computer. Install only plugins you trust."
+                    else "Uninstall the plugin \"$id\" ($scope scope)?"
+                confirmThen("Plugins", text, if (action == "install") "Install" else "Uninstall") {
+                    val (code, out) = runCli(args, null, 300) ?: return@confirmThen
+                    val (ok, m) = Extensions.jsonResult(code, out)
+                    after(ok, m, "${if (action == "install") "Installed" else "Uninstalled"} $id.")
+                }
+            }
+            "configure" -> {
+                val args = Extensions.pluginArgs("configure", id, null) ?: return
+                AppExecutorUtil.getAppExecutorService().execute {
+                    val (code, out) = runCli(args, null) ?: return@execute
+                    val payload = runCatching { com.google.gson.JsonParser.parseString(out.substring(out.indexOf('{').coerceAtLeast(0))).asJsonObject }.getOrNull()
+                    if (code != 0 || payload == null) return@execute notice("Couldn't read the plugin's options.")
+                    lastConfig = payload
+                    send(Extensions.configForm(payload).apply { addProperty("type", "pluginConfig") })
+                }
+            }
+            "saveConfig" -> {
+                val cfg = lastConfig
+                if (cfg?.get("pluginId")?.asString != id) return
+                val values = Extensions.configValues(cfg, msg.get("values") as? JsonObject) ?: return notice("Nothing to save.")
+                val args = Extensions.pluginArgs("saveConfig", id, null) ?: return
+                AppExecutorUtil.getAppExecutorService().execute {
+                    val (code, out) = runCli(args, values.toString()) ?: return@execute
+                    after(code == 0, out.trim().lines().lastOrNull()?.take(300) ?: "exit $code", "Saved the options of $id.")
+                }
+            }
+        }
+    }
+
+    /** Marketplaces: add (a GitHub repo, URL or folder), remove, update. */
+    private fun marketplaceAction(msg: JsonObject) {
+        val action = msg.string("action")
+        val value = msg.string("value")
+        val args = Extensions.marketplaceArgs(action, value, viaCmd())
+            ?: return run { notice("That source can't be used here: type owner/repo, a URL or a folder path (no quotes)."); send(JsonObject().apply { addProperty("type", "customizeDone") }) }
+        val run = {
+            val (code, out) = runCli(args, null, 300) ?: Pair(-1, "")
+            notice(if (code == 0) "Marketplaces: done." else "Marketplaces: ${out.trim().lines().lastOrNull()?.take(300) ?: "failed"}")
+            refreshAfterEdit("plugins")
+        }
+        when (action) {
+            "add" -> confirmThen("Plugin Marketplaces", "Add the marketplace \"$value\"?\n\nIts plugins become available to install.", "Add") { run() }
+            "remove" -> confirmThen("Plugin Marketplaces", "Remove the marketplace \"$value\"?", "Remove") { run() }
+            else -> AppExecutorUtil.getAppExecutorService().execute { run() }
+        }
+    }
+
     /** Background thread. The data for one of the 13b tabs. */
     private fun customizeTab(tab: String?) {
         val s = sessionOrStart() ?: return
@@ -654,6 +805,13 @@ class ChatPanel(
                 reply("permissionsData", CustomizeEdits.permissions(p).apply { addProperty("windows", dev.metaclaude.protocol.CliPaths.isWindows) }, err)
             }
             "memory" -> s.memoryDialog { p, err -> lastMemory = p; reply("memoryData", CustomizeEdits.memory(p), err) }
+            "mcp" -> s.mcpStatus { p, err -> lastMcp = p; reply("mcpData", JsonObject().apply { add("servers", Extensions.mcpServers(p)) }, err) }
+            "plugins" -> {
+                val (c1, listing) = runCli(listOf("plugin", "list", "--json", "--available"), null, 120) ?: return
+                val (_, markets) = runCli(listOf("plugin", "marketplace", "list", "--json"), null, 60) ?: return
+                fun json(out: String) = runCatching { com.google.gson.JsonParser.parseString(out.substring(out.indexOfFirst { it == '{' || it == '[' }.coerceAtLeast(0))) }.getOrNull()
+                reply("pluginsData", Extensions.plugins(json(listing), json(markets)), if (c1 != 0) "claude plugin list failed (exit $c1)" else null)
+            }
         }
     }
 

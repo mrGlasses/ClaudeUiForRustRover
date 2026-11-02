@@ -25,7 +25,7 @@ Everything below is **not started** unless marked otherwise.
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
 | 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
-| 13 Customize | 13a done (v0.29.0 tested 2026-11-02). 13b (hooks, permissions, memory) v0.30.0 tested; **v0.30.1: lists refresh after an edit, PowerShell hint; waiting for your test**. 13c (MCP, plugins, sandbox, Chrome, Remote Control) next |
+| 13 Customize | 13a, 13b done (v0.29.0, v0.30.1 tested 2026-11-02). **13c (MCP, plugins, marketplaces) v0.31.0: waiting for your test**. 13d (sandbox, Chrome, Remote Control, plugin install links) next |
 | 14–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -538,6 +538,23 @@ edit was still the old one (the log also shows two `edit-hook` failures, most li
 reads the tab again right away and at 1.2 s and 3.5 s. (2) `Bash(cargo check:*)` didn't stop the permission card: on
 Windows Claude ran the command with its PowerShell tool (log: "permission request for 'PowerShell'"). Not a plugin bug;
 v0.30.1 says so under the form on Windows and suggests `PowerShell(cargo test:*)` in the placeholder.
+v0.30.1 test (2026-11-02): ok. 13b done.
+
+13c (v0.31.0), MCP and Plugins tabs (`Extensions`). Format of `claude plugin ... --json` checked by running the CLI on
+a throwaway config folder (CLAUDE_CONFIG_DIR) with a local test marketplace:
+- MCP (`/mcp`): every server with status (●/✗/!/…/○), scope, transport and command or URL, tool count and error
+  (`mcp_status`). Enable / Disable (`mcp_toggle`) and Reconnect (`mcp_reconnect`) on the running session; "Sign in…"
+  for a server that needs OAuth opens a Claude terminal tab (`/mcp` there: the sign-in is interactive). Add (stdio command
+  + arguments + KEY=value environment, or http / sse URL + headers; local, project or user) and Remove go through the
+  public `claude mcp add` / `claude mcp remove`, each after a native confirmation that shows the command or URL. New
+  servers load in new sessions. The panel's own `clawed-ui` server is listed but not editable.
+- Plugins (`/plugins`): installed plugins (scope, version, on / off) with Options… (the plugin's `userConfig` as a form;
+  secret values are never sent to the page, an empty secret keeps the stored one), Enable / Disable, Uninstall; available
+  plugins from the marketplaces with a scope and Install; marketplaces with Update, Remove, and Add (owner/repo, URL or
+  folder). All through the public `claude plugin ...` commands; install, uninstall and marketplace add / remove are
+  confirmed natively; then `reload_plugins` applies the change to the running session.
+- On Windows `claude.cmd` runs through cmd.exe, which breaks quotes and expands `%`, `^`, `!`: free text with those
+  characters is refused there with a message to use a terminal (`claude.exe` has no such limit).
 
 ### Phase 14 — IDE polish (PARITY §A, §K, §L, §M)
 Tool window / editor toolbar / status bar entry points, panel placement (`preferredLocation`), editor-split behavior, keymap (resolve the JetBrains conflicts listed in PARITY §K),
