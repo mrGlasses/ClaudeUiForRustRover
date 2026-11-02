@@ -35,7 +35,7 @@ const TABS: [Tab, string][] = [
 type HookRow = { event: string; matcher: string; source: string; sourceLabel: string; type: string; text: string; contentLabel: string; timeout?: number; disabled: boolean; editable: boolean; formEditable: boolean };
 export type HooksData = { error?: string; events: { name: string; summary: string; supportsMatcher: boolean }[]; hooks: HookRow[]; locked: boolean; lockReason?: string; notice?: string };
 type RuleRow = { behavior: string; rule: string; source: string; description?: string; removable: boolean; notInEffect: boolean };
-export type PermissionsData = { error?: string; rules: RuleRow[]; directories: { path: string; source: string }[]; managedOnly: boolean };
+export type PermissionsData = { error?: string; rules: RuleRow[]; directories: { path: string; source: string }[]; managedOnly: boolean; windows?: boolean };
 type Toggle = { enabled: boolean; toggleable: boolean; status: string; detail?: string };
 export type MemoryData = {
   error?: string;
@@ -317,7 +317,8 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
     const out: HTMLElement[] = [];
     if (d.error) out.push(el("div", "agent-error customize-empty", `Couldn't read the rules: ${d.error}`));
     if (d.managedOnly) out.push(el("div", "notice customize-empty", "Your organization allows only its own rules: the others are listed but not in effect."));
-    out.push(ruleForm());
+    out.push(ruleForm(d.windows === true));
+    if (d.windows) out.push(el("div", "muted customize-empty", "On Windows Claude runs commands with its PowerShell tool: write command rules as PowerShell(cargo check:*). Bash(…) rules only match the Bash tool."));
     for (const behavior of ["allow", "ask", "deny"]) {
       const rows = d.rules.map((r, i) => ({ r, i })).filter(({ r }) => r.behavior === behavior && matches(r.rule, r.description ?? "", r.source));
       out.push(el("div", "info-section customize-empty", `${BEHAVIOR_LABEL[behavior]} (${rows.length})`));
@@ -346,11 +347,11 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
     return out;
   }
 
-  function ruleForm(): HTMLElement {
+  function ruleForm(windows: boolean): HTMLElement {
     const form = el("div", "customize-row hook-form");
     const rules = el("textarea", "input");
     rules.rows = 2;
-    rules.placeholder = "One rule per line, e.g. Bash(cargo test:*)  Read(./src/**)  WebFetch(domain:docs.rs)";
+    rules.placeholder = `One rule per line, e.g. ${windows ? "PowerShell" : "Bash"}(cargo test:*)  Read(./src/**)  WebFetch(domain:docs.rs)`;
     const behavior = el("select", "destination");
     for (const b of ["allow", "ask", "deny"]) {
       const o = el("option", undefined, BEHAVIOR_LABEL[b]);

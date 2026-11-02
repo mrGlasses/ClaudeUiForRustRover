@@ -627,6 +627,18 @@ class ChatPanel(
     @Volatile private var lastRules: JsonObject? = null
     @Volatile private var lastMemory: JsonObject? = null
 
+    /**
+     * After an edit by the CLI subcommand, the running session sees the settings file only when its file watcher fires, so
+     * an immediate listing can still be the old one (v0.30.0 test: the new rule showed only after reopening the tab, and an
+     * Edit right after a save targeted the old hook). Read again now and twice more shortly after.
+     */
+    private fun refreshAfterEdit(tab: String) {
+        customizeTab(tab)
+        listOf(1200L, 3500L).forEach { ms ->
+            AppExecutorUtil.getAppScheduledExecutorService().schedule({ customizeTab(tab) }, ms, java.util.concurrent.TimeUnit.MILLISECONDS)
+        }
+    }
+
     /** Background thread. The data for one of the 13b tabs. */
     private fun customizeTab(tab: String?) {
         val s = sessionOrStart() ?: return
@@ -636,7 +648,11 @@ class ChatPanel(
         })
         when (tab) {
             "hooks" -> s.hooksListing { p, err -> lastHooks = p; reply("hooksData", CustomizeEdits.hooks(p), err) }
-            "permissions" -> s.permissionRules { p, err -> lastRules = p; reply("permissionsData", CustomizeEdits.permissions(p), err) }
+            "permissions" -> s.permissionRules { p, err ->
+                lastRules = p
+                // v0.30.0 test: on Windows Claude ran `cargo check` with its PowerShell tool, so a Bash(...) rule didn't match.
+                reply("permissionsData", CustomizeEdits.permissions(p).apply { addProperty("windows", dev.metaclaude.protocol.CliPaths.isWindows) }, err)
+            }
             "memory" -> s.memoryDialog { p, err -> lastMemory = p; reply("memoryData", CustomizeEdits.memory(p), err) }
         }
     }
@@ -665,7 +681,7 @@ class ChatPanel(
             AppExecutorUtil.getAppExecutorService().execute {
                 val (ok, reason) = runCliEdit("edit-hook", edit) ?: return@execute
                 notice(if (ok) "Hook ${if (op == "remove") "removed" else "saved"}. Claude Code reads it from its next tool call." else "Couldn't change the hook: $reason")
-                customizeTab("hooks")
+                refreshAfterEdit("hooks")
             }
         }
     }
@@ -684,7 +700,7 @@ class ChatPanel(
             AppExecutorUtil.getAppExecutorService().execute {
                 val (ok, reason) = runCliEdit("edit-permission-rules", edit) ?: return@execute
                 notice(if (ok) "Permission rules saved.${if (reason.isNotEmpty()) " $reason" else ""}" else "Couldn't change the rules: $reason")
-                customizeTab("permissions")
+                refreshAfterEdit("permissions")
             }
         }
         if (edit.get("op").asString == "add" && edit.get("behavior").asString == "allow") {
@@ -707,7 +723,7 @@ class ChatPanel(
                 AppExecutorUtil.getAppExecutorService().execute {
                     val (ok, reason) = runCliEdit("edit-memory-settings", edit) ?: return@execute
                     if (!ok) notice("Couldn't change memory settings: $reason")
-                    customizeTab("memory")
+                    refreshAfterEdit("memory")
                 }
             }
             "open", "delete" -> {
