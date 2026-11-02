@@ -24,8 +24,9 @@ Everything below is **not started** unless marked otherwise.
 | 9 Context and mentions | ☑ Done (9a v0.20.0, 9b v0.21.2, tested 2026-10-31). `@browser` moved to Phase 15 |
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
-| 12 Model, usage, status | 12a ok (v0.27.0 tested 2026-11-01); v0.27.1 tooltips to test with 12b. **12b (`/usage`, `/status`, sign out, report a problem) v0.28.0: waiting for your test** |
-| 13–16 | Not started |
+| 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
+| 13 Customize | **13a (commands, skills, output style, instructions) v0.29.0: waiting for your test**. 13b (hooks, permissions, memory), 13c (MCP, plugins, sandbox, Chrome, Remote Control) next |
+| 14–16 | Not started |
 
 ## Two halves, like the VS Code extension
 
@@ -490,12 +491,33 @@ element with a `title`.
 - `/bug` (`/feedback`): Claude Code's `/bug` is interactive, so it opens a Claude terminal tab to type it there.
   `/bug plugin`: a new GitHub issue for Clawed UI with the versions filled in (no conversation text).
   (`submit_feedback` exists in the CLI but is marked internal, so it isn't used.)
+v0.28.0 test (2026-11-01): tooltips, `/usage` (numbers match the CLI), Fix, `/status`, `/bug`, `/bug plugin`: ok. Sign out
+skipped on purpose (you didn't want to sign out). 12 done.
 
 ### Phase 13 — Customize dialogs (PARITY §I)
 Slash commands browser and `/skills` visibility, output styles (+ build custom), hooks editor, permissions editor, memory, instructions (CLAUDE.md),
 sandbox, Chrome, `/mcp` dialog, `/plugins` dialog (scopes, config form, marketplaces), Remote Control toggle.
 
 **Done when:** each dialog's changes show up identically in a terminal `claude` session (they share the same config files).
+
+How: like the VS Code extension, the plugin never writes Claude Code's settings itself. It reads through control requests
+(`get_skills_dialog`, `get_settings`, ...) and writes through the CLI's own writers: `update_settings` for what it allows,
+and the hidden `claude edit-<thing> --json` subcommands (skill overrides, permission rules, memory settings, sandbox, Chrome)
+that the CLI says are for the VS Code extension. Those can change with the CLI, so each one is wrapped in a small, tested
+protocol object and a failure is shown, not hidden.
+
+13a (v0.29.0), a Customize view (••• → Customize, `/customize`; it replaces the transcript like History; `Customize`):
+- Commands: every command the CLI lists (`initialize` → `commands`, updated by `commands_changed`) with its argument hint,
+  description, aliases and built-in / custom; filter; click puts `/name ` in the message box. The `/` menu now shows the
+  same descriptions.
+- Skills (`/skills`): each skill with source and token estimate, and its state (On, Name only, Only when you type it, Off);
+  locked ones say why. Changes go through `claude edit-skill-overrides --json` (saved in .claude/settings.local.json),
+  then `reload_skills`.
+- Output style (`/output-style`): the styles the CLI lists (`reload_output_styles` first, so new style files show up);
+  picking one uses `update_settings` (localSettings `outputStyle`). "Build a custom style…" starts a message asking
+  Claude to write the style file in .claude/output-styles/.
+- Instructions: the four CLAUDE.md files Claude Code reads (project, project/.claude, CLAUDE.local.md, ~/.claude); Open,
+  or Create… after a native confirmation (only those four paths, chosen by index in Kotlin).
 
 ### Phase 14 — IDE polish (PARITY §A, §K, §L, §M)
 Tool window / editor toolbar / status bar entry points, panel placement (`preferredLocation`), editor-split behavior, keymap (resolve the JetBrains conflicts listed in PARITY §K),
@@ -509,6 +531,11 @@ Tool window / editor toolbar / status bar entry points, panel placement (`prefer
 
 ### Phase 15 — Rust extras (the differentiator)
 "Ask Claude to fix" on compiler errors, `cargo check` / `clippy` / `test` failures to the session, crate and workspace context, optional Rust toolchain environment (the `usePythonEnvironment` analogue).
+
+### After all features — usage ring (your request, 2026-11-01)
+Like the Claude desktop app: a small circle in the panel that fills with the plan's usage (5-hour window), and on click or
+hover a quick box with the bars (5 hours, week, per model, reset times) and a link to the full `/usage` card. Data from
+`get_usage` with `skip_behaviors` (no transcript scan), refreshed after turns.
 
 ### Phase 16 — Hardening and release
 Several windows at once, clean shutdown and stale lock sweep, CLI version check with a "protocol mismatch" message, security review (loopback only, no token in logs, lock file permissions on Windows),

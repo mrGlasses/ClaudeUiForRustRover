@@ -66,6 +66,10 @@ class ChatSession(
     /** Phase 12b: the `initialize` answer's `account` (who is signed in), for /status. */
     @Volatile var account: JsonObject? = null
         private set
+    /** Phase 13a: the whole `initialize` answer (commands, output styles), once it arrived. */
+    @Volatile var initInfo: JsonObject? = null
+        private set
+    private val initWaiters = java.util.concurrent.CopyOnWriteArrayList<(JsonObject?) -> Unit>()
     @Volatile private var closed = false
     val bypassAllowedAtStart = allowBypass
 
@@ -101,7 +105,11 @@ class ChatSession(
             // stderr is for errors; log only a short head of each line (no message bodies expected here).
             runCatching { process.errorStream.bufferedReader(StandardCharsets.UTF_8).forEachLine { BridgeLog.log("chat stderr: ${it.take(200)}", tag) } }
         }
-        request("initialize", JsonObject().apply { add("hooks", null) }) { payload, _ -> account = payload?.get("account") as? JsonObject }
+        request("initialize", JsonObject().apply { add("hooks", null) }) { payload, _ ->
+            account = payload?.get("account") as? JsonObject
+            initInfo = payload ?: JsonObject()
+            initWaiters.toList().also { initWaiters.clear() }.forEach { it(initInfo) }
+        }
     }
 
     private fun onLine(line: String) {
@@ -277,6 +285,19 @@ class ChatSession(
     fun getUsage(done: (JsonObject?, String?) -> Unit) = request("get_usage", JsonObject(), timeoutSeconds = 120, done = done) // scans a week of transcripts
     fun binaryVersion(done: (JsonObject?, String?) -> Unit) = request("get_binary_version", JsonObject(), done = done)
     fun mcpStatus(done: (JsonObject?, String?) -> Unit) = request("mcp_status", JsonObject(), done = done)
+
+    /** Runs [cb] with the `initialize` answer, now or when it arrives (an empty object if it never came). */
+    fun whenInitialized(cb: (JsonObject?) -> Unit) {
+        initInfo?.let { return cb(it) }
+        initWaiters.add(cb)
+        initInfo?.let { if (initWaiters.remove(cb)) cb(it) } // it arrived meanwhile
+    }
+
+    /** Phase 13a: Customize view. */
+    fun skillsDialog(done: (JsonObject?, String?) -> Unit) = request("get_skills_dialog", JsonObject(), done = done)
+    fun reloadSkills(done: (JsonObject?, String?) -> Unit) = request("reload_skills", JsonObject(), done = done)
+    fun reloadOutputStyles(done: (JsonObject?, String?) -> Unit) = request("reload_output_styles", JsonObject(), done = done)
+    fun updateSettings(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("update_settings", body, done = done)
 
     /** A control request whose answer (payload, or error text) goes to [done], exactly once. */
     private fun request(subtype: String, body: JsonObject, timeoutSeconds: Long = 30, done: (JsonObject?, String?) -> Unit) {

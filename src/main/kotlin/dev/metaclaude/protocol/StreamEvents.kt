@@ -56,6 +56,7 @@ object StreamEvents {
             if (e.str("status") == "requesting") msg("busy") {} else null,
             e.str("permissionMode")?.let { m -> msg("permissionMode") { addProperty("mode", m) } },
         )
+        "commands_changed" -> listOf(msg("commandsChanged") { add("commands", Customize.commands(e.get("commands") as? JsonArray)) })
         else -> AgentTasks.system(e) ?: emptyList()
     }
 

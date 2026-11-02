@@ -37,6 +37,11 @@ export type ToKotlin =
   | { type: "status" }
   | { type: "signOut" }
   | { type: "reportProblem"; kind: "claude" | "plugin" }
+  | { type: "customize" }
+  | { type: "skillState"; name: string; state: string }
+  | { type: "outputStyle"; style: string }
+  | { type: "openInstructions"; index: number }
+  | { type: "customStyle" }
   | { type: "modelSet"; what: "model" | "effort" | "ultracode" | "thinking"; value: string | boolean };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
@@ -77,6 +82,9 @@ export type FromKotlin =
   | ({ type: "usageReport" } & import("./account").UsageReport)
   | ({ type: "statusReport" } & import("./account").StatusReport)
   | { type: "queueMessages"; texts: string[] }
+  | ({ type: "customizeData" } & import("./customize").CustomizeData)
+  | { type: "outputStyleChanged"; style: string | null }
+  | { type: "commandsChanged"; commands: import("./customize").Command[] }
   | { type: "sessionReset" }
   | ({ type: "agentTaskStarted" | "agentTaskProgress" | "agentTaskUpdated" | "agentTaskEnded" | "agentTasksLive" | "agentTasksGone" | "agentActivity" | "agentTaskOutput" } & Record<string, unknown>)
   | { type: "error"; message: string };

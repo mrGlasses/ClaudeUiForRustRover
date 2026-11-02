@@ -243,3 +243,14 @@ button:disabled { opacity: .5; cursor: default; }
 .status-dot { color: var(--muted); }
 .status-dot.ok { color: var(--ok); }
 .status-dot.bad { color: var(--error); }
+
+/* Phase 13a: Customize view */
+.customize-body { display: flex; flex-direction: column; }
+.customize-row { border-bottom: 1px solid var(--border); padding: 6px 12px; }
+.customize-skill { display: flex; gap: 10px; align-items: center; }
+.customize-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.customize-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.customize-name { font-weight: 600; font-family: var(--mono); }
+.customize-empty { padding: 8px 12px; }
+.customize .history-meta { white-space: normal; overflow-wrap: anywhere; }
+.customize label.customize-row { display: flex; gap: 8px; align-items: center; }

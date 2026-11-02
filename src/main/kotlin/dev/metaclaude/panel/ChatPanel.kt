@@ -14,6 +14,7 @@ import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.Checkpoints
 import dev.metaclaude.protocol.ModelControls
 import dev.metaclaude.protocol.UsageReport
+import dev.metaclaude.protocol.Customize
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
 import dev.metaclaude.protocol.SessionFiles
@@ -335,6 +336,11 @@ class ChatPanel(
             "status" -> AppExecutorUtil.getAppExecutorService().execute { status() }
             "signOut" -> ApplicationManager.getApplication().invokeLater { signOut() }
             "reportProblem" -> reportProblem(msg.get("kind")?.takeIf { it.isJsonPrimitive }?.asString)
+            "customize" -> AppExecutorUtil.getAppExecutorService().execute { customizeData() }
+            "skillState" -> skillState(msg.get("name")?.takeIf { it.isJsonPrimitive }?.asString, msg.get("state")?.takeIf { it.isJsonPrimitive }?.asString)
+            "outputStyle" -> outputStyle(msg.get("style")?.takeIf { it.isJsonPrimitive }?.asString)
+            "openInstructions" -> msg.get("index")?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }?.let { openInstructions(it) }
+            "customStyle" -> send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", Customize.CUSTOM_STYLE_PROMPT) })
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
     }
@@ -367,7 +373,15 @@ class ChatPanel(
                     addProperty("type", "error")
                     addProperty("message", "Claude stopped (exit code $code). Your next message starts a new session.")
                 })
-            }).also { session = it }
+            }).also { s ->
+                session = s
+                // Phase 13a: the `/` menu gets each command's description once the CLI has said hello.
+                s.whenInitialized { info ->
+                    (info?.get("commands") as? com.google.gson.JsonArray)?.let { cmds ->
+                        send(JsonObject().apply { addProperty("type", "commandsChanged"); add("commands", Customize.commands(cmds)) })
+                    }
+                }
+            }
         } catch (e: Exception) {
             BridgeLog.log("panel: session start failed: ${e::class.java.name}: ${e.message}", project.name)
             send(JsonObject().apply { addProperty("type", "error"); addProperty("message", "Could not start Claude: ${e.message}") })
@@ -527,6 +541,103 @@ class ChatPanel(
         }
     }
 
+    // ---------- Customize: commands, skills, output style, instructions (Phase 13a) ----------
+
+    /** The last `get_skills_dialog` answer and output styles: the page may only pick from these (rule 4). */
+    @Volatile private var lastSkills: JsonObject? = null
+    @Volatile private var styles: List<String> = emptyList()
+    @Volatile private var currentStyle: String? = null
+
+    private fun instructionFiles(): List<Customize.Instructions> {
+        val root = project.basePath ?: return emptyList()
+        val sep = java.io.File.separator
+        return Customize.instructionFiles(System.getProperty("user.home"), Path.of(root).toString(), sep)
+    }
+
+    /** Background thread. Everything the Customize view shows; starts the process if none is running. */
+    private fun customizeData() {
+        val s = sessionOrStart() ?: return
+        s.whenInitialized { info -> s.reloadOutputStyles { reloaded, _ -> // picks up style files written since the start
+            styles = Customize.styleNames((reloaded ?: info)?.get("available_output_styles") as? com.google.gson.JsonArray)
+            if (currentStyle == null) currentStyle = info?.get("output_style")?.takeIf { it.isJsonPrimitive }?.asString?.take(100)
+            s.skillsDialog { skills, err ->
+                if (err != null) BridgeLog.log("panel: get_skills_dialog failed: ${err.take(200)}", project.name)
+                lastSkills = skills
+                send(JsonObject().apply {
+                    addProperty("type", "customizeData")
+                    add("commands", Customize.commands(info?.get("commands") as? com.google.gson.JsonArray))
+                    add("skills", Customize.skills(skills))
+                    err?.let { addProperty("skillsError", it.take(200)) }
+                    add("outputStyle", JsonObject().apply {
+                        currentStyle?.let { addProperty("current", it) }
+                        add("available", com.google.gson.JsonArray().apply { styles.forEach { add(it) } })
+                    })
+                    add("instructions", com.google.gson.JsonArray().apply {
+                        instructionFiles().forEach { f ->
+                            add(JsonObject().apply {
+                                addProperty("label", f.label)
+                                addProperty("path", f.path)
+                                addProperty("hint", f.hint)
+                                addProperty("exists", java.io.File(f.path).isFile)
+                            })
+                        }
+                    })
+                })
+            }
+        } }
+    }
+
+    /** A skill's state through the CLI's own writer (`claude edit-skill-overrides --json`), then the session reloads skills. */
+    private fun skillState(name: String?, state: String?) {
+        val edit = Customize.skillEdit(lastSkills, name, state) ?: return BridgeLog.log("panel: refused skill state (unknown, locked or bad state)", project.name)
+        AppExecutorUtil.getAppExecutorService().execute {
+            val exe = ClaudeCli.resolve(ClaudeUiSettings.instance.state.claudePath) ?: return@execute notice("Claude CLI not found.")
+            val root = project.basePath ?: return@execute
+            val result = runCatching {
+                val p = ProcessBuilder(exe, "edit-skill-overrides", "--json").directory(java.io.File(root)).redirectErrorStream(true).start()
+                p.outputStream.use { it.write(edit.toString().toByteArray(Charsets.UTF_8)) }
+                val out = p.inputStream.readAllBytes().toString(Charsets.UTF_8)
+                p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
+                p.exitValue() to out
+            }
+            val (code, out) = result.getOrDefault(-1 to "")
+            BridgeLog.log("panel: skill state change ${if (code == 0) "done" else "failed (exit $code)"}", project.name)
+            if (code != 0) {
+                val reason = out.lineSequence().map { it.trim() }.lastOrNull { it.isNotEmpty() }?.take(300) ?: "unknown error"
+                notice("Couldn't change the skill: $reason")
+            }
+            val s = session ?: return@execute customizeData()
+            s.reloadSkills { _, _ -> customizeData() }
+        }
+    }
+
+    private fun outputStyle(style: String?) {
+        val body = Customize.outputStyleRequest(style, styles) ?: return BridgeLog.log("panel: refused output style", project.name)
+        val s = session ?: return
+        s.updateSettings(body) { _, err ->
+            if (err != null) notice("Couldn't change the output style: ${err.take(200)}")
+            else { currentStyle = style; notice("Output style: $style. It applies from your next message (saved in .claude/settings.local.json).") }
+            send(JsonObject().apply { addProperty("type", "outputStyleChanged"); addProperty("style", if (err == null) style else null) })
+        }
+    }
+
+    /** Opens one of the listed CLAUDE.md files, creating it (with a heading) if it doesn't exist yet. */
+    private fun openInstructions(index: Int) {
+        val f = instructionFiles().getOrNull(index) ?: return
+        ApplicationManager.getApplication().invokeLater {
+            val file = java.io.File(f.path)
+            if (!file.isFile) {
+                val ok = Messages.showYesNoDialog(project, "Create ${f.path}?\n\n${f.hint}.", "Create Instructions File", "Create", Messages.getCancelButton(), Messages.getQuestionIcon()) == Messages.YES
+                if (!ok) return@invokeLater
+                runCatching { file.parentFile?.mkdirs(); file.writeText(Customize.NEW_FILE_TEXT) }
+                    .onFailure { return@invokeLater notice("Couldn't create ${f.path}: ${it.message}") }
+            }
+            val vf = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(file) ?: return@invokeLater
+            com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openFile(vf, true)
+            AppExecutorUtil.getAppExecutorService().execute { customizeData() }
+        }
+    }
+
     // ---------- usage, status, sign out, report a problem (Phase 12b) ----------
 
     /** The last `get_usage` answer: "Fix" sends only the messages the CLI itself proposed there (rule 4). */
@@ -682,6 +793,7 @@ class ChatPanel(
 
     private fun clearTasks() {
         taskKinds.clear(); runningTasks.clear(); backgroundable.clear()
+        currentStyle = null // a new process reports its own
         thinkingOn = null // a new process starts with the default
     }
 

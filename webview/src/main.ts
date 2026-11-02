@@ -10,6 +10,7 @@ import { createAgentMap } from "./agents";
 import { createModelBar } from "./modelbar";
 import { installTooltips } from "./tooltip";
 import { moreMenu, statusCard, usageCard } from "./account";
+import { createCustomize } from "./customize";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -156,6 +157,7 @@ let attachedImages: Img[] = []; // pasted images (Phase 9b)
 const turnHistory: string[] = []; // each finished turn's text, for /copy
 let lastDay = "";
 let cliCommands: string[] = [];
+const cliHints = new Map<string, string>(); // Phase 13a: descriptions from the CLI's command list
 const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "copy", hint: "copy the last response (/copy 2: the one before)" },
   { name: "clear", hint: "start a new session" },
@@ -164,6 +166,9 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "resume", hint: "open the conversation history" },
   { name: "tasks", hint: "show agents and background tasks" },
   { name: "model", hint: "pick the model, effort and extended thinking" },
+  { name: "customize", hint: "commands, skills, output style, CLAUDE.md files" },
+  { name: "skills", hint: "turn skills on or off" },
+  { name: "output-style", hint: "pick how Claude writes its answers" },
   { name: "usage", hint: "plan limits, this session's cost, what uses your limits" },
   { name: "status", hint: "versions, account, model, MCP servers" },
   { name: "bug", hint: "report a Claude Code problem (/bug plugin: a Clawed UI problem)" },
@@ -462,6 +467,18 @@ function panelCommand(text: string): boolean {
     toggleFocus();
     return true;
   }
+  if (text === "/customize") {
+    openCustomize();
+    return true;
+  }
+  if (text === "/skills") {
+    openCustomize("skills");
+    return true;
+  }
+  if (text === "/output-style") {
+    openCustomize("style");
+    return true;
+  }
   if (text === "/usage") {
     post({ type: "usage" });
     return true;
@@ -536,7 +553,29 @@ let resumedNote = "";
 let forkNote = false;
 const history = createHistory(() => closeHistory());
 transcript.before(history.view);
+// Phase 13a: Customize view, in place of the transcript like History.
+const customize = createCustomize({
+  onClose: () => closeCustomize(),
+  insertCommand: (text) => {
+    closeCustomize();
+    input.value = text;
+    input.focus();
+    input.setSelectionRange(text.length, text.length);
+  },
+});
+transcript.before(customize.view);
+function openCustomize(tab?: "commands" | "skills" | "style" | "instructions"): void {
+  history.view.hidden = true;
+  transcript.hidden = true;
+  customize.open(tab);
+}
+function closeCustomize(): void {
+  customize.view.hidden = true;
+  transcript.hidden = false;
+  input.focus();
+}
 function openHistory(): void {
+  customize.view.hidden = true;
   transcript.hidden = true;
   history.open();
 }
@@ -576,7 +615,7 @@ function updateMenu(): void {
   const m = /^\/(\S*)$/.exec(input.value);
   if (!m) return closeMenu();
   const q = m[1].toLowerCase();
-  const all = [...PANEL_COMMANDS, ...cliCommands.filter((c) => !PANEL_COMMANDS.some((p) => p.name === c)).map((name) => ({ name, hint: "" }))];
+  const all = [...PANEL_COMMANDS, ...cliCommands.filter((c) => !PANEL_COMMANDS.some((p) => p.name === c)).map((name) => ({ name, hint: cliHints.get(name) ?? "" }))];
   menuItems = all.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 50);
   if (menuItems.length === 0) return closeMenu();
   menuIndex = Math.min(menuIndex, menuItems.length - 1);
@@ -823,6 +862,17 @@ function handle(msg: FromKotlin): void {
       usageNote?.remove();
       usageNote = null;
       append(usageCard(msg), true);
+      break;
+    case "customizeData":
+      customize.show(msg);
+      break;
+    case "outputStyleChanged":
+      customize.styleChanged(msg.style);
+      break;
+    case "commandsChanged":
+      cliCommands = msg.commands.map((c) => c.name);
+      cliHints.clear();
+      for (const c of msg.commands) cliHints.set(c.name, [c.argumentHint, c.description].filter(Boolean).join(" · "));
       break;
     case "statusReport":
       append(statusCard(msg), true);

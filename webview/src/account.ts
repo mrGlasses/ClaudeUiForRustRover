@@ -157,10 +157,11 @@ export function statusCard(s: StatusReport): HTMLElement {
 export function moreMenu(run: (command: string) => void): HTMLElement {
   const wrap = el("span", "mode more");
   const button = el("button", "link-button", "•••");
-  button.title = "Usage, status, report a problem, sign out";
+  button.title = "Customize, usage, status, report a problem, sign out";
   const menu = el("div", "mode-menu more-menu");
   menu.hidden = true;
   const items: [string, string][] = [
+    ["Customize (commands, skills, style, instructions)", "/customize"],
     ["Usage", "/usage"],
     ["Status", "/status"],
     ["Report a Claude Code problem", "/bug"],
