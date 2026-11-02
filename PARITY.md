@@ -18,22 +18,22 @@ Status: ☐ not started · ◐ partial · ☑ done
 
 | Feature (VS Code) | JetBrains equivalent | Via | Status |
 |---|---|---|---|
-| Spark icon in Editor Toolbar (when a file is open) | Floating editor toolbar action | UI | ◐ v0.33.0: "Ask Claude" in the editor's top-right toolbar and in the selection toolbar, waiting for test |
+| Spark icon in Editor Toolbar (when a file is open) | Floating editor toolbar action | UI | ☑ v0.33.0: "Ask Claude" in the editor's top-right toolbar and in the selection toolbar |
 | Activity Bar icon → sessions list | Tool window stripe icon → sessions list | UI | ◐ stripe icon opens the panel; "Open Conversations" list in its title bar (v0.23.0) |
-| Status Bar "✻ Claude Code" | Status bar widget | UI | ◐ v0.33.0: "✻ Claude", "· working", "· needs you"; click opens the panel; waiting for test |
-| Command Palette "Claude Code: …" commands | Find Action (Ctrl+Shift+A) + Tools menu | UI | ◐ v0.33.0: Tools > Claude (Open Chat, New Conversation, Reopen Closed Conversation, Ask Claude, Show Logs) + the terminal-mode actions; waiting for test |
+| Status Bar "✻ Claude Code" | Status bar widget | UI | ☑ v0.33.0: "✻ Claude", "· working", "· needs you"; click opens the panel |
+| Command Palette "Claude Code: …" commands | Find Action (Ctrl+Shift+A) + Tools menu | UI | ☑ v0.33.0: Tools > Claude (Open Chat, New Conversation, Reopen Closed Conversation, Ask Claude, Show Logs) + the terminal-mode actions |
 | Panel in secondary sidebar / primary sidebar / editor tab, draggable | Tool window (right/left/bottom, draggable) or editor tab | UI | ◐ tool window, draggable; no editor-tab placement |
-| `preferredLocation` setting | Same setting | UI | ◐ v0.33.0 "Chat panel location" (right / left / bottom), waiting for test |
+| `preferredLocation` setting | Same setting | UI | ☑ v0.33.0 "Chat panel location" (right / left / bottom) |
 | `lockEditorGroups` | Adapt: open files outside the Claude editor split | Adapt | ☐ |
 | Terminal mode (`useTerminal`) and "Open in Terminal" | Terminal tool window running `claude` | UI | ☑ v0.10.0: "Claude" tab in the Terminal tool window (tested) |
 | Sign-in screen, "Not logged in" handling | Detect from stream, show sign-in button that runs `/login` | Stream/CLI | ◐ v0.17.0: sign-in card opens a Claude terminal tab for `/login` |
-| Onboarding checklist, "Open Walkthrough", `hideOnboarding` | Getting-started page in the tool window | UI | ☐ |
+| Onboarding checklist, "Open Walkthrough", `hideOnboarding` | Getting-started page in the tool window | UI | ◐ v0.34.0 (list in an empty conversation), waiting for test |
 
 ## B. Prompt box — Phases 7, 9, 12
 
 | Feature | Via | Phase | Status |
 |---|---|---|---|
-| Multi-line input (Shift+Enter), `useCtrlEnterToSend` | UI | 7 | ◐ Shift+Enter v0.14.0 |
+| Multi-line input (Shift+Enter), `useCtrlEnterToSend` | UI | 7 | ◐ Shift+Enter v0.14.0; `useCtrlEnterToSend` v0.34.0, waiting for test |
 | Queued messages while Claude works ("Message queued") | Stream | 7 | ◐ v0.16.0: queued in the panel, sent after each turn, removable |
 | Paste text stays visible; invisible-character notices | UI/CLI | 7 | ☐ |
 | `/` command menu with inline suggestions | Stream/CLI | 7 | ◐ v0.17.0: panel commands + the CLI's `slash_commands` (after the first message) |
@@ -43,7 +43,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Context indicator and `/compact` | Stream | 12 | ☑ v0.27.0 (tooltip v0.27.1) |
 | Prompt cache clock (minutes left, red when expired) | Stream | 12 | ☑ v0.27.0 |
 | Agent count and agent map | Stream | 11 | ☑ v0.26.0 |
-| Side questions `/btw` in a panel beside the chat (newest 20 exchanges kept) | Stream | 14 | ☐ |
+| Side questions `/btw` in a panel beside the chat (newest 20 exchanges kept) | Stream | 14 | ◐ v0.34.0 (box above the prompt), waiting for test |
 
 ## C. Context and mentions — Phase 9
 
@@ -85,13 +85,13 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Tool-call rows with results; live subagent progress rows | Stream + UI | ◐ tool cards v0.14.0; subagents later |
 | Thinking blocks collapsed, Ctrl+O expands or collapses all | Stream + UI | ◐ v0.16.2: reasoning summaries via showThinkingSummaries (setting, on) |
 | Latest to-do list stays visible | Stream + UI | ◐ v0.16.1: TodoWrite and TaskCreate/TaskUpdate; opt-in setting, since recent models leave the task tools out |
-| Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ◐ v0.17.0: button, `/focus`, Ctrl+Alt+F; no `focusView` setting yet |
+| Focus view (hide tool calls and thinking), Ctrl+Alt+F, `focusView` | UI | ◐ v0.17.0: button, `/focus`, Ctrl+Alt+F; `focusView` setting v0.34.0, waiting for test |
 | Message timestamps and date lines, `showMessageTimestamps` | UI | ☑ v0.17.0 |
-| `scrollToBottomOnSend` | UI | ☐ |
-| `spinnerVerbs` | UI | ☐ |
+| `scrollToBottomOnSend` | UI | ◐ v0.34.0, waiting for test |
+| `spinnerVerbs` | UI | ◐ v0.34.0, waiting for test |
 | LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, ```` ```math ````), copy gives TeX source | UI (KaTeX in the web view) | ☑ v0.17.0 (KaTeX → MathML, no fonts or inline styles) |
 | Copy response (hover button), `/copy`, `/copy 2` | UI | ☑ v0.17.0 (Copy per turn, `/copy`, `/copy N`) |
-| Bookmarks (bookmark response, Bookmarks panel, `/bookmarks`) | UI/CLI | ☐ |
+| Bookmarks (bookmark response, Bookmarks panel, `/bookmarks`) | UI/CLI | ◐ v0.34.0 (☆ under responses, `/bookmarks` card), waiting for test |
 | Files Claude sends ("Sent report.md …", click to open; network paths not linked) | Stream + UI | ☐ |
 | Stop button / Esc ends the turn (background agents keep running) | Stream | ◐ v0.14.0 (pending test) |
 
@@ -169,7 +169,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 |---|---|---|---|
 | Focus Input (toggle editor ↔ Claude) | Ctrl+Esc | **Alt+Shift+K** (Ctrl+Esc opens the Windows Start menu) | ☑ v0.10.0 (tested) |
 | Open in New Tab | Ctrl+Shift+Esc | Pick another key: Windows reserves Ctrl+Shift+Esc for Task Manager | ☐ |
-| New Conversation (`enableNewConversationShortcut`) | Ctrl+N | Only when Claude has focus: Ctrl+N is "Go to Class" in JetBrains | ◐ v0.33.0 (panel-local), waiting for test |
+| New Conversation (`enableNewConversationShortcut`) | Ctrl+N | Only when Claude has focus: Ctrl+N is "Go to Class" in JetBrains | ☑ v0.33.0 (panel-local) |
 | Reopen Closed Session (`enableReopenClosedSessionShortcut`) | Ctrl+Shift+T | Only when Claude has focus: Ctrl+Shift+T is "Go to Test" in JetBrains | ☑ v0.23.0 (panel-local) |
 | Insert @-Mention | Alt+K | Same, if free | ☑ v0.7.0 / panel v0.20.0 |
 | Toggle Focus view | Ctrl+Alt+F | Panel-local shortcut, so "Introduce Field" still works in the editor | ◐ v0.17.0 |
@@ -191,7 +191,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | URI handler `…/open?prompt=…&session=…` | Adapt: JetBrains protocol handler (`jetbrains://rustrover/…`) | ☐ |
 | Screen reader announcements, labeled transcript, Focus last message | UI (JCEF accessibility + IDE announcements) | ☐ |
 | Third-party providers (Bedrock, Vertex/Agent Platform, Foundry): `disableLoginPrompt`, no claude.ai-only features | UI + CLI | ☐ |
-| Show Logs (extension debug logs) | UI (open `bridge.log` + IDE log) | ◐ v0.33.0: Tools > Claude > Show Logs opens bridge.log (IDE log: Help > Show Log); waiting for test |
+| Show Logs (extension debug logs) | UI (open `bridge.log` + IDE log) | ☑ v0.33.0: Tools > Claude > Show Logs opens bridge.log (IDE log: Help > Show Log) |
 
 ## N. Out of scope (for now)
 

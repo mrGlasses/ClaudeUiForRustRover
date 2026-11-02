@@ -11,6 +11,7 @@ import { createModelBar } from "./modelbar";
 import { installTooltips } from "./tooltip";
 import { moreMenu, statusCard, usageCard } from "./account";
 import { createCustomize } from "./customize";
+import { bookmarksCard, createSideQuestions, onboarding } from "./side";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -84,10 +85,18 @@ const modelBar = createModelBar({
   compact: () => dispatch({ text: "/compact", files: [], images: [], includeFile: false, includeSelection: false }),
   isBusy: () => busy,
 });
-root.append(header, transcript, agentMap.node, todoBox, queueBox, slashMenu, chips, composer, modelBar.node);
+const sideQuestions = createSideQuestions();
+root.append(header, transcript, sideQuestions.node, agentMap.node, todoBox, queueBox, slashMenu, chips, composer, modelBar.node);
 
 // ---------- state ----------
 let busy = false;
+// Phase 14b: preferences from Settings > Tools > Clawed UI (VS Code's useCtrlEnterToSend, scrollToBottomOnSend,
+// focusView, spinnerVerbs, hideOnboarding).
+const prefs = { ctrlEnterToSend: false, scrollToBottomOnSend: true, focusView: false, hideOnboarding: false, spinnerVerbs: [] as string[] };
+let spinnerWord = "Working";
+let wasBusy = false;
+let focusApplied = false;
+let onboardingBox: HTMLElement | null = null;
 let model = "";
 const textBlocks = new Map<string, { el: HTMLDivElement; text: string }>();
 // Streamed text blocks per message, in order, not yet replaced by their final text. The CLI sends the final text of
@@ -166,6 +175,8 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "resume", hint: "open the conversation history" },
   { name: "tasks", hint: "show agents and background tasks" },
   { name: "model", hint: "pick the model, effort and extended thinking" },
+  { name: "btw", hint: "ask a side question without adding it to the conversation" },
+  { name: "bookmarks", hint: "your bookmarked responses" },
   { name: "customize", hint: "commands, skills, output style, CLAUDE.md files" },
   { name: "skills", hint: "turn skills on or off" },
   { name: "output-style", hint: "pick how Claude writes its answers" },
@@ -187,9 +198,19 @@ function setBusy(b: boolean): void {
   const typing = input.value.trim() !== "";
   sendButton.textContent = b ? (typing ? "Queue" : "Stop") : "Send";
   sendButton.classList.toggle("stop", b && !typing);
+  if (b && !wasBusy) spinnerWord = prefs.spinnerVerbs.length ? prefs.spinnerVerbs[Math.floor(Math.random() * prefs.spinnerVerbs.length)] : "Working";
+  wasBusy = b;
   status.textContent = b
-    ? pendingCount() > 0 ? "Waiting for you…" : `Working${model ? ` · ${model}` : ""}…`
+    ? pendingCount() > 0 ? "Waiting for you…" : `${spinnerWord}${model ? ` · ${model}` : ""}…`
     : model ? `Ready · ${model}` : "Ready";
+}
+
+function showOnboarding(): void {
+  onboardingBox?.remove();
+  onboardingBox = null;
+  if (prefs.hideOnboarding || !empty.isConnected) return;
+  onboardingBox = onboarding((c) => void panelCommand(c), (t) => insertAtCaret(t));
+  empty.append(onboardingBox);
 }
 
 function nearBottom(): boolean {
@@ -330,7 +351,7 @@ function userMessage(o: Outgoing): void {
     m.append(att);
   }
   m.append(el("div", "time", clock()));
-  append(m, true);
+  append(m, prefs.scrollToBottomOnSend);
 }
 
 /** Takes the attachments and chips as they are now, and clears the attachments. */
@@ -514,6 +535,19 @@ function panelCommand(text: string): boolean {
     post({ type: "reportProblem", kind: text === "/bug plugin" ? "plugin" : "claude" });
     return true;
   }
+  const btw = /^\/btw\s+([\s\S]+)$/.exec(text);
+  if (btw) {
+    sideQuestions.ask(btw[1].trim());
+    return true;
+  }
+  if (text === "/btw") {
+    append(el("div", "notice", "Type a question after /btw, e.g. /btw what does the ? operator do?"));
+    return true;
+  }
+  if (text === "/bookmarks") {
+    post({ type: "bookmarks" } as never);
+    return true;
+  }
   if (text === "/model") {
     modelBar.open();
     return true;
@@ -549,6 +583,8 @@ input.addEventListener("input", () => {
 input.addEventListener("keydown", (ev) => {
   if (!slashMenu.hidden && menuKey(ev)) return;
   if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
+    // useCtrlEnterToSend: Enter adds a line, Ctrl+Enter sends.
+    if (prefs.ctrlEnterToSend && !ev.ctrlKey) return;
     ev.preventDefault();
     submit();
   }
@@ -731,6 +767,14 @@ function turnFooter(parts: string[]): HTMLElement {
       setTimeout(() => (copy.textContent = "Copy"), 1500);
     });
     meta.append(copy);
+    const mark = el("button", "link-button copy", "☆");
+    mark.title = "Bookmark this response (/bookmarks lists them)";
+    mark.addEventListener("click", () => {
+      mark.textContent = "★";
+      mark.disabled = true;
+      post({ type: "bookmark", text } as never);
+    });
+    meta.append(mark);
   }
   return meta;
 }
@@ -746,6 +790,21 @@ function handle(msg: FromKotlin): void {
     case "settings":
       root.classList.toggle("no-times", !msg.showTimestamps);
       modes.setModes(msg.modes);
+      prefs.ctrlEnterToSend = msg.ctrlEnterToSend === true;
+      prefs.scrollToBottomOnSend = msg.scrollToBottomOnSend !== false;
+      prefs.focusView = msg.focusView === true;
+      prefs.hideOnboarding = msg.hideOnboarding === true;
+      prefs.spinnerVerbs = msg.spinnerVerbs ?? [];
+      input.placeholder = prefs.ctrlEnterToSend ? "Message Claude… (Ctrl+Enter sends)" : "Message Claude…";
+      if (prefs.focusView && !focusApplied && !transcript.classList.contains("focus")) toggleFocus();
+      focusApplied = true;
+      showOnboarding();
+      break;
+    case "sideAnswer":
+      sideQuestions.answer(msg.question, msg.answer, msg.error);
+      break;
+    case "bookmarkList":
+      append(bookmarksCard(msg.items), true);
       break;
     case "permissionMode":
       modes.setMode(msg.mode);
@@ -1005,6 +1064,8 @@ function handle(msg: FromKotlin): void {
       agentMap.clear();
       modelBar.reset();
       transcript.replaceChildren(empty);
+      sideQuestions.clear();
+      showOnboarding();
       model = "";
       setBusy(false);
       input.focus();

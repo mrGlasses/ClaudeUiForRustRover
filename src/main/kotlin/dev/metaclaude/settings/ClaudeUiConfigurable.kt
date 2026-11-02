@@ -99,6 +99,22 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                     .bindItem({ settings.state.archiveInactiveSessions }, { settings.state.archiveInactiveSessions = it ?: 0 })
                     .comment("They move to History > Archived. Bringing one back keeps it out of auto-archive.")
             }
+            row {
+                checkBox("Ctrl+Enter sends (Enter adds a line)").bindSelected(settings.state::useCtrlEnterToSend)
+            }
+            row {
+                checkBox("Jump to the end of the conversation when you send").bindSelected(settings.state::scrollToBottomOnSend)
+            }
+            row {
+                checkBox("Start conversations in Focus view (tool calls and thinking hidden)").bindSelected(settings.state::focusView)
+            }
+            row {
+                checkBox("Hide the getting-started list in empty conversations").bindSelected(settings.state::hideOnboarding)
+            }
+            row("Words while Claude works:") {
+                textField().bindText({ settings.state.spinnerVerbs ?: "" }, { settings.state.spinnerVerbs = it })
+                    .comment("Comma-separated, e.g. Pondering, Brewing, Tinkering. Empty: \"Working\".")
+            }
             row("Chat panel location:") {
                 comboBox(listOf("right", "left", "bottom"), SideRenderer())
                     .bindItem({ settings.state.preferredLocation ?: "right" }, { settings.state.preferredLocation = it ?: "right" })

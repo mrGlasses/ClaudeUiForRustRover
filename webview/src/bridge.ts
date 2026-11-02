@@ -51,12 +51,28 @@ export type ToKotlin =
   | { type: "marketplaceAction"; action: "add" | "remove" | "update"; value?: string }
   | { type: "sandboxAction"; what: "mode" | "fallback" | "exclude"; value?: string; on?: boolean }
   | { type: "chromeAction"; action: "toggle" | "open"; on?: boolean; which?: string }
+  | { type: "sideQuestion"; question: string }
+  | { type: "bookmark"; text: string }
+  | { type: "bookmarks" }
+  | { type: "bookmarkAction"; id: string; action: "open" | "copy" | "remove" }
+  | { type: "hideOnboarding" }
   | { type: "modelSet"; what: "model" | "effort" | "ultracode" | "thinking"; value: string | boolean };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
 export type FromKotlin =
   | { type: "hello"; version: string; ideBuild: string }
-  | { type: "settings"; showTimestamps: boolean; modes: { id: string; label: string }[] }
+  | {
+      type: "settings";
+      showTimestamps: boolean;
+      modes: { id: string; label: string }[];
+      ctrlEnterToSend?: boolean;
+      scrollToBottomOnSend?: boolean;
+      focusView?: boolean;
+      hideOnboarding?: boolean;
+      spinnerVerbs?: string[];
+    }
+  | { type: "sideAnswer"; question: string; answer: string; error?: string }
+  | { type: "bookmarkList"; items: import("./side").Bookmark[] }
   | import("./permissions").PermissionCard
   | { type: "permissionResolved"; requestId: string; outcome: string }
   | { type: "permissionMode"; mode: string }

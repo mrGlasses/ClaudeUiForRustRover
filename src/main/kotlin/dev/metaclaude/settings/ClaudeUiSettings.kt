@@ -50,6 +50,16 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var archiveInactiveSessions by property(0)
         /** VS Code `preferredLocation`: side of the IDE for the Claude Chat panel (right, left, bottom). */
         var preferredLocation by string("right")
+        /** Phase 14b, VS Code `useCtrlEnterToSend`: Enter adds a line, Ctrl+Enter sends. */
+        var useCtrlEnterToSend by property(false)
+        /** VS Code `scrollToBottomOnSend`: jump to the end of the conversation when you send. */
+        var scrollToBottomOnSend by property(true)
+        /** VS Code `focusView`: new conversations start in Focus view (tool calls and thinking hidden). */
+        var focusView by property(false)
+        /** VS Code `spinnerVerbs`: words shown while Claude works, comma-separated ("" = just "Working"). */
+        var spinnerVerbs by string("")
+        /** VS Code `hideOnboarding`: no getting-started list in an empty conversation. */
+        var hideOnboarding by property(false)
     }
 
     var integrationMode: IntegrationMode

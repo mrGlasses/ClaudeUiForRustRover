@@ -26,7 +26,7 @@ Everything below is **not started** unless marked otherwise.
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
 | 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
 | 13 Customize | ☑ Done (13a–13d, v0.29.0–v0.32.0, tested 2026-11-02). Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
-| 14 IDE polish | **14a (entry points, status bar, location, Ctrl+N) v0.33.0: waiting for your test**. 14b (prompt-box and transcript settings, `/btw`, bookmarks, onboarding), 14c (URI handler, accessibility, providers, environment) next |
+| 14 IDE polish | 14a done (v0.33.0 tested 2026-11-02). **14b (`/btw`, bookmarks, getting started, prompt-box settings) v0.34.0: waiting for your test**. 14c (URI handler, accessibility, providers, environment) next |
 | 15–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -588,6 +588,16 @@ Tool window / editor toolbar / status bar entry points, panel placement (`prefer
 - Settings > Chat panel location (right / left / bottom), VS Code's `preferredLocation`: moves the panel when applied.
 - Ctrl+N inside the panel: new conversation tab (panel-local, so "Go to Class" keeps working in the editor).
 - The Phase 6 developer action "Run Stream Spike" is gone from the Tools menu.
+v0.33.0 test (2026-11-02): all ok. 14a done.
+
+14b (v0.34.0):
+- `/btw <question>`: a "Side questions" box above the prompt (newest 20, own input). The CLI's `side_question` answers from
+  the conversation without adding to it, also while Claude is working; earlier side exchanges go along as `history`.
+- Bookmarks: ☆ under each response stores it (title, text, time, session) in the project's workspace file; `/bookmarks`
+  lists them with the text, Open conversation (in a new tab), Copy, Remove.
+- Getting started (VS Code's onboarding): a short list in an empty conversation; each line does something (puts a question
+  in the box, opens Customize or History); "Don't show again" sets `hideOnboarding`.
+- Settings (VS Code names): `useCtrlEnterToSend`, `scrollToBottomOnSend`, `focusView`, `spinnerVerbs`, `hideOnboarding`.
 
 ---
 

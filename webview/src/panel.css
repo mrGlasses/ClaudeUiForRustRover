@@ -261,3 +261,13 @@ button:disabled { opacity: .5; cursor: default; }
 .hook-timeout { max-width: 110px; flex: 0 0 auto; }
 .customize .mono { font-family: var(--mono); }
 .customize .deny { color: var(--error); }
+
+/* Phase 14b: /btw, bookmarks, getting started */
+.side-questions .agents-list { max-height: 30vh; overflow-y: auto; }
+.side-item { border-left: 2px solid var(--border); padding-left: 6px; display: flex; flex-direction: column; gap: 2px; }
+.side-q { font-weight: 600; white-space: pre-wrap; }
+.side-ask { margin: 4px 0; }
+.bookmark summary { cursor: pointer; }
+.bookmark-text { margin: 4px 0; padding: 4px 8px; background: var(--code-bg); border-radius: 4px; max-height: 40vh; overflow-y: auto; }
+.onboarding { margin-top: 12px; text-align: left; display: flex; flex-direction: column; gap: 4px; }
+.onboarding-step { text-align: left; white-space: normal; }

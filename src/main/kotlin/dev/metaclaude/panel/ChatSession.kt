@@ -311,6 +311,9 @@ class ChatSession(
         request("mcp_reconnect", JsonObject().apply { addProperty("serverName", name) }, timeoutSeconds = 60, done = done)
     fun reloadPlugins(done: (JsonObject?, String?) -> Unit) = request("reload_plugins", JsonObject(), timeoutSeconds = 60, done = done)
 
+    /** Phase 14b: `/btw`, answered from the conversation without adding to it (works while a turn runs). */
+    fun sideQuestion(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("side_question", body, timeoutSeconds = 180, done = done)
+
     /** Phase 13d: Sandbox and Chrome tabs. */
     fun sandboxDialog(done: (JsonObject?, String?) -> Unit) = request("get_sandbox_dialog", JsonObject(), done = done)
     fun chromeDialog(done: (JsonObject?, String?) -> Unit) = request("get_chrome_dialog", JsonObject(), done = done)

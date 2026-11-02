@@ -21,6 +21,18 @@ class SessionNotes : SimplePersistentStateComponent<SessionNotes.Options>(Option
         var unarchived by stringSet()
         var groupOf by map<String, String>()
         var groups by list<String>()
+        /** Phase 14b: bookmarked responses, each a small JSON object (see [Bookmarks]), newest last. */
+        var bookmarks by list<String>()
+    }
+
+    @Synchronized fun bookmarks(): List<String> = ArrayList(state.bookmarks)
+
+    @Synchronized fun addBookmark(json: String) {
+        state.bookmarks = ArrayList(state.bookmarks).apply { add(json); while (size > dev.metaclaude.protocol.Bookmarks.MAX) removeAt(0) }
+    }
+
+    @Synchronized fun removeBookmark(id: String) {
+        state.bookmarks = ArrayList(state.bookmarks).apply { removeIf { dev.metaclaude.protocol.Bookmarks.idOf(it) == id } }
     }
 
     @Synchronized

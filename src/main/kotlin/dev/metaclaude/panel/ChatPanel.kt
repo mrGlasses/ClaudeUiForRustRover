@@ -354,6 +354,11 @@ class ChatPanel(
             "marketplaceAction" -> marketplaceAction(msg)
             "sandboxAction" -> sandboxAction(msg)
             "chromeAction" -> chromeAction(msg)
+            "sideQuestion" -> sideQuestion(msg.get("question")?.takeIf { it.isJsonPrimitive }?.asString)
+            "bookmark" -> bookmark(msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString)
+            "bookmarks" -> sendBookmarks()
+            "bookmarkAction" -> bookmarkAction(msg)
+            "hideOnboarding" -> { ClaudeUiSettings.instance.state.hideOnboarding = true; applySettingsToOpenPanels() }
             "customStyle" -> send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", Customize.CUSTOM_STYLE_PROMPT) })
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
@@ -1132,6 +1137,56 @@ class ChatPanel(
         }
     }
 
+    // ---------- /btw and bookmarks (Phase 14b) ----------
+
+    /** This conversation's side questions and answers (sent back as history, newest 20). */
+    private val sideHistory = java.util.concurrent.CopyOnWriteArrayList<Pair<String, String>>()
+
+    private fun sideQuestion(question: String?) {
+        val q = question?.trim()?.take(MAX_PROMPT)?.takeIf { it.isNotEmpty() } ?: return
+        AppExecutorUtil.getAppExecutorService().execute {
+            val s = sessionOrStart() ?: return@execute
+            BridgeLog.log("panel: side question asked", project.name)
+            s.sideQuestion(dev.metaclaude.protocol.Bookmarks.sideQuestion(q, sideHistory)) { payload, err ->
+                val answer = dev.metaclaude.protocol.Bookmarks.sideAnswer(payload)
+                if (answer != null) {
+                    sideHistory.add(q to answer)
+                    while (sideHistory.size > dev.metaclaude.protocol.Bookmarks.SIDE_HISTORY) sideHistory.removeAt(0)
+                }
+                send(JsonObject().apply {
+                    addProperty("type", "sideAnswer")
+                    addProperty("question", q)
+                    addProperty("answer", answer ?: "")
+                    if (answer == null) addProperty("error", (err ?: "No answer for this side question. Try again, or ask in the conversation.").take(300))
+                })
+            }
+        }
+    }
+
+    /** Bookmark a response of this conversation. Rule 4: bounded text, only once the conversation has a session id. */
+    private fun bookmark(text: String?) {
+        val t = text?.takeIf { it.isNotBlank() }?.take(dev.metaclaude.protocol.Bookmarks.TEXT_MAX) ?: return
+        val sid = currentSessionId ?: return notice("Send a message first: a bookmark belongs to a saved conversation.")
+        val title = fullTitle.ifBlank { ChatTabs.NEW_TITLE }
+        project.service<SessionNotes>().addBookmark(dev.metaclaude.protocol.Bookmarks.make(java.util.UUID.randomUUID().toString(), sid, title, t, System.currentTimeMillis()))
+        notice("Bookmarked. /bookmarks lists them.")
+    }
+
+    private fun sendBookmarks() = send(JsonObject().apply {
+        addProperty("type", "bookmarkList")
+        add("items", dev.metaclaude.protocol.Bookmarks.list(project.service<SessionNotes>().bookmarks()))
+    })
+
+    private fun bookmarkAction(msg: JsonObject) {
+        val id = msg.get("id")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        val b = dev.metaclaude.protocol.Bookmarks.find(project.service<SessionNotes>().bookmarks(), id) ?: return
+        when (msg.get("action")?.takeIf { it.isJsonPrimitive }?.asString) {
+            "open" -> b.get("session")?.asString?.takeIf { SessionFiles.isSessionId(it) }?.let { sid -> onEdt { tabs.newTab(sid) } }
+            "copy" -> CopyPasteManager.getInstance().setContents(StringSelection(b.get("text")?.asString ?: ""))
+            "remove" -> { project.service<SessionNotes>().removeBookmark(id); sendBookmarks() }
+        }
+    }
+
     // ---------- agent map (Phase 11b) ----------
 
     /** Tasks this session reported (id → kind) and the ones still running: the page may act only on these (rule 4). */
@@ -1142,6 +1197,7 @@ class ChatPanel(
 
     private fun clearTasks() {
         taskKinds.clear(); runningTasks.clear(); backgroundable.clear()
+        sideHistory.clear()
         currentStyle = null // a new process reports its own
         thinkingOn = null // a new process starts with the default
     }
@@ -1513,7 +1569,16 @@ ${themeCss()}</style></head><body><div id="app"></div>
     /** Panel settings, sent with `hello` and again whenever they change (v0.17.0: reopening the tool window keeps the page). */
     private fun settingsMessage() = JsonObject().apply {
         addProperty("type", "settings")
-        addProperty("showTimestamps", ClaudeUiSettings.instance.state.showMessageTimestamps)
+        val st = ClaudeUiSettings.instance.state
+        addProperty("showTimestamps", st.showMessageTimestamps)
+        // Phase 14b: prompt box and transcript preferences.
+        addProperty("ctrlEnterToSend", st.useCtrlEnterToSend)
+        addProperty("scrollToBottomOnSend", st.scrollToBottomOnSend)
+        addProperty("focusView", st.focusView)
+        addProperty("hideOnboarding", st.hideOnboarding)
+        add("spinnerVerbs", com.google.gson.JsonArray().apply {
+            (st.spinnerVerbs ?: "").split(',').map { it.trim().take(40) }.filter { it.isNotEmpty() }.take(50).forEach { add(it) }
+        })
         add("modes", com.google.gson.JsonArray().apply {
             val all = Permissions.MODES.toList() + if (bypassAllowed()) listOf(Permissions.BYPASS to Permissions.BYPASS_LABEL) else emptyList()
             all.forEach { (id, label) -> add(JsonObject().apply { addProperty("id", id); addProperty("label", label) }) }
@@ -1541,7 +1606,7 @@ ${themeCss()}</style></head><body><div id="app"></div>
             return true
         }
 
-        /** Called after Settings > Tools > Clawed UI is applied. */
+        /** Called after Settings > Tools > Clawed UI is applied (and when the page hides the getting-started list). */
         fun applySettingsToOpenPanels() = openPanels.forEach { it.send(it.settingsMessage()) }
 
         fun isSafeExternalUrl(url: String): Boolean {
