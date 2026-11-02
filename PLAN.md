@@ -25,7 +25,7 @@ Everything below is **not started** unless marked otherwise.
 | 10 Sessions | ☑ Done (10a, 10b v0.23.3; 10c v0.24.2 tested 2026-11-01). Web tab (cloud / Remote Control sessions) moved to Phase 15 |
 | 11 Checkpoints, agents | ☑ Done (11a v0.25.0, 11b v0.26.0, tested 2026-11-01) |
 | 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
-| 13 Customize | 13a, 13b done (v0.29.0, v0.30.1 tested 2026-11-02). **13c (MCP, plugins, marketplaces) v0.31.0: waiting for your test**. 13d (sandbox, Chrome, Remote Control, plugin install links) next |
+| 13 Customize | 13a, 13b, 13c done (v0.29.0, v0.30.1, v0.31.0 tested 2026-11-02). **13d (sandbox, Chrome) v0.32.0: waiting for your test**. Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
 | 14–16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -555,6 +555,19 @@ a throwaway config folder (CLAUDE_CONFIG_DIR) with a local test marketplace:
   confirmed natively; then `reload_plugins` applies the change to the running session.
 - On Windows `claude.cmd` runs through cmd.exe, which breaks quotes and expands `%`, `^`, `!`: free text with those
   characters is refused there with a message to use a terminal (`claude.exe` has no such limit).
+v0.31.0 test (2026-11-02): MCP list, add (stdio), disable / enable, remove; plugins install, disable / enable, uninstall,
+marketplace add: all ok. 13c done.
+
+13d (v0.32.0), Sandbox and Chrome tabs (`SandboxChrome`):
+- Sandbox (`/sandbox`): whether it runs here (or why not), mode (sandboxed without asking / sandboxed with prompts / none, only
+  the choices the CLI offers), the unsandboxed-fallback switch, commands excluded from the sandbox (+ add one), dependency
+  errors and warnings, restrictions from the settings (`get_sandbox_dialog`). Writes: `claude edit-sandbox-settings --json`.
+  Anything that loosens it (no sandbox, run without asking, fallback on, excluding a command) is confirmed natively.
+- Chrome (`/chrome`): extension installed / connected (and to which browser), "Enabled by default"
+  (`claude edit-chrome-settings --json`), and the CLI's own install / reconnect / site-permissions pages, opened by Kotlin
+  in the system browser (only http(s) URLs from the CLI's answer).
+- Not here: "Enable Remote Control for all sessions" (`remoteControlAtStartup` is a user setting that no CLI command
+  writes; it goes with the Web tab in Phase 15) and plugin install links (a JetBrains URL handler, Phase 14).
 
 ### Phase 14 — IDE polish (PARITY §A, §K, §L, §M)
 Tool window / editor toolbar / status bar entry points, panel placement (`preferredLocation`), editor-split behavior, keymap (resolve the JetBrains conflicts listed in PARITY §K),

@@ -174,6 +174,8 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "memory", hint: "instruction files, auto-memory, saved memories" },
   { name: "mcp", hint: "MCP servers: add, remove, turn on or off, reconnect" },
   { name: "plugins", hint: "install, turn on or off, configure plugins; marketplaces" },
+  { name: "sandbox", hint: "sandbox mode, excluded commands" },
+  { name: "chrome", hint: "Claude in Chrome connection" },
   { name: "usage", hint: "plan limits, this session's cost, what uses your limits" },
   { name: "status", hint: "versions, account, model, MCP servers" },
   { name: "bug", hint: "report a Claude Code problem (/bug plugin: a Clawed UI problem)" },
@@ -488,6 +490,10 @@ function panelCommand(text: string): boolean {
     openCustomize(text.slice(1) as "hooks" | "permissions" | "memory" | "mcp");
     return true;
   }
+  if (text === "/sandbox" || text === "/chrome") {
+    openCustomize(text.slice(1) as "sandbox" | "chrome");
+    return true;
+  }
   if (text === "/plugins" || text === "/plugin") {
     openCustomize("plugins");
     return true;
@@ -577,7 +583,7 @@ const customize = createCustomize({
   },
 });
 transcript.before(customize.view);
-function openCustomize(tab?: "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory" | "mcp" | "plugins"): void {
+function openCustomize(tab?: "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory" | "mcp" | "plugins" | "sandbox" | "chrome"): void {
   history.view.hidden = true;
   transcript.hidden = true;
   customize.open(tab);
@@ -885,6 +891,8 @@ function handle(msg: FromKotlin): void {
     case "mcpData":
     case "pluginsData":
     case "pluginConfig":
+    case "sandboxData":
+    case "chromeData":
       customize.showTab(msg.type, msg);
       break;
     case "customizeDone":

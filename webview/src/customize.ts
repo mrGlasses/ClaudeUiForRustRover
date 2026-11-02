@@ -19,7 +19,7 @@ export type CustomizeData = {
   outputStyle: { current?: string; available: string[] };
   instructions: Instr[];
 };
-export type Tab = "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory" | "mcp" | "plugins";
+export type Tab = "commands" | "skills" | "style" | "instructions" | "hooks" | "permissions" | "memory" | "mcp" | "plugins" | "sandbox" | "chrome";
 
 const TABS: [Tab, string][] = [
   ["commands", "Commands"],
@@ -31,7 +31,20 @@ const TABS: [Tab, string][] = [
   ["memory", "Memory"],
   ["mcp", "MCP"],
   ["plugins", "Plugins"],
+  ["sandbox", "Sandbox"],
+  ["chrome", "Chrome"],
 ];
+
+// Phase 13d data.
+export type SandboxData = {
+  error?: string; supported?: boolean; unsupportedReason?: string; locked?: boolean; overridesLocked?: boolean; enabled?: boolean;
+  enabledInSettings?: boolean; unavailableReason?: string; mode?: string; autoAllowAvailable?: boolean; noSandboxAllowed?: boolean;
+  unsandboxedFallback?: boolean; errors?: string[]; warnings?: string[]; excluded?: string[]; restrictions?: { label: string; items: string[] }[];
+};
+export type ChromeData = {
+  error?: string; allowed?: boolean; subscriber?: boolean; wsl?: boolean; installed?: boolean; connected?: boolean; browser?: string;
+  enabledByDefault?: boolean; has_install?: boolean; has_reconnect?: boolean; has_permissions?: boolean;
+};
 
 // Phase 13c data.
 type McpRow = { name: string; status: string; error?: string; scope: string; transport: string; target?: string; tools: number; own: boolean; removable: boolean };
@@ -103,8 +116,12 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
   let mcpData: McpData | null = null;
   let pluginsData: PluginsData | null = null;
   let pluginConfig: PluginConfig | null = null;
-  const LIVE: Tab[] = ["hooks", "permissions", "memory", "mcp", "plugins"];
+  let sandboxData: SandboxData | null = null;
+  let chromeData: ChromeData | null = null;
+  const LIVE: Tab[] = ["hooks", "permissions", "memory", "mcp", "plugins", "sandbox", "chrome"];
   const request = (t: Tab) => {
+    if (t === "sandbox") sandboxData = null;
+    if (t === "chrome") chromeData = null;
     if (t === "mcp") mcpData = null;
     if (t === "plugins") pluginsData = null;
     if (t === "hooks") hooksData = null;
@@ -131,6 +148,8 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
       }),
     );
     search.hidden = !["commands", "skills", "permissions", "plugins"].includes(tab);
+    if (tab === "sandbox") return void body.replaceChildren(...(sandboxData ? sandbox(sandboxData) : [loading()]));
+    if (tab === "chrome") return void body.replaceChildren(...(chromeData ? chrome(chromeData) : [loading()]));
     if (tab === "mcp") return void body.replaceChildren(...(mcpData ? mcp(mcpData) : [loading()]));
     if (tab === "plugins") return void body.replaceChildren(...(pluginsData ? plugins(pluginsData) : [el("div", "muted customize-empty", "Loading plugins… (reading the marketplaces can take a few seconds)")]));
     if (tab === "hooks") return void body.replaceChildren(...(hooksData ? hooks(hooksData) : [loading()]));
@@ -445,6 +464,106 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
     return out;
   }
 
+  // ---------- sandbox ----------
+  function sandbox(d: SandboxData): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    const note = (t: string, cls = "notice") => out.push(el("div", `${cls} customize-empty`, t));
+    if (d.error) note(`Couldn't read the sandbox settings: ${d.error}`, "agent-error");
+    if (d.supported === false) {
+      note(d.unsupportedReason ?? "Sandboxing isn't available here.");
+      return out;
+    }
+    out.push(el("div", "customize-row", d.enabled ? "The sandbox is on in this session: Claude's commands run with limited file and network access." : "The sandbox is off in this session."));
+    if (d.unavailableReason) note(`It can't run: ${d.unavailableReason}`);
+    if (d.locked) note("A higher-priority configuration sets the sandbox mode: it can't be changed here.");
+    out.push(el("div", "info-section customize-empty", "Mode"));
+    const modes: [string, string, boolean][] = [
+      ["auto-allow", "Sandboxed, run without asking", d.autoAllowAvailable === true],
+      ["regular", "Sandboxed, with the usual permission prompts", true],
+      ["disabled", "No sandbox", d.noSandboxAllowed !== false],
+    ];
+    for (const [id, label, offered] of modes) {
+      if (!offered) continue;
+      const row = el("label", "option customize-row");
+      const radio = el("input");
+      radio.type = "radio";
+      radio.name = "sandbox-mode";
+      radio.checked = d.mode === id;
+      radio.disabled = d.locked === true;
+      radio.addEventListener("change", () => post({ type: "sandboxAction", what: "mode", value: id } as never));
+      row.append(radio, el("span", "option-label", label));
+      out.push(row);
+    }
+    const fb = el("label", "model-toggle customize-row");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = d.unsandboxedFallback === true;
+    box.disabled = d.overridesLocked === true;
+    box.addEventListener("change", () => post({ type: "sandboxAction", what: "fallback", on: box.checked } as never));
+    fb.append(box, el("span", undefined, "If a command fails in the sandbox, it may be retried outside it (you're asked first)"));
+    out.push(fb);
+    out.push(el("div", "info-section customize-empty", "Commands that run outside the sandbox"));
+    for (const c of d.excluded ?? []) out.push(el("div", "customize-row customize-name", c));
+    const addRow = el("div", "customize-row customize-head");
+    const pat = el("input", "history-search");
+    pat.placeholder = "Command pattern, e.g. docker:*";
+    const add = el("button", "link-button", "Add");
+    add.addEventListener("click", () => {
+      if (!pat.value.trim()) return pat.focus();
+      post({ type: "sandboxAction", what: "exclude", value: pat.value } as never);
+    });
+    addRow.append(pat, add);
+    out.push(addRow);
+    if (d.errors?.length || d.warnings?.length) {
+      out.push(el("div", "info-section customize-empty", "Dependencies"));
+      for (const e of d.errors ?? []) out.push(el("div", "customize-row agent-error", e));
+      for (const w of d.warnings ?? []) out.push(el("div", "customize-row muted", w));
+    }
+    if (d.restrictions?.length) {
+      out.push(el("div", "info-section customize-empty", "Restrictions from your settings"));
+      for (const r of d.restrictions) out.push(el("div", "customize-row history-meta", `${r.label}: ${r.items.join(", ")}`));
+    }
+    return out;
+  }
+
+  // ---------- Chrome ----------
+  function chrome(d: ChromeData): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    if (d.error) out.push(el("div", "agent-error customize-empty", `Couldn't read the Chrome state: ${d.error}`));
+    const line = (label: string, value: string) => {
+      const row = el("div", "customize-row customize-head");
+      row.append(el("span", "muted", label), el("span", undefined, value));
+      out.push(row);
+    };
+    if (d.allowed === false) out.push(el("div", "notice customize-empty", "Your organization doesn't allow Claude in Chrome."));
+    if (d.subscriber === false) out.push(el("div", "notice customize-empty", "Claude in Chrome needs a claude.ai subscription."));
+    if (d.wsl) out.push(el("div", "notice customize-empty", "Claude in Chrome isn't supported under WSL."));
+    line("Extension", d.installed ? "installed" : "not found on this computer");
+    line("Connection", d.connected ? `connected${d.browser ? ` (${d.browser})` : ""}` : "not connected");
+    const t = el("label", "model-toggle customize-row");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = d.enabledByDefault === true;
+    box.disabled = d.allowed === false;
+    box.addEventListener("change", () => {
+      box.disabled = true;
+      post({ type: "chromeAction", action: "toggle", on: box.checked } as never);
+    });
+    t.append(box, el("span", undefined, "Enabled by default (new sessions can use your Chrome)"));
+    out.push(t);
+    const links = el("div", "customize-row customize-head");
+    const link = (which: string, label: string) => {
+      const b = el("button", "link-button", label);
+      b.addEventListener("click", () => post({ type: "chromeAction", action: "open", which } as never));
+      links.append(b);
+    };
+    if (!d.installed && d.has_install) link("install", "Install the extension");
+    if (d.installed && !d.connected && d.has_reconnect) link("reconnect", "Reconnect");
+    if (d.has_permissions) link("permissions", "Site permissions");
+    out.push(links);
+    return out;
+  }
+
   // ---------- MCP ----------
   function mcp(d: McpData): HTMLElement[] {
     const out: HTMLElement[] = [];
@@ -670,7 +789,9 @@ export function createCustomize(opts: { onClose: () => void; insertCommand: (tex
       post({ type: "customize" });
       if (LIVE.includes(tab)) request(tab);
     },
-    showTab(t: "hooksData" | "permissionsData" | "memoryData" | "mcpData" | "pluginsData" | "pluginConfig", d: unknown): void {
+    showTab(t: "hooksData" | "permissionsData" | "memoryData" | "mcpData" | "pluginsData" | "pluginConfig" | "sandboxData" | "chromeData", d: unknown): void {
+      if (t === "sandboxData") sandboxData = d as SandboxData;
+      if (t === "chromeData") chromeData = d as ChromeData;
       if (t === "mcpData") mcpData = d as McpData;
       if (t === "pluginsData") pluginsData = d as PluginsData;
       if (t === "pluginConfig") pluginConfig = d as PluginConfig;

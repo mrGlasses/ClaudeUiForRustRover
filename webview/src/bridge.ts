@@ -42,13 +42,15 @@ export type ToKotlin =
   | { type: "outputStyle"; style: string }
   | { type: "openInstructions"; index: number }
   | { type: "customStyle" }
-  | { type: "customizeTab"; tab: "hooks" | "permissions" | "memory" | "mcp" | "plugins" }
+  | { type: "customizeTab"; tab: "hooks" | "permissions" | "memory" | "mcp" | "plugins" | "sandbox" | "chrome" }
   | { type: "hookEdit"; op: "add" | "replace" | "remove"; index?: number; source?: string; event?: string; matcher?: string; command?: string; timeout?: number }
   | { type: "permissionEdit"; op: "add" | "remove"; index?: number; rules?: string; behavior?: string; destination?: string }
   | { type: "memoryAction"; action: "open" | "delete" | "toggle"; what?: "file" | "folder" | "memory"; index?: number; key?: string; on?: boolean }
   | { type: "mcpAction"; action: "toggle" | "reconnect" | "remove" | "signIn" | "add"; name?: string; enabled?: boolean; transport?: string; target?: string; args?: string; pairs?: string; scope?: string }
   | { type: "pluginAction"; action: "enable" | "disable" | "install" | "uninstall" | "configure" | "saveConfig"; id: string; scope?: string; values?: Record<string, string> }
   | { type: "marketplaceAction"; action: "add" | "remove" | "update"; value?: string }
+  | { type: "sandboxAction"; what: "mode" | "fallback" | "exclude"; value?: string; on?: boolean }
+  | { type: "chromeAction"; action: "toggle" | "open"; on?: boolean; which?: string }
   | { type: "modelSet"; what: "model" | "effort" | "ultracode" | "thinking"; value: string | boolean };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
@@ -91,7 +93,7 @@ export type FromKotlin =
   | { type: "queueMessages"; texts: string[] }
   | ({ type: "customizeData" } & import("./customize").CustomizeData)
   | { type: "outputStyleChanged"; style: string | null }
-  | ({ type: "hooksData" | "permissionsData" | "memoryData" | "mcpData" | "pluginsData" | "pluginConfig" } & Record<string, unknown>)
+  | ({ type: "hooksData" | "permissionsData" | "memoryData" | "mcpData" | "pluginsData" | "pluginConfig" | "sandboxData" | "chromeData" } & Record<string, unknown>)
   | { type: "customizeDone" }
   | { type: "commandsChanged"; commands: import("./customize").Command[] }
   | { type: "sessionReset" }

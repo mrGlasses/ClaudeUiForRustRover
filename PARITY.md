@@ -144,12 +144,12 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Memory: auto memory on/off, browse, read, edit, delete, reveal folder | CLI | ☑ v0.30.1 |
 | Instructions: open or create CLAUDE.md files | UI/CLI | ☑ v0.29.0 |
 | `/status` (version, account, model, MCP) | CLI | ☑ v0.28.0 (card in the panel) |
-| `/sandbox` (mode, excluded commands) | CLI | ☐ |
-| `/chrome` (Claude in Chrome connection) | CLI | ☐ |
-| `/mcp` dialog: add, remove, enable/disable, reconnect, OAuth | CLI | ◐ v0.31.0 (OAuth sign-in through a terminal tab), waiting for test |
-| `/plugins` dialog: installed toggles, scopes, config form, uninstall, marketplaces tab | CLI | ◐ v0.31.0, waiting for test |
-| Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ☐ |
-| Enable Remote Control for all sessions (`remoteControlAtStartup`) | CLI | ☐ |
+| `/sandbox` (mode, excluded commands) | CLI | ◐ v0.32.0, waiting for test |
+| `/chrome` (Claude in Chrome connection) | CLI | ◐ v0.32.0, waiting for test |
+| `/mcp` dialog: add, remove, enable/disable, reconnect, OAuth | CLI | ☑ v0.31.0 (OAuth sign-in through a terminal tab) |
+| `/plugins` dialog: installed toggles, scopes, config form, uninstall, marketplaces tab | CLI | ☑ v0.31.0 |
+| Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ☐ Phase 14 (URI handler) |
+| Enable Remote Control for all sessions (`remoteControlAtStartup`) | CLI | ☐ Phase 15 (with the Web tab) |
 | Sign out (`/logout`), Report a problem (`/bug`, `/feedback`) | CLI | ☑ v0.28.0: `claude auth logout` after a native confirmation (not tried by choice); `/bug` in a Claude terminal tab, or a GitHub issue for the plugin |
 | `/usage` dialog (plan bars, recommendations + Fix button, attribution, Day/Week) | CLI | ☑ v0.28.0 (card in the panel); usage ring planned after all features |
 

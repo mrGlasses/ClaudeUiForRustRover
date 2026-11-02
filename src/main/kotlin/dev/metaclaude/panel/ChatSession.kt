@@ -311,6 +311,10 @@ class ChatSession(
         request("mcp_reconnect", JsonObject().apply { addProperty("serverName", name) }, timeoutSeconds = 60, done = done)
     fun reloadPlugins(done: (JsonObject?, String?) -> Unit) = request("reload_plugins", JsonObject(), timeoutSeconds = 60, done = done)
 
+    /** Phase 13d: Sandbox and Chrome tabs. */
+    fun sandboxDialog(done: (JsonObject?, String?) -> Unit) = request("get_sandbox_dialog", JsonObject(), done = done)
+    fun chromeDialog(done: (JsonObject?, String?) -> Unit) = request("get_chrome_dialog", JsonObject(), done = done)
+
     /** A control request whose answer (payload, or error text) goes to [done], exactly once. */
     private fun request(subtype: String, body: JsonObject, timeoutSeconds: Long = 30, done: (JsonObject?, String?) -> Unit) {
         val req = control(subtype, body)

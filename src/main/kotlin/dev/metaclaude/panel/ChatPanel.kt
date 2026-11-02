@@ -17,6 +17,7 @@ import dev.metaclaude.protocol.UsageReport
 import dev.metaclaude.protocol.Customize
 import dev.metaclaude.protocol.CustomizeEdits
 import dev.metaclaude.protocol.Extensions
+import dev.metaclaude.protocol.SandboxChrome
 import dev.metaclaude.protocol.EditProposal
 import dev.metaclaude.protocol.PanelContext
 import dev.metaclaude.protocol.SessionFiles
@@ -349,6 +350,8 @@ class ChatPanel(
             "mcpAction" -> mcpAction(msg)
             "pluginAction" -> pluginAction(msg)
             "marketplaceAction" -> marketplaceAction(msg)
+            "sandboxAction" -> sandboxAction(msg)
+            "chromeAction" -> chromeAction(msg)
             "customStyle" -> send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", Customize.CUSTOM_STYLE_PROMPT) })
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
         }
@@ -644,6 +647,46 @@ class ChatPanel(
     }
 
     @Volatile private var lastMcp: JsonObject? = null
+    @Volatile private var lastSandbox: JsonObject? = null
+    @Volatile private var lastChrome: JsonObject? = null
+
+    /** Sandbox tab: mode, unsandboxed fallback, excluded commands. Loosening it is confirmed natively (rule 5). */
+    private fun sandboxAction(msg: JsonObject) {
+        val what = msg.string("what")
+        val value = msg.string("value")
+        val on = msg.get("on")?.takeIf { it.isJsonPrimitive }?.asBoolean
+        val edit = SandboxChrome.sandboxEdit(lastSandbox, what, value, on)
+            ?: return run { BridgeLog.log("panel: refused sandbox edit", project.name); send(JsonObject().apply { addProperty("type", "customizeDone") }) }
+        val apply = {
+            val (ok, reason) = runCliEdit("edit-sandbox-settings", edit) ?: Pair(false, "Claude CLI not found")
+            if (!ok) notice("Couldn't change the sandbox: $reason")
+            refreshAfterEdit("sandbox")
+        }
+        val warning = when {
+            what == "mode" && value == "disabled" -> "Turn the sandbox off?\n\nClaude's commands then run with your full access (the permission rules still apply)."
+            what == "mode" && value == "auto-allow" -> "Run sandboxed commands without asking?\n\nCommands that stay inside the sandbox no longer need your approval."
+            what == "fallback" && on == true -> "Let a command that fails in the sandbox be retried outside it?\n\nYou are still asked before it runs unsandboxed."
+            what == "exclude" -> "Run \"${value?.trim()?.take(200)}\" outside the sandbox from now on?"
+            else -> null
+        }
+        if (warning != null) confirmThen("Sandbox", warning, "Yes") { apply() }
+        else AppExecutorUtil.getAppExecutorService().execute { apply() }
+    }
+
+    /** Chrome tab: the "enabled by default" switch, and the dialog's pages (only the http(s) URLs the CLI gave). */
+    private fun chromeAction(msg: JsonObject) {
+        when (msg.string("action")) {
+            "toggle" -> {
+                val on = msg.get("on")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: return
+                AppExecutorUtil.getAppExecutorService().execute {
+                    val (ok, reason) = runCliEdit("edit-chrome-settings", SandboxChrome.chromeEdit(on)) ?: return@execute
+                    notice(if (ok) "Claude in Chrome ${if (on) "on" else "off"} by default: new sessions use it." else "Couldn't change it: $reason")
+                    refreshAfterEdit("chrome")
+                }
+            }
+            "open" -> SandboxChrome.chromeUrl(lastChrome, msg.string("which"))?.let { BrowserUtil.browse(it) }
+        }
+    }
     @Volatile private var lastConfig: JsonObject? = null
 
     /**
@@ -805,6 +848,8 @@ class ChatPanel(
                 reply("permissionsData", CustomizeEdits.permissions(p).apply { addProperty("windows", dev.metaclaude.protocol.CliPaths.isWindows) }, err)
             }
             "memory" -> s.memoryDialog { p, err -> lastMemory = p; reply("memoryData", CustomizeEdits.memory(p), err) }
+            "sandbox" -> s.sandboxDialog { p, err -> lastSandbox = p; reply("sandboxData", SandboxChrome.sandbox(p), err) }
+            "chrome" -> s.chromeDialog { p, err -> lastChrome = p; reply("chromeData", SandboxChrome.chrome(p), err) }
             "mcp" -> s.mcpStatus { p, err -> lastMcp = p; reply("mcpData", JsonObject().apply { add("servers", Extensions.mcpServers(p)) }, err) }
             "plugins" -> {
                 val (c1, listing) = runCli(listOf("plugin", "list", "--json", "--available"), null, 120) ?: return
