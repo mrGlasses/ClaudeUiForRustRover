@@ -271,3 +271,6 @@ button:disabled { opacity: .5; cursor: default; }
 .bookmark-text { margin: 4px 0; padding: 4px 8px; background: var(--code-bg); border-radius: 4px; max-height: 40vh; overflow-y: auto; }
 .onboarding { margin-top: 12px; text-align: left; display: flex; flex-direction: column; gap: 4px; }
 .onboarding-step { text-align: left; white-space: normal; }
+
+/* Phase 15b: Remote Control chip */
+.remote-chip { color: var(--ok); font-size: 11px; }

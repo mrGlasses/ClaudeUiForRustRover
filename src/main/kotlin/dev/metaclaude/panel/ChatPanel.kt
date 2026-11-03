@@ -224,6 +224,11 @@ class ChatPanel(
                     val uuid = msg.get("uuid")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { Checkpoints.isUuid(it) }
                         ?: java.util.UUID.randomUUID().toString()
                     turnRunning = true
+                    // Phase 15b: @browser needs Claude in Chrome (--chrome), which only a new process can turn on.
+                    if (Regex("(^|\\s)@browser\\b").containsMatchIn(text)) {
+                        if (session == null) wantChrome = true
+                        else if (!chromeOn) notice("@browser needs Claude in Chrome, which this conversation started without. Start a new conversation (or turn on Customize > Chrome > Enabled by default).")
+                    }
                     val withFile = msg.get("includeFile")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
                     val withSelection = msg.get("includeSelection")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
                     // Rule 4: pasted images are checked (type, base64, size, count) before they reach the CLI.
@@ -263,6 +268,8 @@ class ChatPanel(
                 session?.let { Disposer.dispose(it) }
                 session = null
                 clearTasks()
+                wantChrome = false
+                remoteUrl = null
                 pendingResume = null
                 pendingFork = null
                 turnRunning = false
@@ -319,7 +326,8 @@ class ChatPanel(
                 AppExecutorUtil.getAppExecutorService().execute {
                     var terminals = emptyList<String>()
                     ApplicationManager.getApplication().invokeAndWait { terminals = TerminalBuffers.tokens(project).map { "terminal:$it" } }
-                    val found = runCatching { paths.search(q, terminals) }.getOrDefault(emptyList())
+                    // Phase 15b: @browser (Claude in Chrome) is offered with the terminals.
+                    val found = runCatching { paths.search(q, listOf("browser") + terminals) }.getOrDefault(emptyList())
                     send(JsonObject().apply {
                         addProperty("type", "mentionResults")
                         addProperty("seq", seq)
@@ -360,6 +368,12 @@ class ChatPanel(
             "bookmark" -> bookmark(msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString)
             "bookmarks" -> sendBookmarks()
             "bookmarkAction" -> bookmarkAction(msg)
+            "remoteControl" -> AppExecutorUtil.getAppExecutorService().execute { setRemote(msg.get("on")?.takeIf { it.isJsonPrimitive }?.asBoolean == true, quiet = false) }
+            "teleport" -> {
+                project.service<MetaClaudeService>().startSession(extraArgs = "--teleport")
+                notice("A Claude terminal tab is opening with `claude --teleport`: pick one of your claude.ai/code sessions there to continue it on this computer.")
+            }
+            "openRemote" -> remoteUrl?.takeIf { isSafeExternalUrl(it) }?.let { BrowserUtil.browse(it) }
             "hideOnboarding" -> { ClaudeUiSettings.instance.state.hideOnboarding = true; applySettingsToOpenPanels() }
             "customStyle" -> send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", Customize.CUSTOM_STYLE_PROMPT) })
             else -> BridgeLog.log("panel: dropped unknown message type '${type?.take(40)}'", project.name)
@@ -385,10 +399,13 @@ class ChatPanel(
                 permissionMode = mode, allowBypass = bypassAllowed(),
                 resumeId = (pendingFork?.sessionId ?: pendingResume).also { pendingResume = null },
                 forkAt = pendingFork?.prompt?.parentUuid.also { pendingFork = null },
+                chrome = wantChrome,
                 onPanelMessage = { onSessionMessage(it) }, onExit = { code ->
                 session = null
                 turnRunning = false
                 clearTasks()
+                remoteUrl = null
+                send(remoteMessage())
                 send(JsonObject().apply { addProperty("type", "agentTasksGone") }) // they ended with the process
                 send(JsonObject().apply {
                     addProperty("type", "error")
@@ -396,6 +413,11 @@ class ChatPanel(
                 })
             }).also { s ->
                 session = s
+                chromeOn = wantChrome
+                remoteUrl = null
+                send(remoteMessage())
+                // Phase 15b: "Remote Control for every new conversation".
+                if (ClaudeUiSettings.instance.state.remoteControlAtStartup) s.whenInitialized { setRemote(true, quiet = true) }
                 // Phase 13a: the `/` menu gets each command's description once the CLI has said hello.
                 s.whenInitialized { info ->
                     (info?.get("commands") as? com.google.gson.JsonArray)?.let { cmds ->
@@ -1142,6 +1164,33 @@ class ChatPanel(
                 }
                 else -> BridgeLog.log("panel: refused modelSet '${what?.take(20)}'", project.name)
             }
+        }
+    }
+
+    // ---------- Remote Control, @browser (Phase 15b) ----------
+
+    @Volatile private var wantChrome = false
+    @Volatile private var chromeOn = false
+    @Volatile private var remoteUrl: String? = null
+
+    private fun remoteMessage() = JsonObject().apply {
+        addProperty("type", "remoteState")
+        addProperty("on", remoteUrl != null)
+        remoteUrl?.let { addProperty("url", it) }
+    }
+
+    /** Background thread. Turns Remote Control on or off for this conversation; the page shows the link. */
+    private fun setRemote(on: Boolean, quiet: Boolean) {
+        val s = sessionOrStart() ?: return
+        s.remoteControl(on) { payload, err ->
+            if (err != null) {
+                BridgeLog.log("panel: remote control ${if (on) "on" else "off"} failed: ${err.take(200)}", project.name)
+                if (!quiet || on) notice("Remote Control: ${err.take(300)}")
+                return@remoteControl
+            }
+            remoteUrl = if (on) payload?.get("session_url")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { isSafeExternalUrl(it) } else null
+            BridgeLog.log("panel: remote control ${if (remoteUrl != null) "on" else "off"}", project.name)
+            send(remoteMessage())
         }
     }
 

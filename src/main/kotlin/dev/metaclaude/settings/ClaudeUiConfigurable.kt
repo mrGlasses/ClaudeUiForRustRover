@@ -136,6 +136,11 @@ class ClaudeUiConfigurable : BoundConfigurable("Clawed UI") {
                         .comment("Optional program that starts claude: it gets claude's path and arguments. Leave empty to run claude directly.")
                 }
             }
+            row {
+                checkBox("Remote Control for every new conversation (continue it from claude.ai/code or the Claude app)")
+                    .bindSelected(settings.state::remoteControlAtStartup)
+                    .comment("Same as \"Remote Control\" in the panel's ••• menu, for each new conversation.")
+            }
             row("Chat panel location:") {
                 comboBox(listOf("right", "left", "bottom"), SideRenderer())
                     .bindItem({ settings.state.preferredLocation ?: "right" }, { settings.state.preferredLocation = it ?: "right" })

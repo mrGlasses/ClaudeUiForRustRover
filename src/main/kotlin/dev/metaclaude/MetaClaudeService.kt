@@ -51,7 +51,8 @@ class MetaClaudeService(private val project: Project) : Disposable {
      * The preparation runs in the background: the shell lookup may block (forbidden on the EDT, v0.10.0 error),
      * and starting the bridge can take up to 5 s. Only opening the tab happens on the EDT.
      */
-    fun startSession(forced: IntegrationMode? = null) {
+    /** [extraArgs]: a fixed flag such as `--teleport` (Phase 15b), appended as is: never user text. */
+    fun startSession(forced: IntegrationMode? = null, extraArgs: String? = null) {
         val app = ApplicationManager.getApplication()
         app.executeOnPooledThread {
             val root = Path.of(project.basePath ?: return@executeOnPooledThread).toRealPath()
@@ -69,7 +70,8 @@ class MetaClaudeService(private val project: Project) : Disposable {
             }
             if (effective == IntegrationMode.BUILTIN) ensureBridge(root) // before the tab opens: the terminal customizer needs the port
             val shell = TerminalProjectOptionsProvider.getInstance(project).shellPath
-            val command = SessionCommand.build(exe, ClaudeCli.isOnPath(exe), shell, CliPaths.isWindows)
+            val command = SessionCommand.build(exe, ClaudeCli.isOnPath(exe), shell, CliPaths.isWindows) +
+                (extraArgs?.let { " $it" } ?: "")
             app.invokeLater({
                 ClaudeTerminal.open(project, root, command)
                 scheduleHealthCheck(effective, root)

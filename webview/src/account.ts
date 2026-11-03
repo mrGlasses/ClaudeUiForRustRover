@@ -162,6 +162,8 @@ export function moreMenu(run: (command: string) => void): HTMLElement {
   menu.hidden = true;
   const items: [string, string][] = [
     ["Customize (commands, skills, hooks, permissions, memory…)", "/customize"],
+    ["Remote Control (continue on claude.ai)", "/remote-control"],
+    ["Continue a claude.ai session here (teleport)", "/teleport"],
     ["Usage", "/usage"],
     ["Status", "/status"],
     ["Report a Claude Code problem", "/bug"],

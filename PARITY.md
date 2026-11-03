@@ -58,7 +58,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Paste images from the clipboard | Stream (image content) | ◐ v0.21.0 |
 | Shift+drag files into the prompt box, X to remove attachment | UI | ◐ v0.21.0 (drop on the panel, Shift optional) |
 | Withhold selections from excluded or git-ignored files (`respectGitIgnore`) | UI | ☑ terminal mode (v0.9.0); ◐ panel v0.20.0 |
-| `@browser` (Claude in Chrome) | CLI | ☐ moved to Phase 15 (needs the Chrome extension, not the IDE) |
+| `@browser` (Claude in Chrome) | CLI | ◐ v0.37.0 (`@` menu; starts the conversation with `--chrome`), waiting for test |
 | PDF page ranges | CLI (nothing to do) | ☑ |
 
 ## D. Permissions and review — Phase 8
@@ -114,7 +114,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | "Still open somewhere else" guard with "Open here anyway" | UI | ◐ v0.23.0: switches to the open tab; no "Open here anyway" |
 | Mark Session as Unread, Add Session Tab to Group, Rename Session Tab | UI | ☐ |
 | `/export` (copy or save to file) | CLI | ☑ v0.22.0 |
-| Web tab: resume cloud sessions and Remote Control sessions from claude.ai | CLI | ☐ moved to Phase 15 |
+| Web tab: resume cloud sessions and Remote Control sessions from claude.ai | CLI | ◐ v0.37.0: `/teleport` (the CLI's picker in a terminal tab); no list inside the panel |
 
 ## G. Checkpoints — Phase 11
 
@@ -149,7 +149,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | `/mcp` dialog: add, remove, enable/disable, reconnect, OAuth | CLI | ☑ v0.31.0 (OAuth sign-in through a terminal tab) |
 | `/plugins` dialog: installed toggles, scopes, config form, uninstall, marketplaces tab | CLI | ☑ v0.31.0 |
 | Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ☑ v0.35.0 `jetbrains://rustrover/clawed-ui/install-plugin?…` |
-| Enable Remote Control for all sessions (`remoteControlAtStartup`) | CLI | ☐ Phase 15 (with the Web tab) |
+| Enable Remote Control for all sessions (`remoteControlAtStartup`) | CLI | ◐ v0.37.0: per conversation (`/remote-control`) and a panel setting for every new one, waiting for test |
 | Sign out (`/logout`), Report a problem (`/bug`, `/feedback`) | CLI | ☑ v0.28.0: `claude auth logout` after a native confirmation (not tried by choice); `/bug` in a Claude terminal tab, or a GitHub issue for the plugin |
 | `/usage` dialog (plan bars, recommendations + Fix button, attribution, Day/Week) | CLI | ☑ v0.28.0 (card in the panel); usage ring planned after all features |
 
@@ -181,7 +181,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | VS Code setting | Equivalent | Status |
 |---|---|---|
 | `useTerminal`, `initialPermissionMode`, `preferredLocation`, `lockEditorGroups`, `autosave`, `attachOpenFile`, `attachSelection`, `useCtrlEnterToSend`, `scrollToBottomOnSend`, `showMessageTimestamps`, `spinnerVerbs`, `enableNewConversationShortcut`, `enableReopenClosedSessionShortcut`, `archiveInactiveSessions`, `continueAfterReload`, `hideOnboarding`, `focusView`, `respectGitIgnore`, `environmentVariables`, `disableLoginPrompt`, `allowDangerouslySkipPermissions`, `claudeProcessWrapper` | Same names on our settings page | ◐ v0.35.0: all present except `lockEditorGroups` (no editor-tab placement) and the two shortcut switches (shortcuts are panel-local, so they can't clash) |
-| `usePythonEnvironment` | Adapt: optional Rust toolchain environment (rustup toolchain / cargo env) | ◐ v0.36.0 "Rust toolchain folder" (first on PATH), waiting for test |
+| `usePythonEnvironment` | Adapt: optional Rust toolchain environment (rustup toolchain / cargo env) | ☑ v0.36.0 "Rust toolchain folder" (first on PATH) |
 | (ours) Integration mode Built-in / Official / Auto, path to `claude` | Settings page | ☑ v0.9.0 (tested) |
 
 ## M. Links, accessibility, providers — Phase 14

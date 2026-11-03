@@ -56,6 +56,9 @@ export type ToKotlin =
   | { type: "bookmarks" }
   | { type: "bookmarkAction"; id: string; action: "open" | "copy" | "remove" }
   | { type: "hideOnboarding" }
+  | { type: "remoteControl"; on: boolean }
+  | { type: "teleport" }
+  | { type: "openRemote" }
   | { type: "modelSet"; what: "model" | "effort" | "ultracode" | "thinking"; value: string | boolean };
 
 /** Built by Kotlin (protocol/StreamEvents.kt + ChatPanel.kt): never raw CLI events. */
@@ -74,6 +77,7 @@ export type FromKotlin =
   | { type: "sideAnswer"; question: string; answer: string; error?: string }
   | { type: "openCustomize"; tab: string; filter?: string }
   | { type: "focusLast" }
+  | { type: "remoteState"; on: boolean; url?: string }
   | { type: "bookmarkList"; items: import("./side").Bookmark[] }
   | import("./permissions").PermissionCard
   | { type: "permissionResolved"; requestId: string; outcome: string }

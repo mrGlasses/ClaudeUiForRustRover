@@ -38,7 +38,12 @@ historyButton.title = "Past conversations in this project";
 headerButtons.append(historyButton, focusButton, newButton, moreMenu((command) => void panelCommand(command)));
 const modes = modeControl();
 const headerLeft = el("span", "header-left");
-headerLeft.append(status, modes.node);
+// Phase 15b: shown while Remote Control is on; click opens the conversation on claude.ai.
+const remoteChip = el("button", "link-button remote-chip", "● Remote");
+remoteChip.hidden = true;
+remoteChip.addEventListener("click", () => post({ type: "openRemote" } as never));
+let remoteOn = false;
+headerLeft.append(status, modes.node, remoteChip);
 header.append(headerLeft, headerButtons);
 
 const transcript = el("div", "transcript");
@@ -193,6 +198,8 @@ const PANEL_COMMANDS: { name: string; hint: string }[] = [
   { name: "plugins", hint: "install, turn on or off, configure plugins; marketplaces" },
   { name: "sandbox", hint: "sandbox mode, excluded commands" },
   { name: "chrome", hint: "Claude in Chrome connection" },
+  { name: "remote-control", hint: "continue this conversation from claude.ai/code or the Claude app (again: off)" },
+  { name: "teleport", hint: "continue one of your claude.ai/code sessions on this computer" },
   { name: "usage", hint: "plan limits, this session's cost, what uses your limits" },
   { name: "status", hint: "versions, account, model, MCP servers" },
   { name: "bug", hint: "report a Claude Code problem (/bug plugin: a Clawed UI problem)" },
@@ -529,6 +536,15 @@ function panelCommand(text: string): boolean {
     openCustomize("plugins");
     return true;
   }
+  if (text === "/remote-control" || text === "/rc") {
+    post({ type: "remoteControl", on: !remoteOn } as never);
+    append(el("div", "notice", remoteOn ? "Turning Remote Control off…" : "Turning Remote Control on…"));
+    return true;
+  }
+  if (text === "/teleport") {
+    post({ type: "teleport" } as never);
+    return true;
+  }
   if (text === "/usage") {
     post({ type: "usage" });
     return true;
@@ -810,6 +826,29 @@ function handle(msg: FromKotlin): void {
       focusApplied = true;
       showOnboarding();
       break;
+    case "remoteState": {
+      const was = remoteOn;
+      remoteOn = msg.on;
+      remoteChip.hidden = !msg.on;
+      remoteChip.title = msg.url ? `Remote Control is on: ${msg.url}` : "";
+      if (msg.on && !was && msg.url) {
+        const card = el("div", "info-card");
+        const open = el("button", "link-button", "Open on claude.ai");
+        open.addEventListener("click", () => post({ type: "openRemote" } as never));
+        const copy = el("button", "link-button", "Copy link");
+        copy.addEventListener("click", () => post({ type: "copy", text: msg.url! }));
+        const row = el("div", "customize-head");
+        row.append(open, copy);
+        card.append(
+          el("div", "info-title", "Remote Control is on"),
+          el("div", undefined, "Continue this conversation from claude.ai/code or the Claude app on your phone. Type /remote-control again to turn it off."),
+          el("div", "history-meta mono", msg.url),
+          row,
+        );
+        append(card, true);
+      } else if (!msg.on && was) append(el("div", "notice", "Remote Control is off."));
+      break;
+    }
     case "openCustomize":
       openCustomize(msg.tab as never, msg.filter);
       break;

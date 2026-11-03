@@ -68,6 +68,8 @@ class ClaudeUiSettings : SimplePersistentStateComponent<ClaudeUiSettings.Options
         var disableLoginPrompt by property(false)
         /** Phase 15a, VS Code's usePythonEnvironment for Rust: a toolchain folder (…/bin with cargo, rustc) put first on PATH. */
         var rustToolchainDir by string("")
+        /** Phase 15b, VS Code's "Enable Remote Control for all sessions": every new chat conversation starts it. */
+        var remoteControlAtStartup by property(false)
     }
 
     /** Phase 14c: the extra environment and the command line every chat-panel `claude` uses. */

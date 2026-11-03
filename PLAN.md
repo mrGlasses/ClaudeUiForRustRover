@@ -27,7 +27,7 @@ Everything below is **not started** unless marked otherwise.
 | 12 Model, usage, status | ☑ Done (12a v0.27.0, tooltips v0.27.1, 12b v0.28.0; tested 2026-11-01; sign out not tried on purpose) |
 | 13 Customize | ☑ Done (13a–13d, v0.29.0–v0.32.0, tested 2026-11-02). Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
 | 14 IDE polish | ☑ Done (14a–14c, v0.33.0–v0.35.0, tested 2026-11-02; provider sign-in switch not tried) |
-| 15 Rust extras, web | **15a (Rust extras) v0.36.0: waiting for your test**. 15b (Web tab, Remote Control, `@browser`) next |
+| 15 Rust extras, web | 15a done (v0.36.0 tested 2026-11-02). **15b (Remote Control, teleport, `@browser`, start-up error fix) v0.37.0: waiting for your test** |
 | 16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -635,6 +635,22 @@ v0.35.0 test (2026-11-02): links, Focus Last Message, environment ok; sign-in sw
 - Crate and workspace context: not added as an automatic block. Claude reads Cargo.toml itself, and `@` mentions and
   Ask Claude already point it at crates and files; an extra block on every message would cost tokens for little gain.
   Revisit if you miss it.
+v0.36.0 test (2026-11-02): all ok. 15a done.
+
+15b (v0.37.0):
+- Remote Control (••• or `/remote-control`, `/rc`): `remote_control {enabled}` on the running session, as the VS Code
+  extension does; the answer's `session_url` shows in a card (Open on claude.ai, Copy link) and a "● Remote" chip in the
+  header. Settings > "Remote Control for every new conversation" (the panel's version of `remoteControlAtStartup`, which
+  no CLI command writes).
+- Web sessions (VS Code's Web tab): "Continue a claude.ai session here (teleport)" (••• or `/teleport`) opens a Claude
+  terminal tab with `claude --teleport`, whose picker lists your claude.ai/code sessions. A list inside the panel would need
+  the claude.ai API; the CLI's own picker is the supported way.
+- `@browser`: offered in the `@` menu; a conversation that starts with it runs `claude --chrome` (Claude in Chrome). In
+  a conversation already running without it, a notice says to start a new one or turn on Customize > Chrome >
+  Enabled by default.
+- Start-up IDE error ("JBCefApp$Holder <clinit> requests ProxyMigrationService"), logged at every start since the panel
+  opens with the IDE: the panel now loads the proxy-settings service before the first browser, outside the class
+  initializer that triggered it. Platform issue, worked around.
 
 ### After all features — usage ring (your request, 2026-11-01)
 Like the Claude desktop app: a small circle in the panel that fills with the plan's usage (5-hour window), and on click or

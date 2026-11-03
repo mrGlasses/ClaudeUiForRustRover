@@ -44,6 +44,8 @@ class ChatSession(
     resumeId: String? = null,
     /** Phase 11a: fork [resumeId] at this chain entry (`--fork-session --resume-session-at`), keeping what came before. */
     forkAt: String? = null,
+    /** Phase 15b: `--chrome` (Claude in Chrome, for `@browser`). */
+    chrome: Boolean = false,
 ) : Disposable {
     private val tag = "${project.name}/panel"
     private val mcp = HttpMcpServer(
@@ -85,7 +87,8 @@ class ChatSession(
             "--permission-prompt-tool", "stdio",
             "--mcp-config", mcpConfig.toString(),
         ) + (settingsFile?.let { listOf("--settings", it.toString()) } ?: emptyList()) +
-            (if (allowBypass) listOf("--allow-dangerously-skip-permissions") else emptyList())
+            (if (allowBypass) listOf("--allow-dangerously-skip-permissions") else emptyList()) +
+            (if (chrome) listOf("--chrome") else emptyList())
         val settings = dev.metaclaude.settings.ClaudeUiSettings.instance
         val extraEnv = settings.processEnv()
         process = ProcessBuilder(settings.command(cmd.first(), cmd.drop(1))).directory(root.toFile()).apply {
@@ -94,7 +97,7 @@ class ChatSession(
             environment()[Checkpoints.ENV] = "true" // every prompt becomes a restore point (Phase 11a)
         }.start()
         stdin = process.outputStream.bufferedWriter(StandardCharsets.UTF_8)
-        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"}, mode $permissionMode${if (allowBypass) ", bypass allowed" else ""}${if (forkAt != null) ", forked" else ""}, extra env ${dev.metaclaude.protocol.ProcessOptions.describe(extraEnv)}${if (!settings.state.claudeProcessWrapper.isNullOrBlank()) ", wrapped" else ""}${if (!settings.state.rustToolchainDir.isNullOrBlank()) ", Rust toolchain on PATH" else ""})", tag)
+        BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"}, mode $permissionMode${if (allowBypass) ", bypass allowed" else ""}${if (forkAt != null) ", forked" else ""}${if (chrome) ", Chrome" else ""}, extra env ${dev.metaclaude.protocol.ProcessOptions.describe(extraEnv)}${if (!settings.state.claudeProcessWrapper.isNullOrBlank()) ", wrapped" else ""}${if (!settings.state.rustToolchainDir.isNullOrBlank()) ", Rust toolchain on PATH" else ""})", tag)
 
         thread(name = "claude-ui-chat-out", isDaemon = true) {
             runCatching {
@@ -316,6 +319,13 @@ class ChatSession(
 
     /** Phase 14b: `/btw`, answered from the conversation without adding to it (works while a turn runs). */
     fun sideQuestion(body: JsonObject, done: (JsonObject?, String?) -> Unit) = request("side_question", body, timeoutSeconds = 180, done = done)
+
+    /**
+     * Phase 15b: Remote Control for this conversation (`remote_control {enabled}`, as the VS Code extension does), answered
+     * with {session_url, ...} when on.
+     */
+    fun remoteControl(enabled: Boolean, done: (JsonObject?, String?) -> Unit) =
+        request("remote_control", JsonObject().apply { addProperty("enabled", enabled) }, timeoutSeconds = 60, done = done)
 
     /** Phase 13d: Sandbox and Chrome tabs. */
     fun sandboxDialog(done: (JsonObject?, String?) -> Unit) = request("get_sandbox_dialog", JsonObject(), done = done)
