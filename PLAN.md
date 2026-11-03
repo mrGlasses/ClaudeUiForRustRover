@@ -28,8 +28,8 @@ Everything below is **not started** unless marked otherwise.
 | 13 Customize | ☑ Done (13a–13d, v0.29.0–v0.32.0, tested 2026-11-02). Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
 | 14 IDE polish | ☑ Done (14a–14c, v0.33.0–v0.35.0, tested 2026-11-02; provider sign-in switch not tried) |
 | 15 Rust extras, web | ☑ Done (15a v0.36.0, 15b v0.37.0, tested 2026-11-02; `@browser` in a new conversation not tried) |
-| Usage ring | **v0.38.1 (box now closes): waiting for your test** |
-| 16 | Not started |
+| Usage ring | ☑ Done (v0.38.1, tested 2026-11-03) |
+| 16 Hardening, release | **16a (clean exit, leftover files, CLI version check) v0.39.0: waiting for your test** |
 
 ## Two halves, like the VS Code extension
 
@@ -669,6 +669,26 @@ Fixed in v0.38.1. `@browser` in a new conversation and the start-up error fix co
 ### Phase 16 — Hardening and release
 Several windows at once, clean shutdown and stale lock sweep, CLI version check with a "protocol mismatch" message, security review (loopback only, no token in logs, lock file permissions on Windows),
 performance on long conversations, README, license, screenshots, changelog, Marketplace signing, verifier and publishing.
+
+Split: 16a clean exit and versions, 16b security review, 16c long conversations, 16d README, changelog, signing, publishing.
+
+v0.38.1 test (2026-11-03): the ring's box closes on mouse-out and on a click elsewhere. Usage ring done.
+
+16a (v0.39.0):
+- Several windows: checked. Each window has its own bridge, lock file, tabs and processes; no state is shared between
+  windows except the settings (applied to all at once) and bridge.log (each line tagged with the project).
+- Clean exit: when the IDE closes, every chat process gets its stdin closed and up to 3 s in all to end on its own, then it
+  and everything it started (on Windows: claude.cmd → cmd.exe → claude.exe → MCP servers) are stopped. Closing a tab
+  also stops the whole tree now, not just the first process. Logged: "IDE closing: N chat process(es) ended, M stopped by force".
+- Leftover files: the session files that hold the panel server's token now live in `~/.claude-meta/tmp`, named with the
+  IDE's pid; files of an IDE that's no longer running are removed before the first chat starts (logged "removed N
+  leftover session file(s)"). Old ones in the system temp folder (before 0.39.0) go once a day old. Stale lock files
+  were already swept at bridge start.
+- CLI version: the panel asks the CLI its version once per IDE run (logged "Claude Code X (tested with 2.1.316)"); older
+  than tested → a notice with `claude update`; a new major version → a notice to check for a Clawed UI update. A control
+  request the CLI doesn't know ("Unsupported control request subtype") now reads "your Claude Code doesn't support this
+  yet (…): run `claude update`".
+- bridge.log over 1 MB is kept as bridge.log.1 instead of being deleted. The unused stream spike code is gone.
 
 ---
 

@@ -9,9 +9,11 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import dev.metaclaude.protocol.AuthToken
 import dev.metaclaude.protocol.BridgeLog
 import dev.metaclaude.protocol.Checkpoints
+import dev.metaclaude.protocol.CliVersion
 import dev.metaclaude.protocol.HttpMcpServer
 import dev.metaclaude.protocol.McpDispatcher
 import dev.metaclaude.protocol.Permissions
+import dev.metaclaude.protocol.PrivateFiles
 import dev.metaclaude.protocol.StreamEvents
 import dev.metaclaude.protocol.ToolRegistry
 import dev.metaclaude.tools.GetDiagnostics
@@ -19,7 +21,6 @@ import java.io.BufferedWriter
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -53,13 +54,11 @@ class ChatSession(
         McpDispatcher(ToolRegistry(listOf(GetDiagnostics(project))), logTag = tag, echoClientProtocolVersion = true),
         logTag = tag,
     )
-    private val mcpConfig: Path = Files.createTempFile("claude-ui-mcp", ".json").also { f ->
-        runCatching { Files.setPosixFilePermissions(f, PosixFilePermissions.fromString("rw-------")) }
-        Files.writeString(f, mcp.mcpConfigJson(MCP_NAME)) // holds the token: owner-only, deleted on dispose
-    }
+    // Holds the token: owner-only, deleted on dispose; a crashed IDE's copy goes at the next start (Phase 16a).
+    private val mcpConfig: Path = PrivateFiles.sweepOnce().let { PrivateFiles.create("mcp", mcp.mcpConfigJson(MCP_NAME)) }
     // Extra Claude Code settings as a file, not inline JSON: claude.cmd goes through cmd.exe, which mangles quotes.
     private val settingsFile: Path? = if (!thinkingSummaries) null else
-        Files.createTempFile("clawed-ui-settings", ".json").also { Files.writeString(it, """{"showThinkingSummaries":true}""") }
+        PrivateFiles.create("settings", """{"showThinkingSummaries":true}""")
     private val process: Process
     private val stdin: BufferedWriter
     private var counter = 0
@@ -97,6 +96,7 @@ class ChatSession(
             environment()[Checkpoints.ENV] = "true" // every prompt becomes a restore point (Phase 11a)
         }.start()
         stdin = process.outputStream.bufferedWriter(StandardCharsets.UTF_8)
+        live.add(this)
         BridgeLog.log("chat session started (pid ${process.pid()}, to-do tools ${if (todoTools) "on" else "off"}, thinking summaries ${if (thinkingSummaries) "on" else "off"}, mode $permissionMode${if (allowBypass) ", bypass allowed" else ""}${if (forkAt != null) ", forked" else ""}${if (chrome) ", Chrome" else ""}, extra env ${dev.metaclaude.protocol.ProcessOptions.describe(extraEnv)}${if (!settings.state.claudeProcessWrapper.isNullOrBlank()) ", wrapped" else ""}${if (!settings.state.rustToolchainDir.isNullOrBlank()) ", Rust toolchain on PATH" else ""})", tag)
 
         thread(name = "claude-ui-chat-out", isDaemon = true) {
@@ -166,12 +166,12 @@ class ChatSession(
         val r = event.getAsJsonObject("response") ?: return
         val id = r.get("request_id")?.asString ?: return
         callbacks.remove(id)?.let { cb ->
-            val error = if (r.get("subtype")?.asString == "error") r.get("error")?.takeIf { it.isJsonPrimitive }?.asString ?: "unknown error" else null
+            val error = if (r.get("subtype")?.asString == "error") CliVersion.friendlyError(r.get("error")?.takeIf { it.isJsonPrimitive }?.asString ?: "unknown error") else null
             return cb(if (error == null) r.get("response") as? JsonObject ?: JsonObject() else null, error)
         }
         if (!modeRequests.remove(id)) return
         if (r.get("subtype")?.asString == "error") {
-            val err = r.get("error")?.takeIf { it.isJsonPrimitive }?.asString?.take(300) ?: "unknown error"
+            val err = CliVersion.friendlyError(r.get("error")?.takeIf { it.isJsonPrimitive }?.asString?.take(300) ?: "unknown error")
             BridgeLog.log("set_permission_mode failed: $err", tag)
             onPanelMessage(JsonObject().apply { addProperty("type", "notice"); addProperty("text", "Couldn't switch mode: $err") })
         }
@@ -375,18 +375,45 @@ class ChatSession(
     override fun dispose() {
         closed = true
         callbacks.keys.toList().forEach { id -> callbacks.remove(id)?.invoke(null, "the session ended") }
+        live.remove(this)
         runCatching { stdin.close() } // the CLI exits when stdin closes
         val proc = process
         AppExecutorUtil.getAppExecutorService().execute {
-            if (!proc.waitFor(5, TimeUnit.SECONDS)) proc.destroyForcibly()
+            if (!proc.waitFor(5, TimeUnit.SECONDS)) stopTree(proc)
         }
         mcp.close()
         runCatching { Files.deleteIfExists(mcpConfig) }
         settingsFile?.let { f -> runCatching { Files.deleteIfExists(f) } }
     }
 
-    private companion object {
-        const val MCP_NAME = "clawed-ui"
-        const val PLAN_FEEDBACK_MAX = 120_000
+    companion object {
+        private const val MCP_NAME = "clawed-ui"
+        private const val PLAN_FEEDBACK_MAX = 120_000
+        /** Every running chat process in this IDE (all windows), for a clean exit. */
+        private val live: MutableSet<ChatSession> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+        /**
+         * Phase 16a: stops [proc] and everything it started. The list is taken first: once the parent is gone its children
+         * can't be found any more (on Windows, claude.cmd → cmd.exe → claude.exe → MCP servers).
+         */
+        private fun stopTree(proc: Process) {
+            val children = runCatching { proc.descendants().toList() }.getOrDefault(emptyList())
+            proc.destroyForcibly()
+            children.forEach { runCatching { it.destroyForcibly() } }
+        }
+
+        /** IDE closing (AppExitListener): stdin closed for all at once, up to 3 s in all to end alone, then stopped. */
+        fun stopAllForExit() {
+            val all = live.toList()
+            if (all.isEmpty()) return
+            all.forEach { s -> s.closed = true; runCatching { s.stdin.close() } }
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
+            var forced = 0
+            all.forEach { s ->
+                val left = (deadline - System.nanoTime()).coerceAtLeast(0)
+                if (!runCatching { s.process.waitFor(left, TimeUnit.NANOSECONDS) }.getOrDefault(false)) { stopTree(s.process); forced++ }
+            }
+            BridgeLog.log("IDE closing: ${all.size} chat process(es) ended, $forced stopped by force")
+        }
     }
 }

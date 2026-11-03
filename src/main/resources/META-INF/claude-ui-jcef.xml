@@ -51,4 +51,8 @@
       <add-to-group group-id="ConsoleEditorPopupMenu" anchor="last"/>
     </action>
   </actions>
+  <!-- Phase 16a: chat processes end with the IDE. -->
+  <applicationListeners>
+    <listener class="dev.metaclaude.panel.AppExitListener" topic="com.intellij.ide.AppLifecycleListener"/>
+  </applicationListeners>
 </idea-plugin>

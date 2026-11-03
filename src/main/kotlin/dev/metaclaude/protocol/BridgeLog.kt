@@ -17,7 +17,8 @@ object BridgeLog {
     fun log(msg: String, tag: String? = null) {
         runCatching {
             Files.createDirectories(file.parent)
-            if (Files.exists(file) && Files.size(file) > 1_000_000) Files.delete(file) // crude size cap
+            // Size cap: the previous part is kept as bridge.log.1 (Phase 16a; before, the whole log was deleted).
+            if (Files.exists(file) && Files.size(file) > 1_000_000) Files.move(file, file.resolveSibling("bridge.log.1"), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
             Files.writeString(
                 file, "${Instant.now()} ${if (tag.isNullOrBlank()) "" else "[$tag] "}$msg\n",
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND,

@@ -12,6 +12,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.Messages
 import dev.metaclaude.protocol.Permissions
 import dev.metaclaude.protocol.Checkpoints
+import dev.metaclaude.protocol.CliVersion
 import dev.metaclaude.protocol.ModelControls
 import dev.metaclaude.protocol.UsageReport
 import dev.metaclaude.protocol.Customize
@@ -419,6 +420,16 @@ class ChatPanel(
                 send(remoteMessage())
                 // Phase 15b: "Remote Control for every new conversation".
                 if (ClaudeUiSettings.instance.state.remoteControlAtStartup) s.whenInitialized { setRemote(true, quiet = true) }
+                // Phase 16a: which CLI this is (logged once per IDE run) and a notice if it's older than the tested one.
+                s.whenInitialized {
+                    s.binaryVersion { v, _ ->
+                        val version = v?.get("version")?.takeIf { it.isJsonPrimitive }?.asString?.take(40) ?: return@binaryVersion
+                        if (seenVersions.add(version)) {
+                            BridgeLog.log("Claude Code $version (tested with ${CliVersion.TESTED})", project.name)
+                            CliVersion.notice(version)?.let { notice(it) }
+                        }
+                    }
+                }
                 // Phase 13a: the `/` menu gets each command's description once the CLI has said hello.
                 s.whenInitialized { info ->
                     (info?.get("commands") as? com.google.gson.JsonArray)?.let { cmds ->
@@ -1666,6 +1677,8 @@ ${themeCss()}</style></head><body><div id="app"></div>
     }
 
     companion object {
+        /** CLI versions already checked in this IDE run (the notice shows once, not in every tab). */
+        private val seenVersions: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
         private const val MAX_PROMPT = 100_000
         private const val ISSUES_URL = "https://github.com/mrGlasses/ClaudeUiForRustRover/issues/new"
         private const val MAX_COPY = 2_000_000
