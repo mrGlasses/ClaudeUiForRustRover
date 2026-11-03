@@ -29,7 +29,7 @@ Everything below is **not started** unless marked otherwise.
 | 14 IDE polish | ☑ Done (14a–14c, v0.33.0–v0.35.0, tested 2026-11-02; provider sign-in switch not tried) |
 | 15 Rust extras, web | ☑ Done (15a v0.36.0, 15b v0.37.0, tested 2026-11-02; `@browser` in a new conversation not tried) |
 | Usage ring | ☑ Done (v0.38.1, tested 2026-11-03) |
-| 16 Hardening, release | **16a (clean exit, leftover files, CLI version check) v0.39.0: waiting for your test** |
+| 16 Hardening, release | 16a done (v0.39.0 tested 2026-11-03). **16b (security review) v0.40.0: waiting for your test** |
 
 ## Two halves, like the VS Code extension
 
@@ -689,6 +689,20 @@ v0.38.1 test (2026-11-03): the ring's box closes on mouse-out and on a click els
   request the CLI doesn't know ("Unsupported control request subtype") now reads "your Claude Code doesn't support this
   yet (…): run `claude update`".
 - bridge.log over 1 MB is kept as bridge.log.1 instead of being deleted. The unused stream spike code is gone.
+v0.39.0 test (2026-11-03): ok. Log: leftover files removed, "IDE closing: 1 chat process(es) ended, 0 stopped by force"
+(twice), version line once per IDE run, two windows each with their own sessions. 16a done.
+
+16b (v0.40.0), security review; the result is `SECURITY.md` (what is protected and how, and how to report a problem):
+- Both local servers now also refuse requests with an `Origin` header (a web page) or a `Host` other than loopback with
+  our port (DNS rebinding), before the token check. The panel server refuses bodies over 4 MB.
+- Windows: the lock file and the panel's session files get an access list with only you, before the token is written
+  (skipped and logged if the IDE runs as another account). Before, they inherited your profile's list (you, SYSTEM,
+  Administrators), or whatever a CLAUDE_CONFIG_DIR elsewhere had.
+- Log: replies from the IDE tools are logged as "result (N chars)" / "error CODE", not their first 60 characters
+  (a getDiagnostics reply could start with your code's messages); failed dispatches log the error type only. Safety
+  net: token-shaped strings become [redacted], one line each, at most 1000 characters.
+- Checked, no change needed: loopback binding, constant-time token checks, fresh tokens, the panel's sanitizer, CSP,
+  no navigation, closed message set, native confirmations, DevTools off, no shell strings when starting the CLI.
 
 ---
 

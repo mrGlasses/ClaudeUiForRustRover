@@ -53,6 +53,11 @@ class IdeBridgeServer(
         conn: WebSocket, draft: Draft, request: ClientHandshake,
     ): ServerHandshakeBuilder {
         val names = buildList { request.iterateHttpFields().forEach { add(it) } }
+        // Phase 16b: only local programs, never a web page (Origin) or a rebound domain (Host).
+        if (!LocalOnly.requestAllowed(request.getFieldValue("Host"), request.getFieldValue("Origin"), port)) {
+            BridgeLog.log("handshake refused: not from a local program (origin present=${!request.getFieldValue("Origin").isNullOrEmpty()})", logTag)
+            throw InvalidDataException(CloseFrame.POLICY_VALIDATION, "not a local client")
+        }
         val supplied = request.getFieldValue("x-claude-code-ide-authorization") ?: ""
         val ok = MessageDigest.isEqual(supplied.toByteArray(), authToken.toByteArray()) // constant-time
         BridgeLog.log(
@@ -75,7 +80,7 @@ class IdeBridgeServer(
     }
 
     override fun onClose(conn: WebSocket, code: Int, reason: String, remote: Boolean) {
-        BridgeLog.log("client closed: code=$code reason='$reason' byRemote=$remote", logTag)
+        BridgeLog.log("client closed: code=$code reason='${reason.take(100)}' byRemote=$remote", logTag)
     }
 
     override fun onError(conn: WebSocket?, ex: Exception) {

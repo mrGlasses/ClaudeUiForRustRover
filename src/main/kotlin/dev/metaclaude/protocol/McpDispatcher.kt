@@ -60,11 +60,11 @@ class McpDispatcher(
     fun handle(raw: String, reply: (String) -> Unit) {
         try {
             handleInner(raw) { out ->
-                BridgeLog.log("  -> reply ${out.take(60).replace('\n', ' ')}", logTag) // head only: bodies may hold source code
+                BridgeLog.log("  -> ${replySummary(out)}", logTag) // never the body: it can hold source code (Phase 16b)
                 reply(out)
             }
         } catch (e: Exception) {
-            BridgeLog.log("dispatch failed: ${e::class.java.name}: ${e.message}", logTag)
+            BridgeLog.log("dispatch failed: ${e::class.java.name}", logTag) // the message can quote the input
         }
     }
 
@@ -118,8 +118,16 @@ class McpDispatcher(
         add("error", JsonObject().apply { addProperty("code", code); addProperty("message", message) })
     }.toString()
 
-    private companion object {
-        const val DEFAULT_VERSION = "2025-03-26"
-        val KNOWN_VERSIONS = setOf("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
+    companion object {
+        private const val DEFAULT_VERSION = "2025-03-26"
+        private val KNOWN_VERSIONS = setOf("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
+
+        /** What the log keeps of a reply: result or error code and its size, never its content. */
+        fun replySummary(out: String): String {
+            val o = runCatching { com.google.gson.JsonParser.parseString(out).asJsonObject }.getOrNull() ?: return "reply (${out.length} chars)"
+            val err = o.get("error") as? com.google.gson.JsonObject
+            return if (err != null) "error ${err.get("code")?.takeIf { it.isJsonPrimitive }?.asString ?: "?"} (${out.length} chars)"
+            else "result (${out.length} chars)"
+        }
     }
 }

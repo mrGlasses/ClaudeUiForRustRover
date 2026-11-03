@@ -20,11 +20,20 @@ object BridgeLog {
             // Size cap: the previous part is kept as bridge.log.1 (Phase 16a; before, the whole log was deleted).
             if (Files.exists(file) && Files.size(file) > 1_000_000) Files.move(file, file.resolveSibling("bridge.log.1"), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
             Files.writeString(
-                file, "${Instant.now()} ${if (tag.isNullOrBlank()) "" else "[$tag] "}$msg\n",
+                file, "${Instant.now()} ${if (tag.isNullOrBlank()) "" else "[$tag] "}${clean(msg)}\n",
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND,
             )
         }
     }
 
     val path: Path get() = file
+
+    private val TOKEN = Regex("(?<![0-9a-fA-F])[0-9a-f]{32}(?![0-9a-fA-F])")
+
+    /**
+     * Phase 16b safety net: one line each, at most 1000 characters, and anything shaped like our auth tokens
+     * (32 hex digits) replaced, in case a future log line quotes one by mistake.
+     */
+    fun clean(msg: String): String =
+        TOKEN.replace(msg.replace('\r', ' ').replace('\n', ' '), "[redacted]").let { if (it.length > 1000) it.take(1000) + "…" else it }
 }

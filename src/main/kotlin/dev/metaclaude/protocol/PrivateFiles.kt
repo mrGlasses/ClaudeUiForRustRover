@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Phase 16a: the chat sessions' small files (MCP config with the panel server's token, extra settings), in
  * ~/.claude-meta/tmp instead of the system temp folder. Each name carries the IDE's pid, so files left by a crashed
  * IDE are found and removed at the next start without touching another running IDE's files.
- * Owner-only on POSIX; on Windows the folder inherits the user profile's permissions (you, SYSTEM, Administrators).
+ * Owner-only: POSIX permissions, or on Windows an access list with only you (Phase 16b, [LocalOnly.restrictToOwner]).
  */
 object PrivateFiles {
     val dir: Path get() = Path.of(System.getProperty("user.home"), ".claude-meta", "tmp")
@@ -24,6 +24,8 @@ object PrivateFiles {
         runCatching { Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwx------")) }
         val f = Files.createTempFile(dir, "$kind-$pid-", ".json")
         runCatching { Files.setPosixFilePermissions(f, PosixFilePermissions.fromString("rw-------")) }
+        val acl = LocalOnly.restrictToOwner(f) // Windows (Phase 16b); before the token is written
+        if (acl != "posix" && acl != "owner only") BridgeLog.log("session file access list: $acl")
         Files.writeString(f, content)
         return f
     }

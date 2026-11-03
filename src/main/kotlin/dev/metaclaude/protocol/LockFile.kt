@@ -45,6 +45,8 @@ class LockFile(private val port: Int, private val content: LockFileContent) : Au
         // temp file + atomic move so the CLI never reads a half-written file
         val tmp = Files.createTempFile(dir, "$port-", ".tmp")
         runCatching { Files.setPosixFilePermissions(tmp, PosixFilePermissions.fromString("rw-------")) }
+        val acl = LocalOnly.restrictToOwner(tmp) // Windows (Phase 16b); before the token is written
+        if (acl != "posix" && acl != "owner only") BridgeLog.log("lock file access list: $acl")
         Files.writeString(tmp, gson.toJson(content))
         Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     }

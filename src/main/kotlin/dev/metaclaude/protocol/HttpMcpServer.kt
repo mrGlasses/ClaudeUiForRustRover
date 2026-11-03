@@ -46,6 +46,11 @@ class HttpMcpServer(
     private fun handle(ex: HttpExchange) = ex.use {
         try {
             val auth = ex.requestHeaders.getFirst("Authorization") ?: ""
+            // Phase 16b: only local programs, never a web page (Origin) or a rebound domain (Host).
+            if (!LocalOnly.requestAllowed(ex.requestHeaders.getFirst("Host"), ex.requestHeaders.getFirst("Origin"), port)) {
+                BridgeLog.log("panel MCP: refused ${ex.requestMethod}: not from a local program", logTag)
+                return@use respond(ex, 403, null)
+            }
             if (!MessageDigest.isEqual(auth.toByteArray(), "Bearer $token".toByteArray())) {
                 BridgeLog.log("panel MCP: rejected ${ex.requestMethod} without a valid token", logTag)
                 return@use respond(ex, 401, null)
@@ -65,7 +70,9 @@ class HttpMcpServer(
     }
 
     private fun post(ex: HttpExchange) {
-        val body = ex.requestBody.readAllBytes().toString(StandardCharsets.UTF_8)
+        val bytes = ex.requestBody.readNBytes(MAX_BODY + 1)
+        if (bytes.size > MAX_BODY) return respond(ex, 413, null)
+        val body = bytes.toString(StandardCharsets.UTF_8)
         val isRequest = runCatching { JsonParser.parseString(body).asJsonObject.has("id") }.getOrDefault(false)
         if (!isRequest) {
             dispatcher.handle(body) { }
@@ -100,5 +107,6 @@ class HttpMcpServer(
 
     private companion object {
         const val REPLY_TIMEOUT_S = 120L
+        const val MAX_BODY = 4_000_000 // a JSON-RPC message from the CLI is a few KB
     }
 }
