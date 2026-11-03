@@ -3,6 +3,11 @@
 Each release lists what changed for you. Versions before 1.0.0 were development builds, summarized by phase
 (details in PLAN.md).
 
+## [1.0.1] - 2026-11-03
+
+- README: a screenshot of the chat panel.
+- Getting started list: each bullet now sits on the first line of its step (it sat on the last line of wrapped steps).
+
 ## [1.0.0] - 2026-11-03
 
 First public release, on GitHub Releases.

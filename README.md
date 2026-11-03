@@ -4,6 +4,8 @@ A RustRover plugin for **your own Claude Code CLI**: a chat panel with everythin
 offers, diff review in the IDE, selections and diagnostics shared with Claude, and a few Rust-specific extras.
 No Node.js needed, and the official Claude Code JetBrains plugin is optional.
 
+![Clawed UI: the Claude Chat panel beside the editor in RustRover](docs/screenshots/chat.png)
+
 > **Unofficial community plugin**, not affiliated with Anthropic or JetBrains. Claude Code can read, change and delete
 > files and run commands within the permissions you approve: review every change and keep your work in version control.
 > See [DISCLAIMER.md](DISCLAIMER.md).

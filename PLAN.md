@@ -734,6 +734,9 @@ v1.0.0 test (2026-11-03): the release workflow published "Clawed UI 1.0.0" with 
 the downloaded zip matches its SHA-256, says version 1.0.0 and since-build 262 with no until-build, passes the verifier
 against your RustRover (same baseline), and runs (log: "Clawed UI 1.0.0 starting bridge"). 16d done.
 
+1.0.1: README screenshot (from your RustRover, 2026-11-03). Your screenshot of an empty conversation showed the Getting
+started bullets on the last line of wrapped steps: fixed.
+
 ---
 
 ## Decisions needed from you
