@@ -151,7 +151,7 @@ Status: ☐ not started · ◐ partial · ☑ done
 | Plugin install links (`install-plugin?plugin=…&marketplace=…`) | Adapt (JetBrains URL handler) | ☑ v0.35.0 `jetbrains://rustrover/clawed-ui/install-plugin?…` |
 | Enable Remote Control for all sessions (`remoteControlAtStartup`) | CLI | ◐ v0.37.0: per conversation (`/remote-control`) and a panel setting for every new one, waiting for test |
 | Sign out (`/logout`), Report a problem (`/bug`, `/feedback`) | CLI | ☑ v0.28.0: `claude auth logout` after a native confirmation (not tried by choice); `/bug` in a Claude terminal tab, or a GitHub issue for the plugin |
-| `/usage` dialog (plan bars, recommendations + Fix button, attribution, Day/Week) | CLI | ☑ v0.28.0 (card in the panel); usage ring planned after all features |
+| `/usage` dialog (plan bars, recommendations + Fix button, attribution, Day/Week) | CLI | ☑ v0.28.0 (card in the panel); usage ring (desktop-app style) v0.38.0 |
 
 ## J. IDE bridge (terminal sessions) — Phases 1–3
 

@@ -347,6 +347,7 @@ class ChatPanel(
             "modelMenu" -> AppExecutorUtil.getAppExecutorService().execute { sessionOrStart()?.let { refreshModelState(it) } }
             "modelSet" -> modelSet(msg)
             "usage" -> AppExecutorUtil.getAppExecutorService().execute { usage() }
+            "usageRing" -> AppExecutorUtil.getAppExecutorService().execute { sessionOrStart()?.let { refreshRing(it, force = true) } }
             "usageFix" -> usageFix(msg.get("period")?.takeIf { it.isJsonPrimitive }?.asString)
             "status" -> AppExecutorUtil.getAppExecutorService().execute { status() }
             "signOut" -> ApplicationManager.getApplication().invokeLater { signOut() }
@@ -1038,6 +1039,21 @@ class ChatPanel(
         }
     }
 
+    @Volatile private var ringAt = 0L
+
+    /** The usage ring (after all features): plan limits after a turn (at most once a minute) or when you open it. */
+    private fun refreshRing(s: ChatSession, force: Boolean) {
+        val now = System.currentTimeMillis()
+        if (!force && now - ringAt < 60_000) return
+        ringAt = now
+        s.getLimits { payload, err ->
+            send(UsageReport.usage(payload).apply {
+                addProperty("type", "usageRing")
+                err?.let { addProperty("error", it.take(200)) }
+            })
+        }
+    }
+
     /** "Fix": the CLI's own messages for that period go out as your next messages, in order. */
     private fun usageFix(period: String?) {
         if (period !in UsageReport.PERIODS) return
@@ -1442,7 +1458,7 @@ class ChatPanel(
         if (type == "sessionInfo") m.get("sessionId")?.takeIf { it.isJsonPrimitive }?.asString?.let { rememberSession(it) }
         if (type == "turnEnd") { turnRunning = false; currentSessionId?.let { rememberSession(it) } }
         trackTasks(type, m)
-        if (type == "turnEnd") session?.let { requestContext(it) }
+        if (type == "turnEnd") session?.let { requestContext(it); refreshRing(it, force = false) }
         // Tab dot: blue while a permission waits; orange when a turn ends and you aren't looking at this tab.
         when (type) {
             "permission" -> { m.get("requestId")?.asString?.let { pendingRequests.add(it) }; onEdt { tabs.setStatus(this, ChatTabs.Status.NEEDS_INPUT) } }

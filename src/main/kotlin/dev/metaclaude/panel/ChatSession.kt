@@ -289,6 +289,9 @@ class ChatSession(
 
     /** Phase 12b: `/usage` and `/status`. */
     fun getUsage(done: (JsonObject?, String?) -> Unit) = request("get_usage", JsonObject(), timeoutSeconds = 120, done = done) // scans a week of transcripts
+    /** The usage ring: plan limits only (`skip_behaviors`: no transcript scan, so it's quick). */
+    fun getLimits(done: (JsonObject?, String?) -> Unit) =
+        request("get_usage", JsonObject().apply { addProperty("skip_behaviors", true) }, timeoutSeconds = 30, done = done)
     fun binaryVersion(done: (JsonObject?, String?) -> Unit) = request("get_binary_version", JsonObject(), done = done)
     fun mcpStatus(done: (JsonObject?, String?) -> Unit) = request("mcp_status", JsonObject(), done = done)
 

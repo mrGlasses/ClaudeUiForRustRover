@@ -12,6 +12,7 @@ import { installTooltips } from "./tooltip";
 import { moreMenu, statusCard, usageCard } from "./account";
 import { createCustomize } from "./customize";
 import { bookmarksCard, createSideQuestions, onboarding } from "./side";
+import { createUsageRing } from "./ring";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -97,6 +98,8 @@ const modelBar = createModelBar({
   isBusy: () => busy,
 });
 const sideQuestions = createSideQuestions();
+const usageRing = createUsageRing(() => post({ type: "usage" }));
+modelBar.extra.append(usageRing.node);
 root.append(header, transcript, sideQuestions.node, agentMap.node, todoBox, queueBox, slashMenu, chips, composer, modelBar.node);
 
 // ---------- state ----------
@@ -825,6 +828,9 @@ function handle(msg: FromKotlin): void {
       if (prefs.focusView && !focusApplied && !transcript.classList.contains("focus")) toggleFocus();
       focusApplied = true;
       showOnboarding();
+      break;
+    case "usageRing":
+      usageRing.update(msg);
       break;
     case "remoteState": {
       const was = remoteOn;

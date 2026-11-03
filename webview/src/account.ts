@@ -29,7 +29,7 @@ export type UsageReport = {
 };
 export type StatusReport = { rows: { label: string; value: string }[]; mcp: { name: string; status: string }[] };
 
-function resets(iso?: string): string {
+export function resets(iso?: string): string {
   if (!iso) return "";
   const ms = new Date(iso).getTime() - Date.now();
   if (!Number.isFinite(ms)) return "";
@@ -40,7 +40,7 @@ function resets(iso?: string): string {
   return h ? `resets in ${h} h ${m} min` : `resets in ${m} min`;
 }
 
-function bar(label: string, pct: number, note: string): HTMLElement {
+export function bar(label: string, pct: number, note: string): HTMLElement {
   const row = el("div", "usage-limit");
   const head = el("div", "usage-limit-head");
   head.append(el("span", undefined, label), el("span", "muted", `${Math.round(pct)}% used${note ? ` · ${note}` : ""}`));

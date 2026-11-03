@@ -57,6 +57,7 @@ export type ToKotlin =
   | { type: "bookmarkAction"; id: string; action: "open" | "copy" | "remove" }
   | { type: "hideOnboarding" }
   | { type: "remoteControl"; on: boolean }
+  | { type: "usageRing" }
   | { type: "teleport" }
   | { type: "openRemote" }
   | { type: "modelSet"; what: "model" | "effort" | "ultracode" | "thinking"; value: string | boolean };
@@ -78,6 +79,7 @@ export type FromKotlin =
   | { type: "openCustomize"; tab: string; filter?: string }
   | { type: "focusLast" }
   | { type: "remoteState"; on: boolean; url?: string }
+  | ({ type: "usageRing" } & import("./account").UsageReport)
   | { type: "bookmarkList"; items: import("./side").Bookmark[] }
   | import("./permissions").PermissionCard
   | { type: "permissionResolved"; requestId: string; outcome: string }

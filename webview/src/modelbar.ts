@@ -27,6 +27,8 @@ export function createModelBar(opts: { compact: () => void; isBusy: () => boolea
   const cache = el("span", "cache-clock");
   cache.hidden = true;
   bar.append(wrap, context, cache);
+  const extra = el("span", "modelbar-extra");
+  bar.append(extra);
 
   let models: ModelRow[] = [];
   let current: Current | null = null;
@@ -139,6 +141,8 @@ export function createModelBar(opts: { compact: () => void; isBusy: () => boolea
 
   return {
     node: bar,
+    /** A slot at the end of the bar (the usage ring). */
+    extra,
     open,
     handle(msg: { type: string } & Record<string, unknown>): boolean {
       switch (msg.type) {
