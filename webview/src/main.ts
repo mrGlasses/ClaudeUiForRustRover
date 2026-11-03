@@ -112,7 +112,21 @@ let wasBusy = false;
 let focusApplied = false;
 let onboardingBox: HTMLElement | null = null;
 let model = "";
-const textBlocks = new Map<string, { el: HTMLDivElement; text: string }>();
+type TextBlock = {
+  el: HTMLDivElement;
+  text: string;
+  /** Phase 16c, long answers while they stream: [frozen] characters are already rendered in [done] and stay as they are;
+   * only the rest is re-rendered each frame. The final text is rendered once, whole. */
+  frozen: number;
+  done?: HTMLDivElement;
+  live?: HTMLDivElement;
+  final?: boolean;
+};
+const textBlocks = new Map<string, TextBlock>();
+/** Below this, a streaming block is simply re-rendered whole (cheap). */
+const SPLIT_FROM = 8000;
+/** Smallest piece worth freezing. */
+const FREEZE_STEP = 4000;
 // Streamed text blocks per message, in order, not yet replaced by their final text. The CLI sends the final text of
 // each block as its own one-block message, so finals are matched in order, not by index (v0.14.0 duplicated text).
 const unfinished = new Map<string, string[]>();
@@ -233,9 +247,17 @@ function nearBottom(): boolean {
   return transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 60;
 }
 
+/** Phase 16c: true while a saved conversation is replayed; scrolling waits for historyEnd (reading the transcript's
+ * height after every item made the browser lay out the whole page each time: 3,000 items took 8 s). */
+let replaying = false;
+
 function append(node: HTMLElement, forceScroll = false): void {
-  const stick = forceScroll || nearBottom();
   empty.remove();
+  if (replaying) {
+    transcript.append(node);
+    return;
+  }
+  const stick = forceScroll || nearBottom();
   transcript.append(node);
   if (stick) transcript.scrollTop = transcript.scrollHeight;
 }
@@ -248,16 +270,52 @@ function renderBlock(key: string): void {
     renderQueued.delete(key);
     const b = textBlocks.get(key);
     if (!b) return;
-    const stick = nearBottom();
-    b.el.innerHTML = renderMarkdown(b.text); // sanitized
+    const stick = !replaying && nearBottom();
+    if (b.final || b.text.length < SPLIT_FROM) {
+      b.el.innerHTML = renderMarkdown(b.text); // sanitized
+      b.done = b.live = undefined;
+      b.frozen = 0;
+    } else {
+      if (!b.done || !b.live) {
+        b.done = el("div", "md-part");
+        b.live = el("div", "md-part");
+        b.el.replaceChildren(b.done, b.live);
+        b.frozen = 0;
+      }
+      const cut = safeCut(b.text, b.frozen);
+      if (cut - b.frozen >= FREEZE_STEP) {
+        const part = el("div", "md-part");
+        part.innerHTML = renderMarkdown(b.text.slice(b.frozen, cut)); // sanitized
+        b.done.append(part);
+        b.frozen = cut;
+      }
+      b.live.innerHTML = renderMarkdown(b.text.slice(b.frozen)); // sanitized
+    }
     if (stick) transcript.scrollTop = transcript.scrollHeight;
   });
 }
 
-function textBlock(key: string): { el: HTMLDivElement; text: string } {
+/** The last blank line after [from] that is outside a code fence: Markdown before it can't change any more. */
+function safeCut(text: string, from: number): number {
+  let inFence = false;
+  let cut = from;
+  let pos = from;
+  while (pos < text.length) {
+    const end = text.indexOf("\n", pos);
+    if (end < 0) break;
+    const line = text.slice(pos, end);
+    const t = line.trimStart();
+    if (t.startsWith("```") || t.startsWith("~~~")) inFence = !inFence;
+    else if (!inFence && line.trim() === "" && pos > from) cut = end + 1;
+    pos = end + 1;
+  }
+  return cut;
+}
+
+function textBlock(key: string): TextBlock {
   let b = textBlocks.get(key);
   if (!b) {
-    b = { el: el("div", "msg assistant markdown"), text: "" };
+    b = { el: el("div", "msg assistant markdown"), text: "", frozen: 0 };
     b.el.setAttribute("role", "article");
     b.el.setAttribute("aria-label", "Claude");
     textBlocks.set(key, b);
@@ -910,6 +968,7 @@ function handle(msg: FromKotlin): void {
       const key = unfinished.get(msg.messageId)?.shift() ?? msg.key;
       const b = textBlock(key);
       b.text = msg.text;
+      b.final = true;
       renderBlock(key);
       break;
     }
@@ -983,7 +1042,12 @@ function handle(msg: FromKotlin): void {
     case "historyItems":
       history.render(msg.items, msg.groups ?? [], msg.filter ?? "ACTIVE");
       break;
+    case "historyBatch":
+      // Phase 16c: a saved conversation arrives in a few large batches instead of one call per item.
+      for (const item of msg.items) handle(item);
+      break;
     case "historyLoaded":
+      replaying = true;
       // Said at the end (historyEnd), where you look after the replay; at the top it scrolled out of sight (v0.22.0 test).
       resumedNote = msg.fork
         ? `Forked from "${msg.title}", before the message now in the box below. Edit it and send to continue on this new branch; the original conversation stays as it was.`
@@ -1046,6 +1110,7 @@ function handle(msg: FromKotlin): void {
       renderQueue();
       break;
     case "historyEnd":
+      replaying = false;
       transcript.scrollTop = transcript.scrollHeight;
       append(el("div", "notice", forkNote ? resumedNote : `${resumedNote} Your next message continues this conversation.`.trim()), true);
       resumedNote = "";
@@ -1116,6 +1181,7 @@ function handle(msg: FromKotlin): void {
       break;
     }
     case "sessionReset":
+      replaying = false;
       textBlocks.clear();
       unfinished.clear();
       toolCards.clear();

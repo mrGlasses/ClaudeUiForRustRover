@@ -29,7 +29,7 @@ Everything below is **not started** unless marked otherwise.
 | 14 IDE polish | ☑ Done (14a–14c, v0.33.0–v0.35.0, tested 2026-11-02; provider sign-in switch not tried) |
 | 15 Rust extras, web | ☑ Done (15a v0.36.0, 15b v0.37.0, tested 2026-11-02; `@browser` in a new conversation not tried) |
 | Usage ring | ☑ Done (v0.38.1, tested 2026-11-03) |
-| 16 Hardening, release | 16a done (v0.39.0 tested 2026-11-03). **16b (security review) v0.40.0: waiting for your test** |
+| 16 Hardening, release | 16a, 16b done (v0.39.0, v0.40.0, tested 2026-11-03). **16c (long conversations) v0.41.0: waiting for your test** |
 
 ## Two halves, like the VS Code extension
 
@@ -703,6 +703,23 @@ v0.39.0 test (2026-11-03): ok. Log: leftover files removed, "IDE closing: 1 chat
   net: token-shaped strings become [redacted], one line each, at most 1000 characters.
 - Checked, no change needed: loopback binding, constant-time token checks, fresh tokens, the panel's sanitizer, CSP,
   no navigation, closed message set, native confirmations, DevTools off, no shell strings when starting the CLI.
+v0.40.0 test (2026-11-03): ok. Log: terminal connects, tool replies logged as size only, the web-page request refused
+(403) and the one without a token (401), no access-list warnings. 16b done.
+
+16c (v0.41.0), long conversations. Measured in Chromium (the engine JCEF uses) with a real 774-item session, repeated:
+| | before | after |
+|---|---|---|
+| Reopen 777 items | 0.74 s | 0.17 s |
+| Reopen 3,100 items | 7.7 s (grew with the square of the size) | 0.5 s |
+| Reopen 7,700 items | not tried | 1.1 s |
+| Streaming a 104 KB answer: work per frame at the end | ~150 ms (whole answer re-rendered every frame) | a few ms |
+- Reopening: the page laid out the whole transcript after every item (to decide whether to scroll); now scrolling waits
+  for the end of the replay. Kotlin sends the items in batches of 200 instead of one browser call each.
+- Streaming: answers over 8,000 characters are rendered in pieces; the part before the last blank line outside a code
+  block is frozen and only the rest is re-rendered each frame. The final text is rendered once, whole, as before.
+- History list: each session file's summary is kept and the file is read again only when it changed; before, every
+  open of the list read every session in full (about 50 ms per 7 MB file). Search compares without copying each line.
+- Checked, fine: typing in the prompt stays under 0.1 ms per key with 29,000 elements in the transcript.
 
 ---
 

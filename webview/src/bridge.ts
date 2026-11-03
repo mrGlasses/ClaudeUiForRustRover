@@ -104,6 +104,7 @@ export type FromKotlin =
   | { type: "historyLoaded"; title: string; automatic: boolean; fork?: boolean }
   | { type: "historyUser"; text: string; timestamp?: string; uuid?: string }
   | { type: "historyEnd" }
+  | { type: "historyBatch"; items: FromKotlin[] }
   | { type: "mentionResults"; seq: number; items: string[] }
   | { type: "signIn" }
   | { type: "toolUse"; id: string; name: string; summary: string; canBackground?: boolean }

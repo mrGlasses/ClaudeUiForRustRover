@@ -555,7 +555,7 @@ class ChatPanel(
         send(JsonObject().apply { addProperty("type", "sessionReset") })
         send(JsonObject().apply { addProperty("type", "historyLoaded"); addProperty("title", title); addProperty("automatic", automatic) })
         onEdt { titled = true; tabs.setTitle(this, title) }
-        transcript.forEach { send(it) }
+        sendHistory(transcript)
         send(JsonObject().apply { addProperty("type", "historyEnd") })
     }
 
@@ -1445,7 +1445,7 @@ class ChatPanel(
         send(JsonObject().apply { addProperty("type", "sessionReset") })
         send(JsonObject().apply { addProperty("type", "historyLoaded"); addProperty("title", fork.title); addProperty("automatic", false); addProperty("fork", true) })
         onEdt { titled = true; tabs.setTitle(this, "Fork: ${fork.title}") }
-        kept.forEach { send(it) }
+        sendHistory(kept)
         send(JsonObject().apply { addProperty("type", "historyEnd") })
         send(JsonObject().apply { addProperty("type", "insertText"); addProperty("text", fork.prompt.text) })
     }
@@ -1618,6 +1618,14 @@ class ChatPanel(
     }
 
     private fun sendAll(vararg msgs: JsonObject) = msgs.forEach { send(it) }
+
+    /** Phase 16c: a saved conversation goes to the page in batches (one browser call per 200 items, not per item). */
+    private fun sendHistory(items: List<JsonObject>) = items.chunked(200).forEach { chunk ->
+        send(JsonObject().apply {
+            addProperty("type", "historyBatch")
+            add("items", com.google.gson.JsonArray().apply { chunk.forEach { add(it) } })
+        })
+    }
 
     private fun send(msg: JsonObject) {
         // A JSON object is a valid JS expression; Gson escapes quotes and control characters.

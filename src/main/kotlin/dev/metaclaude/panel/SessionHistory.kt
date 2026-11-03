@@ -21,11 +21,20 @@ class SessionHistory(private val projectRoot: Path, private val logTag: String) 
 
     fun list(): List<SessionFiles.Summary> {
         val dir = folder() ?: return emptyList()
+        if (cache.size > CACHE_MAX) cache.clear()
         return files(dir).mapNotNull { f ->
             runCatching {
-                Files.newBufferedReader(f, StandardCharsets.UTF_8).useLines { lines ->
-                    SessionFiles.summarize(f.nameWithoutExtension, lines, Files.getLastModifiedTime(f).toMillis())
+                // Phase 16c: a session file is read again only when it changed (size or time); before, every open of the
+                // history read every session in full.
+                val size = Files.size(f)
+                val modified = Files.getLastModifiedTime(f).toMillis()
+                val key = f.toString()
+                cache[key]?.takeIf { it.size == size && it.modified == modified }?.let { return@runCatching it.summary }
+                val summary = Files.newBufferedReader(f, StandardCharsets.UTF_8).useLines { lines ->
+                    SessionFiles.summarize(f.nameWithoutExtension, lines, modified)
                 }
+                cache[key] = Cached(size, modified, summary)
+                summary
             }.getOrNull()
         }.sortedByDescending { it.modified }
     }
@@ -37,7 +46,7 @@ class SessionHistory(private val projectRoot: Path, private val logTag: String) 
         val dir = folder() ?: return emptyList()
         return list().filter { s ->
             s.title.lowercase().contains(q) || runCatching {
-                Files.newBufferedReader(dir.resolve("${s.id}.jsonl"), StandardCharsets.UTF_8).useLines { l -> l.any { it.lowercase().contains(q) } }
+                Files.newBufferedReader(dir.resolve("${s.id}.jsonl"), StandardCharsets.UTF_8).useLines { l -> l.any { it.contains(q, ignoreCase = true) } }
             }.getOrDefault(false)
         }
     }
@@ -75,5 +84,13 @@ class SessionHistory(private val projectRoot: Path, private val logTag: String) 
         }
         if (found == null) BridgeLog.log("history: no session folder for this project in ~/.claude/projects", logTag)
         return found
+    }
+
+    private data class Cached(val size: Long, val modified: Long, val summary: SessionFiles.Summary?)
+
+    private companion object {
+        /** Summaries by session file, shared by all tabs and windows. */
+        val cache = java.util.concurrent.ConcurrentHashMap<String, Cached>()
+        const val CACHE_MAX = 5000
     }
 }
