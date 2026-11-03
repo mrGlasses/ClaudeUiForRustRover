@@ -739,6 +739,12 @@ started bullets on the last line of wrapped steps: fixed.
 
 ---
 
+## Next changes (after 1.0.1, not started)
+
+| Asked | Change | Notes |
+|---|---|---|
+| 2026-11-03 | **New icon for the "Claude Chat" side tab** (tool window stripe) | Today it's the platform's generic messages icon (`AllIcons.Toolwindows.ToolWindowMessages` in `claude-ui-jcef.xml`). Likely the plugin's own ✻ (`icons/clawed.svg`) redrawn as a 16×16 monochrome stripe icon with a dark variant, following the IntelliJ new-UI icon rules. Your choice of design first |
+
 ## Decisions needed from you
 
 | When | Decision |
