@@ -29,7 +29,7 @@ Everything below is **not started** unless marked otherwise.
 | 14 IDE polish | ☑ Done (14a–14c, v0.33.0–v0.35.0, tested 2026-11-02; provider sign-in switch not tried) |
 | 15 Rust extras, web | ☑ Done (15a v0.36.0, 15b v0.37.0, tested 2026-11-02; `@browser` in a new conversation not tried) |
 | Usage ring | ☑ Done (v0.38.1, tested 2026-11-03) |
-| 16 Hardening, release | 16a–16c done (v0.39.0–v0.41.0, tested 2026-11-03). **16d (README, changelog, GitHub release) v1.0.0: waiting for your test** |
+| 16 Hardening, release | ☑ Done (16a–16d, v0.39.0–v1.0.0, tested 2026-11-03). **1.0.0 released on GitHub.** All phases complete |
 
 ## Two halves, like the VS Code extension
 
@@ -730,6 +730,9 @@ release carries a SHA-256 instead).
   publishes the zip, `SHA256SUMS.txt` and the changelog section as the release notes. Verifier there is informational.
 - `since-build` 262, no `until-build`: newer RustRover versions can install it (the precheck already built it that way).
 - Not done: screenshots in the README (they need your IDE).
+v1.0.0 test (2026-11-03): the release workflow published "Clawed UI 1.0.0" with clawed-ui-1.0.0.zip and SHA256SUMS.txt;
+the downloaded zip matches its SHA-256, says version 1.0.0 and since-build 262 with no until-build, passes the verifier
+against your RustRover (same baseline), and runs (log: "Clawed UI 1.0.0 starting bridge"). 16d done.
 
 ---
 
