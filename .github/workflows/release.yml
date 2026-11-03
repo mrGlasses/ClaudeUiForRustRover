@@ -1,0 +1,57 @@
+name: release
+
+# Push a tag like v1.0.0 (it must match `version` in build.gradle.kts): builds, tests and publishes a GitHub
+# release with the plugin zip, its SHA-256 and that version's section of CHANGELOG.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tag matches the plugin version
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts)
+          if [ "v$v" != "$GITHUB_REF_NAME" ]; then echo "::error::tag $GITHUB_REF_NAME but build.gradle.kts says $v"; exit 1; fi
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+      - name: Changelog has this version
+        run: |
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## / {if (on) exit} on' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "::error::CHANGELOG.md has no section ## [$VERSION]"; exit 1; fi
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: webview/package-lock.json
+      - name: Build chat panel (webview)
+        working-directory: webview
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Test and build
+        run: |
+          chmod +x gradlew
+          ./gradlew test buildPlugin
+      # Informational, like in build.yml: the verifier against your own RustRover runs before every hand-over.
+      - name: Plugin verifier (recommended IDEs)
+        continue-on-error: true
+        run: ./gradlew verifyPlugin
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd build/distributions
+          zip=$(ls clawed-ui-*.zip)
+          sha256sum "$zip" > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" "$zip" SHA256SUMS.txt --title "Clawed UI $VERSION" --notes-file "$GITHUB_WORKSPACE/notes.md"
