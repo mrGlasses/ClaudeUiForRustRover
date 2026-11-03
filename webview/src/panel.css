@@ -284,3 +284,4 @@ button:disabled { opacity: .5; cursor: default; }
 .ring-fill.mid { stroke: #d19a66; }
 .ring-fill.high { stroke: var(--error); }
 .ring-pop { position: absolute; bottom: 1.8em; right: 0; z-index: 10; width: 280px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; box-shadow: 0 4px 12px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--fg); }
+.ring-pop[hidden] { display: none; } /* the rule above would otherwise override the hidden attribute */

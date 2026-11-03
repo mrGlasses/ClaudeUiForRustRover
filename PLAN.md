@@ -28,7 +28,7 @@ Everything below is **not started** unless marked otherwise.
 | 13 Customize | ☑ Done (13a–13d, v0.29.0–v0.32.0, tested 2026-11-02). Remote Control toggle moved to Phase 15 (with the Web tab), plugin install links to Phase 14 (URI handler) |
 | 14 IDE polish | ☑ Done (14a–14c, v0.33.0–v0.35.0, tested 2026-11-02; provider sign-in switch not tried) |
 | 15 Rust extras, web | ☑ Done (15a v0.36.0, 15b v0.37.0, tested 2026-11-02; `@browser` in a new conversation not tried) |
-| Usage ring | **v0.38.0: waiting for your test** |
+| Usage ring | **v0.38.1 (box now closes): waiting for your test** |
 | 16 | Not started |
 
 ## Two halves, like the VS Code extension
@@ -663,6 +663,8 @@ v0.38.0: the ring sits at the right end of the model bar (under the prompt) with
 70 %, red from 90 %. Hover (0.35 s) or click opens the box with every limit bar and its reset time, and "Full usage
 (/usage)…". Refreshed after each turn (at most once a minute) and on every click; hidden while no plan limits are known
 (API key or cloud provider sign-ins).
+v0.38.0 test (2026-11-02): 1, 4–7 ok; the box never closed (its `display: flex` overrode the `hidden` attribute).
+Fixed in v0.38.1. `@browser` in a new conversation and the start-up error fix confirmed.
 
 ### Phase 16 — Hardening and release
 Several windows at once, clean shutdown and stale lock sweep, CLI version check with a "protocol mismatch" message, security review (loopback only, no token in logs, lock file permissions on Windows),
