@@ -29,7 +29,7 @@ Everything below is **not started** unless marked otherwise.
 | 14 IDE polish | ☑ Done (14a–14c, v0.33.0–v0.35.0, tested 2026-11-02; provider sign-in switch not tried) |
 | 15 Rust extras, web | ☑ Done (15a v0.36.0, 15b v0.37.0, tested 2026-11-02; `@browser` in a new conversation not tried) |
 | Usage ring | ☑ Done (v0.38.1, tested 2026-11-03) |
-| 16 Hardening, release | 16a, 16b done (v0.39.0, v0.40.0, tested 2026-11-03). **16c (long conversations) v0.41.0: waiting for your test** |
+| 16 Hardening, release | 16a–16c done (v0.39.0–v0.41.0, tested 2026-11-03). **16d (README, changelog, GitHub release) v1.0.0: waiting for your test** |
 
 ## Two halves, like the VS Code extension
 
@@ -720,6 +720,16 @@ v0.40.0 test (2026-11-03): ok. Log: terminal connects, tool replies logged as si
 - History list: each session file's summary is kept and the file is read again only when it changed; before, every
   open of the list read every session in full (about 50 ms per 7 MB file). Search compares without copying each line.
 - Checked, fine: typing in the prompt stays under 0.1 ms per key with 29,000 elements in the transcript.
+v0.41.0 test (2026-11-03): reopening a long session, a 3,000-word streamed answer, history refresh, fork and history
+search all ok. 16c done.
+
+16d (v1.0.0): distribution decided 2026-11-03: **GitHub Releases only** (no Marketplace for now, so no signing: the
+release carries a SHA-256 instead).
+- README.md (requirements, install, features, settings, troubleshooting), CHANGELOG.md (1.0.0, earlier builds by phase).
+- `.github/workflows/release.yml`: a `v*` tag must match `version` and have a CHANGELOG section; it tests, builds and
+  publishes the zip, `SHA256SUMS.txt` and the changelog section as the release notes. Verifier there is informational.
+- `since-build` 262, no `until-build`: newer RustRover versions can install it (the precheck already built it that way).
+- Not done: screenshots in the README (they need your IDE).
 
 ---
 
@@ -732,7 +742,7 @@ v0.40.0 test (2026-11-03): ok. Log: terminal connects, tool replies logged as si
 | Phase 6 | After the spikes: build the chat panel, or stay terminal-only for now |
 | Phase 6.5 | **UI stack: decided 2026-10-29, JCEF web view** with the panel security rules in `CLAUDE.md` |
 | Phase 14 | Keymap choices where VS Code keys clash with JetBrains (Ctrl+N, Ctrl+Shift+T, Ctrl+Alt+F, Ctrl+Shift+Esc) |
-| Phase 16 | Publish on the Marketplace or keep private. **License: decided 2026-10-29, Apache-2.0** (+ `DISCLAIMER.md`) |
+| Phase 16 | **Distribution: decided 2026-11-03, GitHub Releases only.** **License: decided 2026-10-29, Apache-2.0** (+ `DISCLAIMER.md`) |
 | Any time | Optional: link GitHub (claude.ai Settings > Connectors) so Claude pushes and you only install and test |
 
 ## Rough size

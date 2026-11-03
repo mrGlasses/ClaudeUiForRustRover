@@ -7,7 +7,7 @@ plugins {
 
 group = "io.github.mrglasses"
 // Bump on every pushed change: the bridge logs it first, so you can tell which build is installed.
-version = "0.41.0"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
@@ -35,6 +35,14 @@ dependencies {
 }
 
 intellijPlatform {
+    pluginConfiguration {
+        ideaVersion {
+            sinceBuild = "262"
+            // No upper limit (16d): public APIs only, so newer RustRover versions should keep working; the panel
+            // warns about untested Claude Code versions, and the verifier runs before every release.
+            untilBuild = provider { null }
+        }
+    }
     pluginVerification {
         ides { recommended() }
     }
